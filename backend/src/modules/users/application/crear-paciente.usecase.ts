@@ -13,7 +13,7 @@ export interface EmailPort {
 
 export interface CrearPacienteInput {
   nombre: string;
-  cedula: string;
+  cedula: string; 
   email: string;
   especialistaId: string;
 }

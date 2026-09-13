@@ -1,5 +1,5 @@
-import { Usuario } from './usuario.entity';
-import { Paciente } from './paciente.entity';
+import { Usuario } from '../entities/usuario.entity';
+import { Paciente } from '../entities/paciente.entity';
 import { Especialista } from './especialista.entity';
 import { Administrador } from './administrador.entity';
 
