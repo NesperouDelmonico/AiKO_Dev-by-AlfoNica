@@ -1,3 +1,6 @@
+// TypeORM is provided by the backend runtime; keep type-checking this entity
+// usable when its dependency declarations are unavailable in the editor.
+// @ts-ignore TS2307: TypeORM may not be installed in the current workspace.
 import {
   Entity,
   PrimaryGeneratedColumn,

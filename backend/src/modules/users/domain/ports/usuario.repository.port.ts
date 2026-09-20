@@ -1,7 +1,7 @@
 import { Usuario } from '../entities/usuario.entity';
 import { Paciente } from '../entities/paciente.entity';
-import { Especialista } from './especialista.entity';
-import { Administrador } from './administrador.entity';
+import { Especialista } from '../entities/especialista.entity';
+import { Administrador } from '../entities/administrador.entity';
 
 /**
  * Puerto de salida (interfaz). El dominio depende de esto, nunca de
