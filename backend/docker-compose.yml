@@ -1,0 +1,53 @@
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-aiko}
+      POSTGRES_USER: ${DB_USER:-aiko}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in backend/.env}
+    volumes:
+      - aiko-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-aiko}
+      DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in backend/.env}
+      DB_NAME: ${DB_NAME:-aiko}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in backend/.env}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-8h}
+      CORS_ORIGINS: ${CORS_ORIGINS:?Set CORS_ORIGINS in backend/.env}
+      API_BODY_LIMIT: ${API_BODY_LIMIT:-1mb}
+      # TRUST_PROXY: ${TRUST_PROXY:-false}
+      RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-100}
+      MIN_SCORE_TO_ADVANCE: ${MIN_SCORE_TO_ADVANCE:-60}
+      XP_PER_LEVEL: ${XP_PER_LEVEL:-100}
+      XP_REFERENCE_TIME_MS: ${XP_REFERENCE_TIME_MS:-10000}
+      XP_PRECISION_DIVISOR: ${XP_PRECISION_DIVISOR:-10}
+      XP_SPEED_BONUS_MAX: ${XP_SPEED_BONUS_MAX:-5}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      FIREBASE_SERVICE_ACCOUNT_JSON: ${FIREBASE_SERVICE_ACCOUNT_JSON:-}
+    ports:
+      - "${PORT:-3000}:3000"
+
+volumes:
+  aiko-postgres:
