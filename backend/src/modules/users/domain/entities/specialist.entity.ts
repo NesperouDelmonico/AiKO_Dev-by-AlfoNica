@@ -4,9 +4,9 @@ import { UserEntity } from './user.entity';
 @Entity('especialista')
 export class SpecialistEntity {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @OneToOne(() => UserEntity, { onDelete: 'CASCADE', onUpdate: 'CASCADE' })
   @JoinColumn({ name: 'usuario_id' })
-  usuario: UserEntity;
+  usuario!: UserEntity;
 }

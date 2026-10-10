@@ -25,24 +25,24 @@ const decimalNumberTransformer = {
 @Check('CHK_d9f690cd9683c5e6ac0ac8b89a', `"umbral_dias_inactividad" > 0`)
 export class PatientEntity {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @OneToOne(() => UserEntity, { onDelete: 'CASCADE', onUpdate: 'CASCADE' })
   @JoinColumn({ name: 'usuario_id' })
-  usuario: UserEntity;
+  usuario!: UserEntity;
 
   @ManyToOne(() => SpecialistEntity, {
     onDelete: 'RESTRICT',
     onUpdate: 'CASCADE',
   })
   @JoinColumn({ name: 'especialista_id' })
-  especialista: SpecialistEntity;
+  especialista!: SpecialistEntity;
 
   @Column({ type: 'int', default: 0, name: 'xp_total' })
-  xpTotal: number;
+  xpTotal!: number;
 
   @Column({ type: 'int', default: 1, name: 'nivel_actual' })
-  nivelActual: number;
+  nivelActual!: number;
 
   @Column({
     type: 'decimal',
@@ -51,11 +51,11 @@ export class PatientEntity {
     name: 'umbral_bajo_rendimiento',
     transformer: decimalNumberTransformer,
   })
-  umbralBajoRendimiento: number;
+  umbralBajoRendimiento!: number;
 
   @Column({ type: 'int', name: 'umbral_dias_inactividad' })
-  umbralDiasInactividad: number;
+  umbralDiasInactividad!: number;
 
   @Column({ type: 'date', name: 'fecha_asignacion' })
-  fechaAsignacion: Date;
+  fechaAsignacion!: Date;
 }

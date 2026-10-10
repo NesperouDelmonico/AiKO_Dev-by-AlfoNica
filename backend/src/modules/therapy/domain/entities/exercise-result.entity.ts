@@ -20,34 +20,34 @@ import { RouteExerciseEntity } from './route-exercise.entity';
 )
 export class ExerciseResultEntity {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @ManyToOne(() => PatientEntity, {
     onDelete: 'RESTRICT',
     onUpdate: 'CASCADE',
   })
   @JoinColumn({ name: 'paciente_id' })
-  paciente: PatientEntity;
+  paciente!: PatientEntity;
 
   @ManyToOne(() => RouteExerciseEntity, {
     onDelete: 'RESTRICT',
     onUpdate: 'CASCADE',
   })
   @JoinColumn({ name: 'ruta_ejercicio_id' })
-  rutaEjercicio: RouteExerciseEntity;
+  rutaEjercicio!: RouteExerciseEntity;
 
   @Column({ type: 'int' })
-  puntaje: number;
+  puntaje!: number;
 
   @Column({ type: 'int', nullable: true, name: 'tiempo_reaccion_ms' })
-  tiempoReaccionMs: number | null;
+  tiempoReaccionMs!: number | null;
 
   @Column({ type: 'int' })
-  aciertos: number;
+  aciertos!: number;
 
   @Column({ type: 'int', name: 'xp_ganado' })
-  xpGanado: number;
+  xpGanado!: number;
 
   @CreateDateColumn({ type: 'timestamp' })
-  fecha: Date;
+  fecha!: Date;
 }

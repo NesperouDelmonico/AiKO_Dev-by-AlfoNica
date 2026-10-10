@@ -10,18 +10,18 @@ export enum ReminderFrequency {
 @Entity('preferencia_notificacion')
 export class NotificationPreferenceEntity {
   @PrimaryColumn({ name: 'paciente_id' })
-  pacienteId: string;
+  pacienteId!: string;
 
   @OneToOne(() => PatientEntity, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE',
   })
   @JoinColumn({ name: 'paciente_id' })
-  paciente: PatientEntity;
+  paciente!: PatientEntity;
 
   @Column({ type: 'varchar', length: 20 })
-  frecuencia: ReminderFrequency;
+  frecuencia!: ReminderFrequency;
 
   @Column({ type: 'time', name: 'horario_recordatorio' })
-  horarioRecordatorio: string;
+  horarioRecordatorio!: string;
 }

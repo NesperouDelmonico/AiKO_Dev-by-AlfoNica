@@ -3,14 +3,14 @@ import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
 @Entity('insignia')
 export class BadgeEntity {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @Column({ type: 'varchar', length: 100 })
-  nombre: string;
+  nombre!: string;
 
   @Column({ type: 'text' })
-  descripcion: string;
+  descripcion!: string;
 
   @Column({ type: 'varchar' })
-  condicion: string;
+  condicion!: string;
 }

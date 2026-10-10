@@ -23,21 +23,21 @@ export enum RouteStatus {
 })
 export class TherapeuticRouteEntity {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @ManyToOne(() => PatientEntity, {
     onDelete: 'RESTRICT',
     onUpdate: 'CASCADE',
   })
   @JoinColumn({ name: 'paciente_id' })
-  paciente: PatientEntity;
+  paciente!: PatientEntity;
 
   @Column({ type: 'enum', enum: RouteStatus })
-  estado: RouteStatus;
+  estado!: RouteStatus;
 
   @CreateDateColumn({ type: 'timestamp', name: 'fecha_creacion' })
-  fechaCreacion: Date;
+  fechaCreacion!: Date;
 
   @OneToMany(() => RouteExerciseEntity, (re) => re.ruta)
-  ejercicios: RouteExerciseEntity[];
+  ejercicios!: RouteExerciseEntity[];
 }

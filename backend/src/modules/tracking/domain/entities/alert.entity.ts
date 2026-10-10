@@ -21,21 +21,21 @@ export enum AlertStatus {
 @Entity('alerta')
 export class AlertEntity {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @ManyToOne(() => PatientEntity, {
     onDelete: 'RESTRICT',
     onUpdate: 'CASCADE',
   })
   @JoinColumn({ name: 'paciente_id' })
-  paciente: PatientEntity;
+  paciente!: PatientEntity;
 
   @Column({ type: 'enum', enum: AlertType })
-  tipo: AlertType;
+  tipo!: AlertType;
 
   @Column({ type: 'enum', enum: AlertStatus })
-  estado: AlertStatus;
+  estado!: AlertStatus;
 
   @CreateDateColumn({ type: 'timestamp', name: 'fecha_generada' })
-  fechaGenerada: Date;
+  fechaGenerada!: Date;
 }

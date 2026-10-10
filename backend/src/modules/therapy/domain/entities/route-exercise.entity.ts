@@ -24,25 +24,25 @@ export enum RouteExerciseStatus {
 })
 export class RouteExerciseEntity {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @ManyToOne(() => TherapeuticRouteEntity, {
     onDelete: 'RESTRICT',
     onUpdate: 'CASCADE',
   })
   @JoinColumn({ name: 'ruta_id' })
-  ruta: TherapeuticRouteEntity;
+  ruta!: TherapeuticRouteEntity;
 
   @ManyToOne(() => ExerciseEntity, {
     onDelete: 'RESTRICT',
     onUpdate: 'CASCADE',
   })
   @JoinColumn({ name: 'ejercicio_id' })
-  ejercicio: ExerciseEntity;
+  ejercicio!: ExerciseEntity;
 
   @Column({ type: 'int' })
-  orden: number;
+  orden!: number;
 
   @Column({ type: 'enum', enum: RouteExerciseStatus })
-  estado: RouteExerciseStatus;
+  estado!: RouteExerciseStatus;
 }
