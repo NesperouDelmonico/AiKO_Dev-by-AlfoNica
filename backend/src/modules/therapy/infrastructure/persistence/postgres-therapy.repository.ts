@@ -441,6 +441,24 @@ export class PostgresTherapyRepository implements TherapyRepositoryPort {
     });
     return { total, page, limit, data };
   }
+  async routesHistory(
+    patientId: string,
+    page: number,
+    limit: number,
+    estado?: RouteStatus,
+  ) {
+    const [data, total] = await this.routes.findAndCount({
+      where: {
+        paciente: { id: patientId },
+        ...(estado ? { estado } : {}),
+      },
+      relations: { ejercicios: { ejercicio: true } },
+      order: { fechaCreacion: 'DESC', id: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+    return { total, page, limit, data };
+  }
   async domainProgress(patientId: string, desde?: string, hasta?: string) {
     const results = await this.results(patientId);
     const filtered = results.filter(

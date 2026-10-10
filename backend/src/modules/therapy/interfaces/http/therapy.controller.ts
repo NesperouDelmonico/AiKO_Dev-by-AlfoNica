@@ -25,6 +25,7 @@ import {
   ReplaceRouteExerciseDto,
   ResultDto,
   ResultsQueryDto,
+  RoutesQueryDto,
   UpdateExerciseDto,
 } from '../../application/dto/therapy.dto';
 @ApiTags('Ejercicios', 'Rutas terapéuticas', 'Ejecución y resultados')
@@ -160,6 +161,15 @@ export class TherapyController {
     @CurrentAuthUser() user: { sub: string; rol: UserRole },
   ) {
     return this.use.results(id, query.page, query.limit, user);
+  }
+  @Get('pacientes/:id/rutas')
+  @Roles(UserRole.PACIENTE, UserRole.ESPECIALISTA, UserRole.ADMINISTRADOR)
+  routeHistory(
+    @Param('id') id: string,
+    @Query() query: RoutesQueryDto,
+    @CurrentAuthUser() user: { sub: string; rol: UserRole },
+  ) {
+    return this.use.routeHistory(id, query.page, query.limit, user, query.estado);
   }
   @Get('pacientes/:id/progreso/dominio')
   @Roles(UserRole.PACIENTE, UserRole.ESPECIALISTA, UserRole.ADMINISTRADOR)

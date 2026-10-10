@@ -2,6 +2,7 @@ import { ExerciseEntity } from '../entities/exercise.entity';
 import { TherapeuticRouteEntity } from '../entities/therapeutic-route.entity';
 import { RouteExerciseEntity } from '../entities/route-exercise.entity';
 import { ExerciseResultEntity } from '../entities/exercise-result.entity';
+import { RouteStatus } from '../entities/therapeutic-route.entity';
 import { PatientEntity } from '../../../users/domain/entities/patient.entity';
 export const THERAPY_REPOSITORY = Symbol('THERAPY_REPOSITORY');
 export interface TherapyRepositoryPort {
@@ -81,6 +82,17 @@ export interface TherapyRepositoryPort {
     page: number;
     limit: number;
     data: ExerciseResultEntity[];
+  }>;
+  routesHistory(
+    patientId: string,
+    page: number,
+    limit: number,
+    estado?: RouteStatus,
+  ): Promise<{
+    total: number;
+    page: number;
+    limit: number;
+    data: TherapeuticRouteEntity[];
   }>;
   domainProgress(
     patientId: string,

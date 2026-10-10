@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -30,6 +31,8 @@ type RouteItemInput = { ejercicioId: string; orden: number };
 
 @Injectable()
 export class TherapyUseCase {
+  private readonly logger = new Logger(TherapyUseCase.name);
+
   constructor(
     @Inject(THERAPY_REPOSITORY)
     private readonly repository: TherapyRepositoryPort,
@@ -381,10 +384,21 @@ export class TherapyUseCase {
     }
 
     const previousLevel = patient.nivelActual;
-    const insigniasObtenidas = await this.gamification.onExerciseCompleted(
-      patient.id,
-      previousLevel,
-    );
+    let insigniasObtenidas: Awaited<
+      ReturnType<GamificationUseCase['onExerciseCompleted']>
+    > = [];
+    try {
+      insigniasObtenidas = await this.gamification.onExerciseCompleted(
+        patient.id,
+        previousLevel,
+      );
+    } catch (error) {
+      this.logger.warn(
+        `No se pudo evaluar gamificación para paciente ${patient.id}: ${
+          error instanceof Error ? error.message : 'error desconocido'
+        }`,
+      );
+    }
     const feedback =
       data.puntaje >= 90
         ? 'Excelente sesión. Continúa con tu ruta terapéutica.'
@@ -399,6 +413,17 @@ export class TherapyUseCase {
   async results(patientId: string, page: number, limit: number, actor: Actor) {
     await this.assertPatientAccess(patientId, actor);
     return this.repository.resultsPage(patientId, page, limit);
+  }
+
+  async routeHistory(
+    patientId: string,
+    page: number,
+    limit: number,
+    actor: Actor,
+    estado?: RouteStatus,
+  ) {
+    await this.assertPatientAccess(patientId, actor);
+    return this.repository.routesHistory(patientId, page, limit, estado);
   }
 
   async domainProgress(

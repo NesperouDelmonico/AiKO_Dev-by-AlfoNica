@@ -19,6 +19,7 @@ import {
   CognitiveCategory,
   ExerciseStatus,
 } from '../../domain/entities/exercise.entity';
+import { RouteStatus } from '../../domain/entities/therapeutic-route.entity';
 export class CreateExerciseDto {
   @ApiProperty({ minLength: 3, maxLength: 100 })
   @IsString()
@@ -117,4 +118,11 @@ export class ResultsQueryDto {
   @Min(1)
   @Max(100)
   limit = 20;
+}
+
+export class RoutesQueryDto extends ResultsQueryDto {
+  @ApiPropertyOptional({ enum: RouteStatus })
+  @IsOptional()
+  @IsEnum(RouteStatus)
+  estado?: RouteStatus;
 }
