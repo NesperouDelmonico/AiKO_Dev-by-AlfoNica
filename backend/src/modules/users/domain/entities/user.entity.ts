@@ -13,7 +13,7 @@ export enum UserRole {
 }
 
 @Entity('usuario')
-@Check(`"intentos_fallidos" >= 0`)
+@Check('CHK_168a4c781805d0dc66f42bd578', `"intentos_fallidos" >= 0`)
 export class UserEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;

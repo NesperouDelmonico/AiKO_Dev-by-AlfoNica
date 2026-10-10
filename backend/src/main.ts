@@ -18,6 +18,7 @@ async function bootstrap() {
     .setTitle('AiKO API')
     .setDescription('API REST de rehabilitación cognitiva gamificada de AiKO.')
     .setVersion('1.0.0')
+    .addTag('Administración')
     .addBearerAuth(
       { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
       'bearerAuth',
@@ -26,4 +27,4 @@ async function bootstrap() {
   SwaggerModule.setup('api', app, SwaggerModule.createDocument(app, config));
   await app.listen(process.env.PORT ?? 3000);
 }
-bootstrap();
+void bootstrap();

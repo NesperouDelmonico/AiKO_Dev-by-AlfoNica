@@ -8,8 +8,15 @@ import {
   Put,
   Query,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { UsersUseCase } from '../../application/use-cases/users.use-case';
+import { Public, Roles } from '../../../auth/interfaces/http/auth.decorators';
+import { UserRole } from '../../domain/entities/user.entity';
 import {
   AccountDto,
   InitialAdministratorDto,
@@ -22,30 +29,42 @@ import {
 @Controller('usuarios')
 export class UsersController {
   constructor(private readonly useCase: UsersUseCase) {}
-  @Get() list(@Query() query: UsersQueryDto) {
+  @Get()
+  @Roles(UserRole.ADMINISTRADOR)
+  list(@Query() query: UsersQueryDto) {
     return this.useCase.executeList(query);
   }
-  @Get(':id') get(@Param('id') id: string) {
+  @Get(':id')
+  @Roles(UserRole.ADMINISTRADOR)
+  get(@Param('id') id: string) {
     return this.useCase.executeGet(id);
   }
-  @Put(':id') update(@Param('id') id: string, @Body() dto: UpdateUserDto) {
+  @Put(':id')
+  @Roles(UserRole.ADMINISTRADOR)
+  update(@Param('id') id: string, @Body() dto: UpdateUserDto) {
     return this.useCase.executeUpdate(id, dto);
   }
-  @Patch(':id/estado') state(
-    @Param('id') id: string,
-    @Body() dto: UserStateDto,
-  ) {
+  @Patch(':id/estado')
+  @Roles(UserRole.ADMINISTRADOR)
+  state(@Param('id') id: string, @Body() dto: UserStateDto) {
     return this.useCase.executeState(id, dto.estado);
   }
-  @Post('administrador-inicial') @ApiBearerAuth() initial(
-    @Body() dto: InitialAdministratorDto,
-  ) {
+  @Post('administrador-inicial')
+  @Public()
+  @ApiOperation({ summary: 'Registrar administrador inicial', security: [] })
+  @ApiResponse({ status: 201, description: 'Administrador creado' })
+  @ApiResponse({ status: 409, description: 'Ya existe un administrador' })
+  initial(@Body() dto: InitialAdministratorDto) {
     return this.useCase.executeInitialAdministrator(dto);
   }
-  @Post('administradores') administrator(@Body() dto: AccountDto) {
+  @Post('administradores')
+  @Roles(UserRole.ADMINISTRADOR)
+  administrator(@Body() dto: AccountDto) {
     return this.useCase.executeAdministrator(dto);
   }
-  @Post('especialistas') specialist(@Body() dto: AccountDto) {
+  @Post('especialistas')
+  @Roles(UserRole.ADMINISTRADOR)
+  specialist(@Body() dto: AccountDto) {
     return this.useCase.executeSpecialist(dto);
   }
 }

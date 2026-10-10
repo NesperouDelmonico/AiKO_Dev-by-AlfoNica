@@ -19,7 +19,6 @@ export class NotificationEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-
   @ManyToOne(() => PatientEntity, {
     onDelete: 'RESTRICT',
     onUpdate: 'CASCADE',

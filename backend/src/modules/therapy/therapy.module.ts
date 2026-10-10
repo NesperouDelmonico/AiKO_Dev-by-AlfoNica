@@ -5,10 +5,12 @@ import { TherapeuticRouteEntity } from './domain/entities/therapeutic-route.enti
 import { RouteExerciseEntity } from './domain/entities/route-exercise.entity';
 import { ExerciseResultEntity } from './domain/entities/exercise-result.entity';
 import { PatientEntity } from '../users/domain/entities/patient.entity';
+import { SpecialistEntity } from '../users/domain/entities/specialist.entity';
 import { TherapyController } from './interfaces/http/therapy.controller';
 import { TherapyUseCase } from './application/use-cases/therapy.use-case';
 import { PostgresTherapyRepository } from './infrastructure/persistence/postgres-therapy.repository';
 import { THERAPY_REPOSITORY } from './domain/ports/therapy.repository.port';
+import { GamificationModule } from '../gamification/gamification.module';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -17,7 +19,9 @@ import { THERAPY_REPOSITORY } from './domain/ports/therapy.repository.port';
       RouteExerciseEntity,
       ExerciseResultEntity,
       PatientEntity,
+      SpecialistEntity,
     ]),
+    GamificationModule,
   ],
   controllers: [TherapyController],
   providers: [

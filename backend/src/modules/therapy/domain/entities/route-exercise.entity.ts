@@ -5,6 +5,7 @@ import {
   ManyToOne,
   JoinColumn,
   Check,
+  Index,
 } from 'typeorm';
 import { TherapeuticRouteEntity } from './therapeutic-route.entity';
 import { ExerciseEntity } from './exercise.entity';
@@ -16,7 +17,11 @@ export enum RouteExerciseStatus {
 }
 
 @Entity('ruta_ejercicio')
-@Check(`"orden" > 0`)
+@Check('CHK_58942faafae2e47edaa448b991', `"orden" > 0`)
+@Index('UQ_ruta_orden_vigente', ['ruta', 'orden'], {
+  unique: true,
+  where: `"estado" <> 'Reemplazado'`,
+})
 export class RouteExerciseEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;

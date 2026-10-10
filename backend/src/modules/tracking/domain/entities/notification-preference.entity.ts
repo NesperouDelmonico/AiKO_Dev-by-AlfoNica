@@ -1,6 +1,11 @@
 import { Entity, OneToOne, JoinColumn, PrimaryColumn, Column } from 'typeorm';
 import { PatientEntity } from '../../../users/domain/entities/patient.entity';
 
+export enum ReminderFrequency {
+  DIARIA = 'Diaria',
+  SEMANAL = 'Semanal',
+  NINGUNA = 'Ninguna',
+}
 
 @Entity('preferencia_notificacion')
 export class NotificationPreferenceEntity {
@@ -15,7 +20,7 @@ export class NotificationPreferenceEntity {
   paciente: PatientEntity;
 
   @Column({ type: 'varchar', length: 20 })
-  frecuencia: string; 
+  frecuencia: ReminderFrequency;
 
   @Column({ type: 'time', name: 'horario_recordatorio' })
   horarioRecordatorio: string;

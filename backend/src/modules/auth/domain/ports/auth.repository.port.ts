@@ -3,5 +3,8 @@ export const AUTH_REPOSITORY = Symbol('AUTH_REPOSITORY');
 export interface AuthRepositoryPort {
   findByEmail(correo: string): Promise<UserEntity | null>;
   findById(id: string): Promise<UserEntity | null>;
-  revokeSession(id: string): Promise<void>;
+  recordFailedLogin(id: string): Promise<number>;
+  resetFailedLogins(id: string): Promise<void>;
+  revokeSession(tokenId: string, expiresAt: Date): Promise<void>;
+  isSessionRevoked(tokenId: string): Promise<boolean>;
 }

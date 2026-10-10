@@ -36,6 +36,8 @@ export {
   NotificationType,
 } from '../modules/tracking/domain/entities/notification.entity';
 export { NotificationPreferenceEntity } from '../modules/tracking/domain/entities/notification-preference.entity';
+export { RevokedTokenEntity } from '../modules/auth/domain/entities/revoked-token.entity';
+export { DeviceTokenEntity } from '../modules/tracking/domain/entities/device-token.entity';
 
 import { UserEntity } from '../modules/users/domain/entities/user.entity';
 import { AdministratorEntity } from '../modules/users/domain/entities/administrator.entity';
@@ -52,6 +54,8 @@ import { ObservationEntity } from '../modules/tracking/domain/entities/observati
 import { AlertEntity } from '../modules/tracking/domain/entities/alert.entity';
 import { NotificationEntity } from '../modules/tracking/domain/entities/notification.entity';
 import { NotificationPreferenceEntity } from '../modules/tracking/domain/entities/notification-preference.entity';
+import { RevokedTokenEntity } from '../modules/auth/domain/entities/revoked-token.entity';
+import { DeviceTokenEntity } from '../modules/tracking/domain/entities/device-token.entity';
 export const entities = [
   UserEntity,
   AdministratorEntity,
@@ -68,4 +72,6 @@ export const entities = [
   AlertEntity,
   NotificationEntity,
   NotificationPreferenceEntity,
+  RevokedTokenEntity,
+  DeviceTokenEntity,
 ];

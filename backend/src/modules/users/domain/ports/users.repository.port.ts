@@ -10,6 +10,7 @@ export interface UsersRepositoryPort {
     limit: number,
     rol?: UserRole,
     estado?: boolean,
+    query?: string,
   ): Promise<{
     total: number;
     page: number;
@@ -17,10 +18,24 @@ export interface UsersRepositoryPort {
     data: UserEntity[];
   }>;
   find(id: string): Promise<UserEntity | null>;
+  findByEmail(correo: string): Promise<UserEntity | null>;
+  findByCedula(cedula: string): Promise<UserEntity | null>;
+  hasAdministrator(): Promise<boolean>;
   update(id: string, data: Partial<UserEntity>): Promise<UserEntity | null>;
   setState(id: string, estado: boolean): Promise<UserEntity | null>;
-  createAdministrator(data: Partial<UserEntity>): Promise<AdministratorEntity>;
-  createSpecialist(data: Partial<UserEntity>): Promise<SpecialistEntity>;
+  createInitialAdministrator(
+    data: Partial<UserEntity>,
+  ): Promise<UserEntity | null>;
+  createAdministrator(data: Partial<UserEntity>): Promise<UserEntity>;
+  createSpecialist(data: Partial<UserEntity>): Promise<UserEntity>;
+  indicators(): Promise<{
+    total_usuarios: number;
+    total_pacientes: number;
+    sesiones_activas: number;
+  }>;
+  trends(
+    period: 'week' | 'month',
+  ): Promise<{ fecha: string; sesiones: number }[]>;
   incidents(): Promise<IncidentEntity[]>;
   createPatient(data: Partial<PatientEntity>): Promise<PatientEntity>;
 }
