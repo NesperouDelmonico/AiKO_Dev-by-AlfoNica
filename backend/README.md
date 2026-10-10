@@ -32,7 +32,7 @@ o ejecutar migraciones.
 ```bash
 $ npm install
 
-# Copiar .env.example a .env y ajustar las credenciales de PostgreSQL.
+# Copiar .env y ajustar las credenciales de PostgreSQL.
 # Con PostgreSQL ejecutándose:
 $ npm run migration:generate
 $ npm run migration:run
