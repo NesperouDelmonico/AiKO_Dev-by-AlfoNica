@@ -23,6 +23,17 @@ export interface UsersRepositoryPort {
   hasAdministrator(): Promise<boolean>;
   update(id: string, data: Partial<UserEntity>): Promise<UserEntity | null>;
   setState(id: string, estado: boolean): Promise<UserEntity | null>;
+  setStateSafely(
+    id: string,
+    estado: boolean,
+    actorId: string,
+  ): Promise<UserEntity | null>;
+  setPassword(id: string, passwordHash: string): Promise<UserEntity | null>;
+  resetPasswordAndNotify(
+    id: string,
+    passwordHash: string,
+    notify: () => Promise<void>,
+  ): Promise<UserEntity | null>;
   createInitialAdministrator(
     data: Partial<UserEntity>,
   ): Promise<UserEntity | null>;

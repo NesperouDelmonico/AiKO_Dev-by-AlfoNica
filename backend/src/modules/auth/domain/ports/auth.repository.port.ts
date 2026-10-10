@@ -7,4 +7,17 @@ export interface AuthRepositoryPort {
   resetFailedLogins(id: string): Promise<void>;
   revokeSession(tokenId: string, expiresAt: Date): Promise<void>;
   isSessionRevoked(tokenId: string): Promise<boolean>;
+  purgeExpiredRevokedTokens(): Promise<number>;
+  purgeExpiredPasswordResets(): Promise<number>;
+  createPasswordReset(
+    userId: string,
+    tokenHash: string,
+    expiresAt: Date,
+  ): Promise<void>;
+  resetPasswordWithToken(
+    email: string,
+    tokenHash: string,
+    passwordHash: string,
+  ): Promise<boolean>;
+  updatePassword(userId: string, passwordHash: string): Promise<void>;
 }

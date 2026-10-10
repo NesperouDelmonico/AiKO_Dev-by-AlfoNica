@@ -8,6 +8,7 @@ import { SpecialistEntity } from '../../domain/entities/specialist.entity';
 import { UserEntity, UserRole } from '../../domain/entities/user.entity';
 import { IncidentEntity } from '../../domain/entities/incident.entity';
 import { ExerciseResultEntity } from '../../../therapy/domain/entities/exercise-result.entity';
+import { PasswordResetEntity } from '../../../auth/domain/entities/password-reset.entity';
 import type { UsersRepositoryPort } from '../../domain/ports/users.repository.port';
 @Injectable()
 export class PostgresUsersRepository implements UsersRepositoryPort {
@@ -69,6 +70,88 @@ export class PostgresUsersRepository implements UsersRepositoryPort {
   async setState(id: string, estado: boolean) {
     await this.users.update(id, { estado });
     return this.find(id);
+  }
+  async setStateSafely(id: string, estado: boolean, actorId: string) {
+    return this.users.manager.transaction(async (manager) => {
+      await manager.query('SELECT pg_advisory_xact_lock($1)', [741852964]);
+      const target = await manager
+        .createQueryBuilder(UserEntity, 'user')
+        .setLock('pessimistic_write')
+        .where('user.id = :id', { id })
+        .getOne();
+      if (!target) return null;
+
+      if (target.rol === UserRole.ADMINISTRADOR) {
+        if (!estado && actorId === id) {
+          throw new Error('ADMIN_SELF_DEACTIVATION');
+        }
+        if (!estado && target.estado) {
+          const activeAdministrators = await manager.count(UserEntity, {
+            where: { rol: UserRole.ADMINISTRADOR, estado: true },
+          });
+          if (activeAdministrators <= 1) {
+            throw new Error('LAST_ACTIVE_ADMINISTRATOR');
+          }
+        }
+      }
+
+      await manager.update(
+        UserEntity,
+        { id },
+        {
+          estado,
+          ...(estado ? { intentosFallidos: 0 } : {}),
+        },
+      );
+      return manager.findOneBy(UserEntity, { id });
+    });
+  }
+  async setPassword(id: string, passwordHash: string) {
+    await this.users.manager.transaction(async (manager) => {
+      await manager.update(
+        UserEntity,
+        { id },
+        {
+          contraseñaHash: passwordHash,
+          intentosFallidos: 0,
+        },
+      );
+      await manager
+        .createQueryBuilder()
+        .delete()
+        .from(PasswordResetEntity)
+        .where('"usuario_id" = :id', { id })
+        .execute();
+    });
+    return this.find(id);
+  }
+  async resetPasswordAndNotify(
+    id: string,
+    passwordHash: string,
+    notify: () => Promise<void>,
+  ) {
+    return this.users.manager.transaction(async (manager) => {
+      const user = await manager
+        .createQueryBuilder(UserEntity, 'user')
+        .setLock('pessimistic_write')
+        .where('user.id = :id', { id })
+        .getOne();
+      if (!user) return null;
+
+      await notify();
+      await manager.update(
+        UserEntity,
+        { id },
+        { contraseñaHash: passwordHash, intentosFallidos: 0, estado: true },
+      );
+      await manager
+        .createQueryBuilder()
+        .delete()
+        .from(PasswordResetEntity)
+        .where('"usuario_id" = :id', { id })
+        .execute();
+      return manager.findOneBy(UserEntity, { id });
+    });
   }
   async createInitialAdministrator(data: Partial<UserEntity>) {
     return this.users.manager.transaction(async (manager) => {

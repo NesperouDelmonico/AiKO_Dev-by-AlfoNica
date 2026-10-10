@@ -15,6 +15,7 @@ import type { UsersRepositoryPort } from '../../domain/ports/users.repository.po
 import { PATIENT_REPOSITORY } from '../../domain/ports/patient.repository.port';
 import type { PatientRepositoryPort } from '../../domain/ports/patient.repository.port';
 import { UserEntity, UserRole } from '../../domain/entities/user.entity';
+import { mapUserUniqueViolation } from '../../../shared/infrastructure/persistence/map-user-unique-violation';
 import type {
   AssignPatientDto,
   CreatePatientDto,
@@ -49,10 +50,16 @@ export class PatientUseCase {
     user.estado = true;
     user.intentosFallidos = 0;
 
-    const patient = await this.patients.create(user, specialistId, {
-      umbralBajoRendimiento: data.umbral_bajo_rendimiento,
-      umbralDiasInactividad: data.umbral_dias_inactividad,
-    });
+    let patient: Awaited<ReturnType<PatientRepositoryPort['create']>>;
+    try {
+      patient = await this.patients.create(user, specialistId, {
+        umbralBajoRendimiento: data.umbral_bajo_rendimiento,
+        umbralDiasInactividad: data.umbral_dias_inactividad,
+      });
+    } catch (error) {
+      mapUserUniqueViolation(error);
+      throw error;
+    }
     try {
       await this.email.send({
         to: data.correo,
@@ -110,7 +117,17 @@ export class PatientUseCase {
     const current = await this.patients.findById(id);
     if (!current) throw new NotFoundException('Paciente no encontrado');
     await this.assertCanManagePatient(current, actor);
-    const assigned = await this.patients.assign(id, data.especialista_id);
+    let assigned: Awaited<ReturnType<PatientRepositoryPort['assign']>>;
+    try {
+      assigned = await this.patients.assign(id, data.especialista_id);
+    } catch (error) {
+      if (error instanceof Error && error.message === 'SPECIALIST_INACTIVE') {
+        throw new ConflictException(
+          'No se puede asignar un especialista inactivo',
+        );
+      }
+      throw error;
+    }
     if (!assigned)
       throw new NotFoundException('Paciente o especialista no encontrado');
 

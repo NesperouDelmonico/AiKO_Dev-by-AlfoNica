@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { entities } from './entities';
@@ -11,11 +12,23 @@ import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { AppController } from './app.controller';
 import { SharedModule } from './modules/shared/shared.module';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     ScheduleModule.forRoot(),
+    ThrottlerModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => {
+        const rateLimit = Number(config.get<string>('RATE_LIMIT_MAX', '100'));
+        if (!Number.isInteger(rateLimit) || rateLimit < 1) {
+          throw new Error('RATE_LIMIT_MAX debe ser un entero positivo');
+        }
+        return [{ ttl: 60_000, limit: rateLimit }];
+      },
+    }),
     SharedModule,
     TypeOrmModule.forRoot({
       type: 'postgres',
@@ -38,5 +51,6 @@ import { SharedModule } from './modules/shared/shared.module';
     UsersModule,
   ],
   controllers: [AppController],
+  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Inject,
   Injectable,
@@ -8,6 +9,8 @@ import {
 } from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
 import * as bcrypt from 'bcrypt';
+import { isPasswordPolicyCompliant } from '../../../shared/application/password-policy';
+import { mapUserUniqueViolation } from '../../../shared/infrastructure/persistence/map-user-unique-violation';
 import { EMAIL_PORT } from '../../../shared/application/ports/email.port';
 import type { EmailPort } from '../../../shared/application/ports/email.port';
 import { USERS_REPOSITORY } from '../../domain/ports/users.repository.port';
@@ -19,6 +22,8 @@ import type {
   UpdateUserDto,
   UsersQueryDto,
 } from '../dto/users.dto';
+
+class CredentialDeliveryError extends Error {}
 
 @Injectable()
 export class UsersUseCase {
@@ -63,14 +68,39 @@ export class UsersUseCase {
       const duplicate = await this.repository.findByCedula(data.cedula);
       if (duplicate) throw new ConflictException('Cédula duplicada');
     }
-    const updated = await this.repository.update(id, data);
+    let updated: UserEntity | null;
+    try {
+      updated = await this.repository.update(id, data);
+    } catch (error) {
+      mapUserUniqueViolation(error);
+      throw error;
+    }
     if (!updated) throw new NotFoundException('Usuario no encontrado');
     this.logger.log(`Usuario actualizado: ${id}`);
     return this.publicUser(updated);
   }
 
-  async executeState(id: string, estado: boolean) {
-    const user = await this.repository.setState(id, estado);
+  async executeState(id: string, estado: boolean, actorId: string) {
+    let user: UserEntity | null;
+    try {
+      user = await this.repository.setStateSafely(id, estado, actorId);
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message === 'ADMIN_SELF_DEACTIVATION'
+      ) {
+        throw new ConflictException('No puedes desactivarte a ti mismo');
+      }
+      if (
+        error instanceof Error &&
+        error.message === 'LAST_ACTIVE_ADMINISTRATOR'
+      ) {
+        throw new ConflictException(
+          'No puedes desactivar al último administrador activo',
+        );
+      }
+      throw error;
+    }
     if (!user) throw new NotFoundException('Usuario no encontrado');
     this.logger.warn(`Estado de usuario actualizado: ${id} -> ${estado}`);
     return this.publicUser(user);
@@ -79,14 +109,20 @@ export class UsersUseCase {
   async executeInitialAdministrator(data: InitialAdministratorDto) {
     await this.assertUnique(data.correo, data.cedula);
     const contraseñaHash = await bcrypt.hash(data.contraseña, 12);
-    const user = await this.repository.createInitialAdministrator({
-      nombre: data.nombre,
-      cedula: data.cedula,
-      correo: data.correo,
-      contraseñaHash,
-      estado: true,
-      intentosFallidos: 0,
-    });
+    let user: UserEntity | null;
+    try {
+      user = await this.repository.createInitialAdministrator({
+        nombre: data.nombre,
+        cedula: data.cedula,
+        correo: data.correo,
+        contraseñaHash,
+        estado: true,
+        intentosFallidos: 0,
+      });
+    } catch (error) {
+      mapUserUniqueViolation(error);
+      throw error;
+    }
     if (!user) throw new ConflictException('Ya existe un administrador');
     this.logger.warn(`Administrador inicial creado: ${user.id}`);
     return this.publicUser(user);
@@ -98,6 +134,42 @@ export class UsersUseCase {
 
   executeSpecialist(data: AccountDto) {
     return this.createInvitedAccount(data, UserRole.ESPECIALISTA);
+  }
+
+  async executeAdminPasswordReset(id: string) {
+    const temporaryPassword = `${randomBytes(24).toString('base64url')}Aa1`;
+    const passwordHash = await bcrypt.hash(temporaryPassword, 12);
+    const user = await this.repository.find(id);
+    if (!user) throw new NotFoundException('Usuario no encontrado');
+    let updated: UserEntity | null;
+    try {
+      updated = await this.repository.resetPasswordAndNotify(
+        id,
+        passwordHash,
+        async () => {
+          try {
+            await this.email.send({
+              to: user.correo,
+              subject: 'Restablecimiento de contraseña AiKO',
+              text: `Tu administrador restableció tu contraseña. Contraseña temporal: ${temporaryPassword}. Cámbiala al ingresar.`,
+            });
+          } catch (error) {
+            throw new CredentialDeliveryError('No se pudo entregar el correo', {
+              cause: error,
+            });
+          }
+        },
+      );
+    } catch (error) {
+      if (error instanceof CredentialDeliveryError) {
+        throw new ServiceUnavailableException(
+          'No se pudo entregar la contraseña temporal; la cuenta no fue modificada',
+        );
+      }
+      throw error;
+    }
+    if (!updated) throw new NotFoundException('Usuario no encontrado');
+    this.logger.warn(`Contraseña restablecida por administrador: ${id}`);
   }
 
   executeIndicators() {
@@ -120,10 +192,16 @@ export class UsersUseCase {
       estado: true,
       intentosFallidos: 0,
     };
-    const user =
-      role === UserRole.ADMINISTRADOR
-        ? await this.repository.createAdministrator(userData)
-        : await this.repository.createSpecialist(userData);
+    let user: UserEntity;
+    try {
+      user =
+        role === UserRole.ADMINISTRADOR
+          ? await this.repository.createAdministrator(userData)
+          : await this.repository.createSpecialist(userData);
+    } catch (error) {
+      mapUserUniqueViolation(error);
+      throw error;
+    }
 
     try {
       await this.email.send({

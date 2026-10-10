@@ -2,6 +2,8 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   Patch,
   Post,
@@ -15,8 +17,13 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { UsersUseCase } from '../../application/use-cases/users.use-case';
-import { Public, Roles } from '../../../auth/interfaces/http/auth.decorators';
+import {
+  CurrentAuthUser,
+  Public,
+  Roles,
+} from '../../../auth/interfaces/http/auth.decorators';
 import { UserRole } from '../../domain/entities/user.entity';
+import { Throttle } from '@nestjs/throttler';
 import {
   AccountDto,
   InitialAdministratorDto,
@@ -46,8 +53,12 @@ export class UsersController {
   }
   @Patch(':id/estado')
   @Roles(UserRole.ADMINISTRADOR)
-  state(@Param('id') id: string, @Body() dto: UserStateDto) {
-    return this.useCase.executeState(id, dto.estado);
+  state(
+    @Param('id') id: string,
+    @Body() dto: UserStateDto,
+    @CurrentAuthUser() actor: { sub: string },
+  ) {
+    return this.useCase.executeState(id, dto.estado, actor.sub);
   }
   @Post('administrador-inicial')
   @Public()
@@ -66,5 +77,16 @@ export class UsersController {
   @Roles(UserRole.ADMINISTRADOR)
   specialist(@Body() dto: AccountDto) {
     return this.useCase.executeSpecialist(dto);
+  }
+  @Post(':id/restablecer-contrasena')
+  @Roles(UserRole.ADMINISTRADOR)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiResponse({ status: 204, description: 'Contraseña temporal enviada' })
+  @ApiResponse({ status: 404, description: 'Usuario no encontrado' })
+  @ApiResponse({ status: 503, description: 'No se pudo entregar el correo' })
+  @ApiResponse({ status: 429, description: 'Límite de cinco solicitudes por minuto' })
+  resetPassword(@Param('id') id: string) {
+    return this.useCase.executeAdminPasswordReset(id);
   }
 }

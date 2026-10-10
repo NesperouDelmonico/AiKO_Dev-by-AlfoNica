@@ -121,9 +121,15 @@ export class PostgresPatientRepository implements PatientRepositoryPort {
   async assign(patientId: string, specialistId: string) {
     const [patient, specialist] = await Promise.all([
       this.patients.findOneBy({ id: patientId }),
-      this.specialists.findOneBy({ id: specialistId }),
+      this.specialists.findOne({
+        where: { id: specialistId },
+        relations: { usuario: true },
+      }),
     ]);
     if (!patient || !specialist) return null;
+    if (!specialist.usuario.estado) {
+      throw new Error('SPECIALIST_INACTIVE');
+    }
 
     patient.especialista = specialist;
     patient.fechaAsignacion = new Date();

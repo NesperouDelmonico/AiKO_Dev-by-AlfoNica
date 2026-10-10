@@ -15,6 +15,7 @@ import {
   Min,
 } from 'class-validator';
 import { UserRole } from '../../domain/entities/user.entity';
+import { PASSWORD_POLICY_PATTERN } from '../../../shared/application/password-policy';
 export class UsersQueryDto {
   @ApiPropertyOptional()
   @IsOptional()
@@ -84,6 +85,7 @@ export class InitialAdministratorDto extends AccountDto {
   @ApiProperty({ format: 'password' })
   @IsString()
   @MinLength(8)
-  @Matches(/^(?=.*[A-Z])(?=.*\d).+$/)
+  @MaxLength(72)
+  @Matches(PASSWORD_POLICY_PATTERN)
   contraseña!: string;
 }
