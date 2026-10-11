@@ -439,7 +439,16 @@ export class PostgresTherapyRepository implements TherapyRepositoryPort {
       skip: (page - 1) * limit,
       take: limit,
     });
-    return { total, page, limit, data };
+    return {
+      total,
+      page,
+      limit,
+      data: data.map((result) => ({
+        ...result,
+        ejercicio_nombre: result.rutaEjercicio?.ejercicio?.nombre ?? null,
+        categoria: result.rutaEjercicio?.ejercicio?.categoria ?? null,
+      })),
+    };
   }
   async routesHistory(
     patientId: string,
@@ -460,24 +469,86 @@ export class PostgresTherapyRepository implements TherapyRepositoryPort {
     return { total, page, limit, data };
   }
   async domainProgress(patientId: string, desde?: string, hasta?: string) {
-    const results = await this.results(patientId);
-    const filtered = results.filter(
-      (result) =>
-        (!desde || result.fecha >= new Date(`${desde}T00:00:00`)) &&
-        (!hasta || result.fecha <= new Date(`${hasta}T23:59:59.999`)),
-    );
-    const grouped = new Map<string, { total: number; count: number }>();
-    for (const result of filtered) {
-      const category = result.rutaEjercicio?.ejercicio?.categoria;
-      if (!category) continue;
-      const current = grouped.get(category) ?? { total: 0, count: 0 };
-      current.total += result.puntaje;
-      current.count += 1;
-      grouped.set(category, current);
+    const query = this.result
+      .createQueryBuilder('result')
+      .innerJoin('result.rutaEjercicio', 'routeExercise')
+      .innerJoin('routeExercise.ejercicio', 'exercise')
+      .select('exercise.categoria', 'categoria')
+      .addSelect('exercise.id', 'ejercicioId')
+      .addSelect('exercise.nombre', 'nombre')
+      .addSelect('COUNT(result.id)', 'intentos')
+      .addSelect('AVG(result.puntaje)', 'promedio')
+      .addSelect('MAX(result.puntaje)', 'mejor')
+      .addSelect(
+        '(ARRAY_AGG(result.puntaje ORDER BY result.fecha DESC, result.id DESC))[1]',
+        'ultimo',
+      )
+      .where('result.paciente = :patientId', { patientId });
+    if (desde) {
+      query.andWhere('result.fecha >= CAST(:desde AS date)', { desde });
     }
-    return [...grouped.entries()].map(([categoria, value]) => ({
+    if (hasta) {
+      query.andWhere("result.fecha < CAST(:hasta AS date) + INTERVAL '1 day'", {
+        hasta,
+      });
+    }
+    const rows = await query
+      .groupBy('exercise.categoria')
+      .addGroupBy('exercise.id')
+      .addGroupBy('exercise.nombre')
+      .orderBy('exercise.categoria', 'ASC')
+      .addOrderBy('exercise.nombre', 'ASC')
+      .getRawMany<{
+        categoria: string;
+        ejercicioId: string;
+        nombre: string;
+        intentos: string;
+        promedio: string;
+        mejor: string;
+        ultimo: string;
+      }>();
+
+    const categories = new Map<
+      string,
+      {
+        totalScore: number;
+        totalAttempts: number;
+        ejercicios: {
+          ejercicio_id: string;
+          nombre: string;
+          intentos: number;
+          promedio_puntaje: number;
+          mejor_puntaje: number;
+          ultimo_puntaje: number;
+        }[];
+      }
+    >();
+    for (const row of rows) {
+      const intentos = Number(row.intentos);
+      const promedio = Number(row.promedio);
+      const category = categories.get(row.categoria) ?? {
+        totalScore: 0,
+        totalAttempts: 0,
+        ejercicios: [],
+      };
+      category.totalScore += promedio * intentos;
+      category.totalAttempts += intentos;
+      category.ejercicios.push({
+        ejercicio_id: row.ejercicioId,
+        nombre: row.nombre,
+        intentos,
+        promedio_puntaje: promedio,
+        mejor_puntaje: Number(row.mejor),
+        ultimo_puntaje: Number(row.ultimo),
+      });
+      categories.set(row.categoria, category);
+    }
+    return [...categories.entries()].map(([categoria, value]) => ({
       categoria,
-      porcentaje: value.count ? value.total / value.count : 0,
+      porcentaje: value.totalAttempts
+        ? value.totalScore / value.totalAttempts
+        : 0,
+      ejercicios: value.ejercicios,
     }));
   }
   async temporalProgress(patientId: string, desde?: string, hasta?: string) {

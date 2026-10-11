@@ -98,7 +98,20 @@ export interface TherapyRepositoryPort {
     patientId: string,
     desde?: string,
     hasta?: string,
-  ): Promise<{ categoria: string; porcentaje: number }[]>;
+  ): Promise<
+    {
+      categoria: string;
+      porcentaje: number;
+      ejercicios: {
+        ejercicio_id: string;
+        nombre: string;
+        intentos: number;
+        promedio_puntaje: number;
+        mejor_puntaje: number;
+        ultimo_puntaje: number;
+      }[];
+    }[]
+  >;
   temporalProgress(
     patientId: string,
     desde?: string,

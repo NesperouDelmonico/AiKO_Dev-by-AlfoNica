@@ -195,6 +195,10 @@ paths:
       parameters:
         - { $ref: "#/components/parameters/page" }
         - { $ref: "#/components/parameters/limit" }
+        - name: q
+          in: query
+          description: Busca por nombre o correo sin distinguir mayúsculas ni tildes
+          schema: { type: string }
         - name: rol
           in: query
           schema: { $ref: "#/components/schemas/Rol" }
@@ -378,11 +382,12 @@ paths:
           application/json:
             schema:
               type: object
-              required: [nombre, cedula, correo, umbral_bajo_rendimiento, umbral_dias_inactividad]
+              required: [nombre, cedula, correo, fecha_nacimiento, umbral_bajo_rendimiento, umbral_dias_inactividad]
               properties:
                 nombre: { type: string, maxLength: 150 }
                 cedula: { type: string, maxLength: 20 }
                 correo: { type: string, format: email }
+                fecha_nacimiento: { type: string, format: date, description: Fecha ISO válida, no futura y con edad calculada máxima de 120 años }
                 umbral_bajo_rendimiento: { type: number, format: float, minimum: 0, maximum: 100 }
                 umbral_dias_inactividad: { type: integer, minimum: 1 }
       responses:
@@ -412,7 +417,7 @@ paths:
                     properties:
                       data:
                         type: array
-                        items: { $ref: "#/components/schemas/Paciente" }
+                        items: { $ref: "#/components/schemas/PacienteListado" }
 
   /pacientes/buscar:
     get:
@@ -440,6 +445,31 @@ paths:
   /pacientes/{id}:
     parameters:
       - { $ref: "#/components/parameters/idPathParam" }
+    patch:
+      tags: [Pacientes]
+      summary: Actualizar la fecha de nacimiento del paciente
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [fecha_nacimiento]
+              properties:
+                fecha_nacimiento:
+                  type: string
+                  format: date
+                  description: Fecha ISO válida, no futura y con edad calculada máxima de 120 años
+      responses:
+        "200":
+          description: Paciente actualizado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Paciente" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
     get:
       tags: [Pacientes]
       summary: Ver información básica del paciente (RF-027)
@@ -1042,6 +1072,18 @@ paths:
                   properties:
                     categoria: { $ref: "#/components/schemas/CategoriaEjercicio" }
                     porcentaje: { type: number, format: float }
+                    ejercicios:
+                      type: array
+                      items:
+                        type: object
+                        required: [ejercicio_id, nombre, intentos, promedio_puntaje, mejor_puntaje, ultimo_puntaje]
+                        properties:
+                          ejercicio_id: { type: string, format: uuid }
+                          nombre: { type: string }
+                          intentos: { type: integer, minimum: 0 }
+                          promedio_puntaje: { type: number, format: float }
+                          mejor_puntaje: { type: number, format: float }
+                          ultimo_puntaje: { type: number, format: float }
 
   /pacientes/{id}/progreso/temporal:
     parameters:
@@ -1519,6 +1561,28 @@ components:
         umbral_bajo_rendimiento: { type: number, format: float, minimum: 0, maximum: 100 }
         umbral_dias_inactividad: { type: integer, minimum: 1 }
         fecha_asignacion: { type: string, format: date }
+        nombre: { type: string, maxLength: 150 }
+        correo: { type: string, format: email, maxLength: 150 }
+        cedula: { type: string, maxLength: 20 }
+        estado: { type: boolean, description: Estado de la cuenta del paciente }
+        fecha_nacimiento: { type: string, format: date, nullable: true }
+        edad: { type: integer, minimum: 0, maximum: 120, nullable: true }
+
+    PacienteListado:
+      allOf:
+        - $ref: "#/components/schemas/Paciente"
+        - type: object
+          properties:
+            alertas_activas: { type: integer, minimum: 0 }
+            progreso_ruta:
+              type: object
+              nullable: true
+              required: [ruta_id, total, completados, porcentaje]
+              properties:
+                ruta_id: { type: string, format: uuid }
+                total: { type: integer, minimum: 0 }
+                completados: { type: integer, minimum: 0 }
+                porcentaje: { type: number, minimum: 0, maximum: 100 }
 
     Ejercicio:
       type: object
@@ -1564,6 +1628,8 @@ components:
         aciertos: { type: integer, minimum: 0 }
         xp_ganado: { type: integer, minimum: 0 }
         fecha: { type: string, format: date-time }
+        ejercicio_nombre: { type: string }
+        categoria: { $ref: "#/components/schemas/CategoriaEjercicio" }
 
     Insignia:
       type: object

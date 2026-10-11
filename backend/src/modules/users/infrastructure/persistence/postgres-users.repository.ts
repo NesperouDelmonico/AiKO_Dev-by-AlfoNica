@@ -38,9 +38,13 @@ export class PostgresUsersRepository implements UsersRepositoryPort {
     if (estado !== undefined)
       builder.andWhere('user.estado = :estado', { estado });
     if (query) {
+      const normalizedQuery = query
+        .normalize('NFD')
+        .replace(/\p{Diacritic}/gu, '')
+        .toLocaleLowerCase('es');
       builder.andWhere(
-        '(user.nombre ILIKE :query OR user.correo ILIKE :query OR user.cedula ILIKE :query)',
-        { query: `%${query}%` },
+        "(translate(lower(user.nombre), 'áéíóúüñ', 'aeiouun') ILIKE :query OR lower(user.correo) ILIKE :query OR user.cedula ILIKE :query)",
+        { query: `%${normalizedQuery}%` },
       );
     }
     const [data, total] = await builder

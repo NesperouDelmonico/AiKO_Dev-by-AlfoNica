@@ -5,6 +5,8 @@ import type { UsersRepositoryPort } from '../../domain/ports/users.repository.po
 import type { EmailPort } from '../../../shared/application/ports/email.port';
 import { UserEntity, UserRole } from '../../domain/entities/user.entity';
 import { PatientEntity } from '../../domain/entities/patient.entity';
+import { CreatePatientDto, UpdatePatientDto } from '../dto/patient.dto';
+import { validate } from 'class-validator';
 
 describe('PatientUseCase', () => {
   const patients: jest.Mocked<PatientRepositoryPort> = {
@@ -15,6 +17,7 @@ describe('PatientUseCase', () => {
     findById: jest.fn(),
     assign: jest.fn(),
     updateThresholds: jest.fn(),
+    updateBirthDate: jest.fn(),
   };
   const users: jest.Mocked<UsersRepositoryPort> = {
     list: jest.fn(),
@@ -58,6 +61,7 @@ describe('PatientUseCase', () => {
     umbralBajoRendimiento: 60,
     umbralDiasInactividad: 7,
     fechaAsignacion: new Date(),
+    fechaNacimiento: '1990-06-15',
   });
 
   beforeEach(() => jest.clearAllMocks());
@@ -74,6 +78,7 @@ describe('PatientUseCase', () => {
           nombre: 'Paciente',
           cedula: '12345678',
           correo: 'patient@example.com',
+          fecha_nacimiento: '2008-06-15',
           umbral_bajo_rendimiento: 60,
           umbral_dias_inactividad: 7,
         },
@@ -102,6 +107,7 @@ describe('PatientUseCase', () => {
           nombre: 'Paciente',
           cedula: '12345678',
           correo: 'patient@example.com',
+          fecha_nacimiento: '1990-06-15',
           umbral_bajo_rendimiento: 60,
           umbral_dias_inactividad: 7,
         },
@@ -122,5 +128,63 @@ describe('PatientUseCase', () => {
         { sub: 'specialist-user', rol: UserRole.ESPECIALISTA },
       ),
     ).rejects.toMatchObject({ status: 409 });
+  });
+
+  it('valida fecha ISO y permite edades fuera del rango de 30 a 60 años', async () => {
+    const dto = Object.assign(new CreatePatientDto(), {
+      nombre: 'Paciente',
+      cedula: '12345678',
+      correo: 'patient@example.com',
+      fecha_nacimiento: '1990-06-15',
+      umbral_bajo_rendimiento: 60,
+      umbral_dias_inactividad: 7,
+    });
+    await expect(validate(dto)).resolves.toHaveLength(0);
+
+    const invalid = Object.assign(new UpdatePatientDto(), {
+      fecha_nacimiento: '2024-02-30',
+    });
+    await expect(validate(invalid)).resolves.not.toHaveLength(0);
+  });
+
+  it('rechaza el PATCH vacío y bloquea a especialistas sin asignación', async () => {
+    await expect(
+      useCase.update(patient.id, {}, {
+        sub: 'specialist-user',
+        rol: UserRole.ESPECIALISTA,
+      }),
+    ).rejects.toMatchObject({ status: 400 });
+
+    await expect(
+      useCase.update(
+        patient.id,
+        { fecha_nacimiento: '1991-06-15' },
+        { sub: 'other-specialist', rol: UserRole.ESPECIALISTA },
+      ),
+    ).rejects.toMatchObject({ status: 403 });
+  });
+
+  it('devuelve los campos personales al actualizar la fecha de nacimiento', async () => {
+    const updatedPatient = Object.assign(new PatientEntity(), {
+      ...patient,
+      fechaNacimiento: '1991-06-15',
+    });
+    patients.findById.mockResolvedValue(patient);
+    patients.updateBirthDate.mockResolvedValue(updatedPatient);
+
+    await expect(
+      useCase.update(
+        patient.id,
+        { fecha_nacimiento: '1991-06-15' },
+        { sub: 'specialist-user', rol: UserRole.ESPECIALISTA },
+      ),
+    ).resolves.toMatchObject({
+      nombre: 'Paciente',
+      correo: 'patient@example.com',
+      cedula: '12345678',
+      estado: true,
+      fecha_nacimiento: '1991-06-15',
+      edad: expect.any(Number),
+    });
   });
 });

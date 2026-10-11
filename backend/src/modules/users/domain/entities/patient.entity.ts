@@ -56,6 +56,9 @@ export class PatientEntity {
   @Column({ type: 'int', name: 'umbral_dias_inactividad' })
   umbralDiasInactividad!: number;
 
+  @Column({ type: 'date', name: 'fecha_nacimiento', nullable: true })
+  fechaNacimiento!: string | null;
+
   @Column({ type: 'date', name: 'fecha_asignacion' })
   fechaAsignacion!: Date;
 }

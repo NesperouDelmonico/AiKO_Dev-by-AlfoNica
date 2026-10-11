@@ -15,6 +15,8 @@ import { PatientUseCase } from './application/use-cases/patient.use-case';
 import { PostgresPatientRepository } from './infrastructure/persistence/postgres-patient.repository';
 import { PATIENT_REPOSITORY } from './domain/ports/patient.repository.port';
 import { AdminMetricsController } from './interfaces/http/admin-metrics.controller';
+import { AlertEntity } from '../tracking/domain/entities/alert.entity';
+import { TherapeuticRouteEntity } from '../therapy/domain/entities/therapeutic-route.entity';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -24,6 +26,8 @@ import { AdminMetricsController } from './interfaces/http/admin-metrics.controll
       SpecialistEntity,
       UserEntity,
       ExerciseResultEntity,
+      AlertEntity,
+      TherapeuticRouteEntity,
     ]),
   ],
   controllers: [UsersController, PatientController, AdminMetricsController],
