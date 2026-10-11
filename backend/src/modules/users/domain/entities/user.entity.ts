@@ -1,6 +1,3 @@
-// TypeORM is provided by the backend runtime; keep type-checking this entity
-// usable when its dependency declarations are unavailable in the editor.
-// @ts-ignore TS2307: TypeORM may not be installed in the current workspace.
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -16,32 +13,32 @@ export enum UserRole {
 }
 
 @Entity('usuario')
-@Check(`"intentos_fallidos" >= 0`)
+@Check('CHK_168a4c781805d0dc66f42bd578', `"intentos_fallidos" >= 0`)
 export class UserEntity {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @Column({ type: 'varchar', length: 150 })
-  nombre: string;
+  nombre!: string;
 
   @Column({ type: 'varchar', length: 20, unique: true })
-  cedula: string;
+  cedula!: string;
 
   @Column({ type: 'varchar', length: 150, unique: true })
-  correo: string;
+  correo!: string;
 
   @Column({ type: 'varchar', length: 255, name: 'contraseña_hash' })
-  contraseñaHash: string;
+  contraseñaHash!: string;
 
   @Column({ type: 'enum', enum: UserRole })
-  rol: UserRole;
+  rol!: UserRole;
 
   @Column({ type: 'boolean', default: true })
-  estado: boolean;
+  estado!: boolean;
 
   @Column({ type: 'int', default: 0, name: 'intentos_fallidos' })
-  intentosFallidos: number;
+  intentosFallidos!: number;
 
   @CreateDateColumn({ type: 'timestamp', name: 'fecha_creacion' })
-  fechaCreacion: Date;
+  fechaCreacion!: Date;
 }

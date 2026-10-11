@@ -9,6 +9,9 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  Max,
+  MaxLength,
+  MinLength,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -16,8 +19,14 @@ import {
   CognitiveCategory,
   ExerciseStatus,
 } from '../../domain/entities/exercise.entity';
+import { RouteStatus } from '../../domain/entities/therapeutic-route.entity';
 export class CreateExerciseDto {
-  @ApiProperty() @IsString() @IsNotEmpty() nombre!: string;
+  @ApiProperty({ minLength: 3, maxLength: 100 })
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(3)
+  @MaxLength(100)
+  nombre!: string;
   @ApiProperty({ enum: CognitiveCategory })
   @IsEnum(CognitiveCategory)
   categoria!: CognitiveCategory;
@@ -26,7 +35,12 @@ export class CreateExerciseDto {
   @ApiProperty() @IsObject() parametros!: Record<string, unknown>;
 }
 export class UpdateExerciseDto {
-  @ApiPropertyOptional() @IsOptional() @IsString() nombre?: string;
+  @ApiPropertyOptional({ minLength: 3, maxLength: 100 })
+  @IsOptional()
+  @IsString()
+  @MinLength(3)
+  @MaxLength(100)
+  nombre?: string;
   @ApiPropertyOptional({ enum: CognitiveCategory })
   @IsOptional()
   @IsEnum(CognitiveCategory)
@@ -63,7 +77,11 @@ export class ReplaceRouteExerciseDto {
   @ApiProperty() @IsUUID() nuevo_ejercicio_id!: string;
 }
 export class ResultDto {
-  @ApiProperty() @IsInt() @Min(0) puntaje!: number;
+  @ApiProperty({ minimum: 0, maximum: 100 })
+  @IsInt()
+  @Min(0)
+  @Max(100)
+  puntaje!: number;
   @ApiPropertyOptional() @IsOptional() @IsInt() @Min(0) tiempo_reaccion_ms?:
     number | null;
   @ApiProperty() @IsInt() @Min(0) aciertos!: number;
@@ -83,4 +101,28 @@ export class ExerciseQueryDto {
   @IsOptional()
   @IsEnum(ExerciseStatus)
   estado?: ExerciseStatus;
+}
+
+export class ResultsQueryDto {
+  @ApiPropertyOptional({ minimum: 1, default: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page = 1;
+
+  @ApiPropertyOptional({ minimum: 1, maximum: 100, default: 20 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit = 20;
+}
+
+export class RoutesQueryDto extends ResultsQueryDto {
+  @ApiPropertyOptional({ enum: RouteStatus })
+  @IsOptional()
+  @IsEnum(RouteStatus)
+  estado?: RouteStatus;
 }

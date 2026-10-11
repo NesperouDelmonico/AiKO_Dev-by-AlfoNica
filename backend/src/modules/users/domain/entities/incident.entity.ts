@@ -17,18 +17,18 @@ export enum IncidentStatus {
 @Entity('incidencia')
 export class IncidentEntity {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @ManyToOne(() => UserEntity, { onDelete: 'RESTRICT', onUpdate: 'CASCADE' })
   @JoinColumn({ name: 'usuario_id' })
-  usuario: UserEntity;
+  usuario!: UserEntity;
 
   @Column({ type: 'text' })
-  descripcion: string;
+  descripcion!: string;
 
   @Column({ type: 'enum', enum: IncidentStatus })
-  estado: IncidentStatus;
+  estado!: IncidentStatus;
 
   @CreateDateColumn({ type: 'timestamp' })
-  fecha: Date;
+  fecha!: Date;
 }

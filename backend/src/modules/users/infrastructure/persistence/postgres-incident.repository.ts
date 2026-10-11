@@ -25,11 +25,14 @@ export class PostgresIncidentRepository implements IncidentRepositoryPort {
       }),
     );
   }
-  list(estado?: IncidentStatus) {
-    return this.incidents.find({
+  async list(page: number, limit: number, estado?: IncidentStatus) {
+    const [data, total] = await this.incidents.findAndCount({
       where: estado ? { estado } : {},
       order: { fecha: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
     });
+    return { total, page, limit, data };
   }
   find(id: string) {
     return this.incidents.findOne({

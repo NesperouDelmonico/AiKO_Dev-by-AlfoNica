@@ -1,11 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { MoreThan, Repository } from 'typeorm';
+import type { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity';
 import { AdministratorEntity } from '../../domain/entities/administrator.entity';
 import { PatientEntity } from '../../domain/entities/patient.entity';
 import { SpecialistEntity } from '../../domain/entities/specialist.entity';
 import { UserEntity, UserRole } from '../../domain/entities/user.entity';
 import { IncidentEntity } from '../../domain/entities/incident.entity';
+import { ExerciseResultEntity } from '../../../therapy/domain/entities/exercise-result.entity';
+import { PasswordResetEntity } from '../../../auth/domain/entities/password-reset.entity';
 import type { UsersRepositoryPort } from '../../domain/ports/users.repository.port';
 @Injectable()
 export class PostgresUsersRepository implements UsersRepositoryPort {
@@ -20,44 +23,214 @@ export class PostgresUsersRepository implements UsersRepositoryPort {
     private readonly patients: Repository<PatientEntity>,
     @InjectRepository(IncidentEntity)
     private readonly incidentRepo: Repository<IncidentEntity>,
+    @InjectRepository(ExerciseResultEntity)
+    private readonly results: Repository<ExerciseResultEntity>,
   ) {}
-  async list(page: number, limit: number, rol?: UserRole, estado?: boolean) {
-    const [data, total] = await this.users.findAndCount({
-      where: {
-        ...(rol ? { rol } : {}),
-        ...(estado === undefined ? {} : { estado }),
-      },
-      skip: (page - 1) * limit,
-      take: limit,
-      order: { fechaCreacion: 'DESC' },
-    });
+  async list(
+    page: number,
+    limit: number,
+    rol?: UserRole,
+    estado?: boolean,
+    query?: string,
+  ) {
+    const builder = this.users.createQueryBuilder('user');
+    if (rol) builder.andWhere('user.rol = :rol', { rol });
+    if (estado !== undefined)
+      builder.andWhere('user.estado = :estado', { estado });
+    if (query) {
+      builder.andWhere(
+        '(user.nombre ILIKE :query OR user.correo ILIKE :query OR user.cedula ILIKE :query)',
+        { query: `%${query}%` },
+      );
+    }
+    const [data, total] = await builder
+      .orderBy('user.fechaCreacion', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getManyAndCount();
     return { total, page, limit, data };
   }
   find(id: string) {
     return this.users.findOneBy({ id });
   }
+  findByEmail(correo: string) {
+    return this.users.findOneBy({ correo });
+  }
+  findByCedula(cedula: string) {
+    return this.users.findOneBy({ cedula });
+  }
+  async hasAdministrator() {
+    return (await this.admins.count()) > 0;
+  }
   async update(id: string, data: Partial<UserEntity>) {
-    await this.users.update(id, data as any);
+    const update = data as QueryDeepPartialEntity<UserEntity>;
+    await this.users.update(id, update);
     return this.find(id);
   }
   async setState(id: string, estado: boolean) {
     await this.users.update(id, { estado });
     return this.find(id);
   }
+  async setStateSafely(id: string, estado: boolean, actorId: string) {
+    return this.users.manager.transaction(async (manager) => {
+      await manager.query('SELECT pg_advisory_xact_lock($1)', [741852964]);
+      const target = await manager
+        .createQueryBuilder(UserEntity, 'user')
+        .setLock('pessimistic_write')
+        .where('user.id = :id', { id })
+        .getOne();
+      if (!target) return null;
+
+      if (target.rol === UserRole.ADMINISTRADOR) {
+        if (!estado && actorId === id) {
+          throw new Error('ADMIN_SELF_DEACTIVATION');
+        }
+        if (!estado && target.estado) {
+          const activeAdministrators = await manager.count(UserEntity, {
+            where: { rol: UserRole.ADMINISTRADOR, estado: true },
+          });
+          if (activeAdministrators <= 1) {
+            throw new Error('LAST_ACTIVE_ADMINISTRATOR');
+          }
+        }
+      }
+
+      await manager.update(
+        UserEntity,
+        { id },
+        {
+          estado,
+          ...(estado ? { intentosFallidos: 0 } : {}),
+        },
+      );
+      return manager.findOneBy(UserEntity, { id });
+    });
+  }
+  async setPassword(id: string, passwordHash: string) {
+    await this.users.manager.transaction(async (manager) => {
+      await manager.update(
+        UserEntity,
+        { id },
+        {
+          contraseñaHash: passwordHash,
+          intentosFallidos: 0,
+        },
+      );
+      await manager
+        .createQueryBuilder()
+        .delete()
+        .from(PasswordResetEntity)
+        .where('"usuario_id" = :id', { id })
+        .execute();
+    });
+    return this.find(id);
+  }
+  async resetPasswordAndNotify(
+    id: string,
+    passwordHash: string,
+    notify: () => Promise<void>,
+  ) {
+    return this.users.manager.transaction(async (manager) => {
+      const user = await manager
+        .createQueryBuilder(UserEntity, 'user')
+        .setLock('pessimistic_write')
+        .where('user.id = :id', { id })
+        .getOne();
+      if (!user) return null;
+
+      await notify();
+      await manager.update(
+        UserEntity,
+        { id },
+        { contraseñaHash: passwordHash, intentosFallidos: 0, estado: true },
+      );
+      await manager
+        .createQueryBuilder()
+        .delete()
+        .from(PasswordResetEntity)
+        .where('"usuario_id" = :id', { id })
+        .execute();
+      return manager.findOneBy(UserEntity, { id });
+    });
+  }
+  async createInitialAdministrator(data: Partial<UserEntity>) {
+    return this.users.manager.transaction(async (manager) => {
+      await manager.query('SELECT pg_advisory_xact_lock($1)', [741852963]);
+      if ((await manager.count(AdministratorEntity)) > 0) return null;
+      const user = await manager.save(
+        UserEntity,
+        manager.create(UserEntity, { ...data, rol: UserRole.ADMINISTRADOR }),
+      );
+      await manager.save(
+        AdministratorEntity,
+        manager.create(AdministratorEntity, { usuario: user }),
+      );
+      return user;
+    });
+  }
   async createAdministrator(data: Partial<UserEntity>) {
-    const user = await this.users.save(
-      this.users.create({ ...data, rol: UserRole.ADMINISTRADOR }),
-    );
-    return this.admins.save(this.admins.create({ usuario: user }));
+    return this.users.manager.transaction(async (manager) => {
+      const user = await manager.save(
+        UserEntity,
+        manager.create(UserEntity, { ...data, rol: UserRole.ADMINISTRADOR }),
+      );
+      await manager.save(
+        AdministratorEntity,
+        manager.create(AdministratorEntity, { usuario: user }),
+      );
+      return user;
+    });
   }
   async createSpecialist(data: Partial<UserEntity>) {
-    const user = await this.users.save(
-      this.users.create({ ...data, rol: UserRole.ESPECIALISTA }),
-    );
-    return this.specialists.save(this.specialists.create({ usuario: user }));
+    return this.users.manager.transaction(async (manager) => {
+      const user = await manager.save(
+        UserEntity,
+        manager.create(UserEntity, { ...data, rol: UserRole.ESPECIALISTA }),
+      );
+      await manager.save(
+        SpecialistEntity,
+        manager.create(SpecialistEntity, { usuario: user }),
+      );
+      return user;
+    });
   }
   incidents() {
     return this.incidentRepo.find();
+  }
+  async indicators() {
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const [totalUsers, totalPatients, activeSessions] = await Promise.all([
+      this.users.count(),
+      this.patients.count(),
+      this.results.count({ where: { fecha: MoreThan(since) } }),
+    ]);
+    return {
+      total_usuarios: totalUsers,
+      total_pacientes: totalPatients,
+      sesiones_activas: activeSessions,
+    };
+  }
+  async trends(period: 'week' | 'month') {
+    const rangeStart = new Date();
+    rangeStart.setUTCMonth(
+      rangeStart.getUTCMonth() - (period === 'week' ? 3 : 12),
+    );
+    const rows = await this.results
+      .createQueryBuilder('result')
+      .select(
+        "to_char(date_trunc(:period, result.fecha), 'YYYY-MM-DD')",
+        'fecha',
+      )
+      .addSelect('COUNT(*)', 'sesiones')
+      .where('result.fecha >= :rangeStart', { rangeStart })
+      .setParameter('period', period)
+      .groupBy('fecha')
+      .orderBy('fecha', 'ASC')
+      .getRawMany<{ fecha: string; sesiones: string }>();
+    return rows.map((row) => ({
+      fecha: row.fecha,
+      sesiones: Number(row.sesiones),
+    }));
   }
   createPatient(data: Partial<PatientEntity>) {
     return this.patients.save(this.patients.create(data));
