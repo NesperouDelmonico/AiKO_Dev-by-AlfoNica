@@ -1,0 +1,37 @@
+@import '@fontsource/poppins/500.css';
+@import '@fontsource/poppins/600.css';
+@import '@fontsource/plus-jakarta-sans/400.css';
+@import '@fontsource/plus-jakarta-sans/500.css';
+
+:root {
+  --gradient-app: linear-gradient(135deg, #f3e8ff 0%, #faf5ff 50%, #fef9c3 100%);
+  --color-surface: #ffffff;
+  --radius-card: 16px;
+  --shadow-card: 0 10px 30px -5px rgba(0, 0, 0, 0.05);
+  --color-primary: #6d28d9;
+  --color-primary-hover: #5b21b6;
+  --color-accent: #8b5cff;
+  --color-heading: #4c1d95;
+  --color-text: #2d2438;
+  --color-text-muted: #574c65;
+  --color-border: #ded5e9;
+  --color-focus: #6d28d9;
+  --color-success-bg: #e7efe3;
+  --color-success-text: #31452d;
+  --color-pending-bg: #fff4d2;
+  --color-pending-text: #5b4300;
+  --color-attention-bg: #fee8e7;
+  --color-attention-text: #7f1d1d;
+  --font-body: 'Plus Jakarta Sans', sans-serif;
+  --font-heading: 'Poppins', sans-serif;
+}
+
+@theme inline {
+  --color-brand-primary: var(--color-primary);
+  --color-brand-heading: var(--color-heading);
+  --color-brand-surface: var(--color-surface);
+  --radius-brand-card: var(--radius-card);
+  --shadow-brand-card: var(--shadow-card);
+  --font-brand-heading: var(--font-heading);
+  --font-brand-body: var(--font-body);
+}
