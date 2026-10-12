@@ -142,7 +142,7 @@ export function LoginPage() {
           {patientMessage || 'Las cuentas de paciente deben usar la aplicación móvil.'}
         </div>
       )}
-      {sessionError && <FieldError message={sessionError} />}
+      {sessionError && !serverError && <FieldError message={sessionError} />}
       <form className="space-y-4" onSubmit={form.handleSubmit(submit)} noValidate>
         <Field label="Correo electrónico" name="correo" type="email" autoComplete="email" register={form.register} error={form.formState.errors.correo?.message} />
         <Field label="Contraseña" name="contraseña" type="password" autoComplete="current-password" register={form.register} error={form.formState.errors.contraseña?.message} />

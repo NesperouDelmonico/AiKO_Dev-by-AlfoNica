@@ -1,13 +1,23 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { MemoryRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { useEffect, useRef } from 'react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { AppRoutes } from '../App'
 import { apiClient } from '../api/client'
 import { AuthProvider } from '../auth/AuthProvider'
 import { ProtectedRoute } from '../auth/ProtectedRoute'
+import { PanelErrorBoundary } from '../components/layout/PanelErrorBoundary'
 import { tokenStorage } from '../auth/tokenStorage'
 import { LoginPage, ResetPasswordPage } from '../pages/AuthPages'
 import { PlaceholderPage } from '../pages/PlaceholderPage'
+import { roleHomePaths } from '../auth/roles'
+import type { components } from '../api/schema'
+
+type AuthUser = Omit<typeof specialist, 'rol'> & {
+  rol: components['schemas']['Rol'] | string
+}
 
 const specialist = {
   id: 'user-id',
@@ -27,6 +37,11 @@ function jsonResponse(status: number, body?: unknown): Response {
   })
 }
 
+function routeFor(input: RequestInfo | URL): string {
+  if (input instanceof Request) return input.url
+  return input instanceof URL ? input.toString() : input
+}
+
 function renderAuth(initialPath: string, onFetch: (input: RequestInfo | URL, init?: RequestInit) => Response | Promise<Response>) {
   vi.stubGlobal('fetch', vi.fn(onFetch))
   return render(
@@ -34,10 +49,10 @@ function renderAuth(initialPath: string, onFetch: (input: RequestInfo | URL, ini
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/admin/usuarios" element={<ProtectedRoute role="administrador" />}>
+          <Route path="/admin/usuarios" element={<ProtectedRoute role="Administrador" />}>
             <Route index element={<PlaceholderPage title="Usuarios protegidos" />} />
           </Route>
-          <Route path="/especialista/pacientes" element={<ProtectedRoute role="especialista" />}>
+          <Route path="/especialista/pacientes" element={<ProtectedRoute role="Especialista" />}>
             <Route index element={<PlaceholderPage title="Pacientes protegidos" />} />
           </Route>
           <Route path="/especialista" element={<Navigate to="/especialista/pacientes" replace />} />
@@ -47,8 +62,65 @@ function renderAuth(initialPath: string, onFetch: (input: RequestInfo | URL, ini
   )
 }
 
+function PathProbe({ onPath }: { onPath: (path: string) => void }) {
+  const { pathname } = useLocation()
+  const lastPath = useRef('')
+  useEffect(() => {
+    if (lastPath.current !== pathname) {
+      lastPath.current = pathname
+      onPath(pathname)
+    }
+  }, [onPath, pathname])
+  return null
+}
+
+function renderApplication(
+  initialPath: string,
+  onFetch: (input: RequestInfo | URL, init?: RequestInit) => Response | Promise<Response>,
+  token?: string,
+  paths: string[] = [],
+) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false, gcTime: 0 }, mutations: { retry: false } },
+  })
+  if (token) tokenStorage.set(token)
+  vi.stubGlobal('fetch', vi.fn(onFetch))
+  render(
+    <MemoryRouter initialEntries={[initialPath]}>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <PathProbe onPath={(path) => paths.push(path)} />
+          <AppRoutes />
+        </AuthProvider>
+      </QueryClientProvider>
+    </MemoryRouter>,
+  )
+  return paths
+}
+
+function applicationFetch(
+  user: AuthUser,
+  token = 'test-token',
+  paths: string[] = [],
+) {
+  return (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = new URL(routeFor(input))
+    paths.push(`${init?.method ?? 'GET'} ${url.pathname}`)
+    if (url.pathname.endsWith('/auth/login')) {
+      return jsonResponse(200, { token, rol: user.rol, usuario: user })
+    }
+    if (url.pathname.endsWith('/auth/me')) return jsonResponse(200, user)
+    if (url.pathname.endsWith('/auth/logout')) return jsonResponse(204)
+    if (url.pathname.endsWith('/pacientes')) {
+      return jsonResponse(200, { total: 0, page: 1, limit: 12, data: [] })
+    }
+    return jsonResponse(404, { statusCode: 404, message: 'Not found' })
+  }
+}
+
 afterEach(() => {
   tokenStorage.clear()
+  vi.restoreAllMocks()
 })
 
 describe('autenticación y cliente API', () => {
@@ -80,6 +152,101 @@ describe('autenticación y cliente API', () => {
     renderAuth('/admin/usuarios', () => jsonResponse(200, specialist))
 
     expect(await screen.findByRole('heading', { name: 'Pacientes protegidos' })).toBeInTheDocument()
+  })
+
+  it.each([
+    ['Administrador', { ...specialist, rol: 'Administrador' as const }, '/admin/usuarios', 'Usuarios'],
+    ['Especialista', specialist, '/especialista/pacientes', 'Mis pacientes'],
+  ])('inicia sesión como %s y dibuja su ruta real de inicio', async (_role, userData, expectedPath, expectedHeading) => {
+    const user = userEvent.setup()
+    const apiCalls: string[] = []
+    const locations: string[] = []
+    renderApplication('/login', applicationFetch(userData, 'sign-in-token', apiCalls), undefined, locations)
+    await user.type(screen.getByLabelText('Correo electrónico'), 'user@example.com')
+    await user.type(screen.getByLabelText('Contraseña'), 'SafePassword1')
+    await user.click(screen.getByRole('button', { name: 'Iniciar sesión' }))
+
+    expect(await screen.findByRole('heading', { name: expectedHeading })).toBeInTheDocument()
+    await waitFor(() => expect(locations.at(-1)).toBe(expectedPath))
+    expect(apiCalls.some((call) => call.endsWith('/auth/login'))).toBe(true)
+    if (userData.rol === 'Administrador') expect(roleHomePaths.Administrador).toBe('/admin')
+    else expect(roleHomePaths.Especialista).toBe('/especialista')
+  })
+
+  it.each([
+    ['/ruta-inexistente', undefined, jsonResponse(401, { statusCode: 401 })],
+    ['/ruta-inexistente', 'restored-admin-token', jsonResponse(200, { ...specialist, rol: 'Administrador' })],
+  ])('resuelve una ruta desconocida sin bucle para sesión %s', async (initialPath, token, meResponse) => {
+    const userData = { ...specialist, rol: 'Administrador' as const }
+    const paths: string[] = []
+    const fetcher = (input: RequestInfo | URL) => {
+      const url = new URL(routeFor(input))
+      if (url.pathname.endsWith('/auth/me')) return meResponse
+      if (url.pathname.endsWith('/auth/logout')) return jsonResponse(204)
+      if (url.pathname.endsWith('/pacientes')) return jsonResponse(200, { total: 0, page: 1, limit: 12, data: [] })
+      return jsonResponse(401, { statusCode: 401 })
+    }
+    renderApplication(initialPath, fetcher, token, paths)
+
+    if (token) expect(await screen.findByRole('heading', { name: 'Usuarios' })).toBeInTheDocument()
+    else expect(await screen.findByText('Inicia sesión en tu panel de AiKO')).toBeInTheDocument()
+    await waitFor(() => expect(paths.length).toBeGreaterThan(0))
+    expect(paths.length - 1).toBeLessThanOrEqual(2)
+    expect(userData.rol).toBe('Administrador')
+  })
+
+  it('cierra la sesión y muestra un mensaje si el login devuelve un rol desconocido', async () => {
+    const user = userEvent.setup()
+    const apiCalls: string[] = []
+    const unknownUser = { ...specialist, rol: 'Supervisor' }
+    renderApplication('/login', applicationFetch(unknownUser, 'unknown-role-token', apiCalls))
+    await user.type(screen.getByLabelText('Correo electrónico'), 'user@example.com')
+    await user.type(screen.getByLabelText('Contraseña'), 'SafePassword1')
+    await user.click(screen.getByRole('button', { name: 'Iniciar sesión' }))
+
+    expect(await screen.findByText(/No reconocemos el rol de esta cuenta/)).toBeInTheDocument()
+    expect(tokenStorage.get()).toBeNull()
+    expect(apiCalls.some((call) => call.endsWith('/auth/logout'))).toBe(true)
+  })
+
+  it('mantiene la ruta pública en estado de carga mientras restaura una sesión', async () => {
+    let resolveCurrentUser!: (response: Response) => void
+    tokenStorage.set('slow-restore-token')
+    const paths: string[] = []
+    renderApplication('/login', (input) => {
+      const url = new URL(routeFor(input))
+      if (url.pathname.endsWith('/auth/me')) {
+        return new Promise<Response>((resolve) => { resolveCurrentUser = resolve })
+      }
+      return jsonResponse(204)
+    }, undefined, paths)
+
+    await waitFor(() => expect(resolveCurrentUser).toBeTypeOf('function'))
+    expect(screen.getAllByRole('status').some((status) => status.textContent?.includes('Restaurando sesión'))).toBe(true)
+    expect(screen.queryByText('Inicia sesión en tu panel de AiKO')).not.toBeInTheDocument()
+    expect(paths).toEqual(['/login'])
+    resolveCurrentUser(jsonResponse(200, { ...specialist, rol: 'Administrador' }))
+    expect(await screen.findByRole('heading', { name: 'Usuarios' })).toBeInTheDocument()
+  })
+
+  it('muestra ErrorBoundary con botón para volver al inicio si una página falla al dibujarse', async () => {
+    const user = userEvent.setup()
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    function BrokenPage(): never {
+      throw new Error('render failure')
+    }
+    render(
+      <MemoryRouter initialEntries={['/throw']}>
+        <Routes>
+          <Route path="/throw" element={<PanelErrorBoundary><BrokenPage /></PanelErrorBoundary>} />
+          <Route path="/" element={<p>Inicio de prueba</p>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    expect(await screen.findByRole('heading', { name: 'Ocurrió un error al mostrar el panel' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Volver al inicio' }))
+    expect(await screen.findByText('Inicio de prueba')).toBeInTheDocument()
+    errorSpy.mockRestore()
   })
 
   it('rechaza al paciente y elimina su sesión del panel', async () => {

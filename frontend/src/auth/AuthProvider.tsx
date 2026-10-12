@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { currentUserRequest, loginRequest, logoutRequest } from '../api/auth'
 import { ApiError, getErrorMessage, setUnauthorizedHandler } from '../api/client'
 import { tokenStorage } from './tokenStorage'
-import { panelRole } from './roles'
+import { homeForRole } from './roles'
 import type { Usuario } from './roles'
 import { AuthContext, type AuthContextValue } from './AuthContext'
 
@@ -38,14 +38,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [clearLocalSession, navigate])
 
+  const rejectUnsupportedRole = useCallback(async () => {
+    const message = 'No reconocemos el rol de esta cuenta. La sesión se cerró; contacta al administrador.'
+    setSessionError(message)
+    try {
+      await logoutRequest()
+    } catch (error) {
+      setSessionError(`${message} ${getErrorMessage(error)}`)
+    } finally {
+      clearLocalSession()
+    }
+  }, [clearLocalSession])
+
   const signIn = useCallback(async (correo: string, contraseña: string) => {
     setSessionError(null)
     const result = await loginRequest(correo, contraseña)
     if (!result.token || !result.usuario) throw new Error('La respuesta de inicio de sesión está incompleta.')
     tokenStorage.set(result.token)
-    setUser(result.usuario)
+    if (homeForRole(result.usuario.rol)) {
+      setUser(result.usuario)
+    } else if (result.usuario.rol !== 'Paciente') {
+      await rejectUnsupportedRole()
+      const message = 'No reconocemos el rol de esta cuenta. La sesión se cerró; contacta al administrador.'
+      throw new Error(message)
+    }
     return result.usuario
-  }, [])
+  }, [rejectUnsupportedRole])
 
   useEffect(() => {
     const removeUnauthorizedHandler = setUnauthorizedHandler(() => {
@@ -68,14 +86,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const currentUser = await currentUserRequest()
         if (!active) return
-        if (!panelRole(currentUser.rol)) {
-          setPatientRejected(true)
-          try {
-            await logoutRequest()
-          } catch (error) {
-            if (active) setSessionError(getErrorMessage(error))
-          } finally {
-            if (active) clearLocalSession()
+        if (!homeForRole(currentUser.rol)) {
+          if (currentUser.rol === 'Paciente') {
+            setPatientRejected(true)
+            try {
+              await logoutRequest()
+            } catch (error) {
+              if (active) setSessionError(getErrorMessage(error))
+            } finally {
+              if (active) clearLocalSession()
+            }
+          } else if (active) {
+            await rejectUnsupportedRole()
           }
           return
         }
@@ -92,7 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       active = false
     }
-  }, [clearLocalSession])
+  }, [clearLocalSession, rejectUnsupportedRole])
 
   const value = useMemo<AuthContextValue>(
     () => ({
@@ -103,9 +125,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signIn,
       signOut,
       rejectPatient,
+      rejectUnsupportedRole,
       clearPatientNotice: () => setPatientRejected(false),
     }),
-    [user, loading, patientRejected, sessionError, signIn, signOut, rejectPatient],
+    [user, loading, patientRejected, sessionError, signIn, signOut, rejectPatient, rejectUnsupportedRole],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

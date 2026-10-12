@@ -9,6 +9,7 @@ export type AuthContextValue = {
   signIn: (correo: string, contraseña: string) => Promise<Usuario>
   signOut: () => Promise<void>
   rejectPatient: () => Promise<void>
+  rejectUnsupportedRole: () => Promise<void>
   clearPatientNotice: () => void
 }
 
