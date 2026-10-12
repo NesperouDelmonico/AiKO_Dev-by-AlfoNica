@@ -1,4 +1,4 @@
-import { ApiError, requireResponse } from '../../api/client'
+import { ApiError, requireResponse, requireSuccess } from '../../api/client'
 import { apiClient } from '../../api/client'
 import type { components } from '../../api/schema'
 
@@ -70,6 +70,39 @@ export async function getPatient(id: string): Promise<components['schemas']['Pac
 export async function getActiveRoute(id: string): Promise<TherapyRoute | null> {
   const result = await apiClient.GET('/pacientes/{id}/rutas/activa', { params: { path: { id } } })
   if (result.response.status === 404) return null
+  return requireResponse(result.data, result.response)
+}
+
+export async function getRouteHistory(id: string, page: number, limit: number, estado?: 'Activa' | 'Histórica') {
+  const result = await apiClient.GET('/pacientes/{id}/rutas', {
+    params: { path: { id }, query: { page, limit, ...(estado ? { estado } : {}) } },
+  })
+  return requireResponse(result.data, result.response)
+}
+
+export async function createRoute(id: string, exercises: Array<{ ejercicio_id: string; orden: number }>) {
+  const result = await apiClient.POST('/pacientes/{id}/rutas', { params: { path: { id } }, body: { ejercicios: exercises } })
+  return requireResponse(result.data, result.response)
+}
+
+export async function addRouteExercise(routeId: string, exerciseId: string, order: number) {
+  const result = await apiClient.POST('/rutas/{id}/ejercicios', {
+    params: { path: { id: routeId } }, body: { ejercicio_id: exerciseId, orden: order },
+  })
+  return requireResponse(result.data, result.response)
+}
+
+export async function deleteRouteExercise(routeId: string, routeExerciseId: string) {
+  const result = await apiClient.DELETE('/rutas/{id}/ejercicios/{rutaEjercicioId}', {
+    params: { path: { id: routeId, rutaEjercicioId: routeExerciseId } },
+  })
+  await requireSuccess(result.response)
+}
+
+export async function replaceRouteExercise(routeId: string, routeExerciseId: string, exerciseId: string) {
+  const result = await apiClient.PATCH('/rutas/{id}/ejercicios/{rutaEjercicioId}/reemplazar', {
+    params: { path: { id: routeId, rutaEjercicioId: routeExerciseId } }, body: { nuevo_ejercicio_id: exerciseId },
+  })
   return requireResponse(result.data, result.response)
 }
 

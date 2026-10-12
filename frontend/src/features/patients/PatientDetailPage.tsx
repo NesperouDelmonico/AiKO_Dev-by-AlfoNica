@@ -10,12 +10,15 @@ import { Card } from '../../components/ui/Card'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { ErrorState } from '../../components/ui/ErrorState'
 import { Input } from '../../components/ui/Input'
+import { Select } from '../../components/ui/Select'
 import { formatDate } from '../../lib/date'
 import { ObservationDialog } from './ObservationDialog'
-import { getActiveRoute, getAchievements, getAlerts, getDomainProgress, getExercises, getHistory, getObservations, getPatient, getRouteProgress, getTemporalProgress, isApiStatus } from './api'
+import { getActiveRoute, getAchievements, getAlerts, getDomainProgress, getExercises, getHistory, getObservations, getPatient, getRouteHistory, getRouteProgress, getTemporalProgress, isApiStatus } from './api'
 import { QueryError, SectionSkeleton } from './PatientStates'
 import type { PatientAlert } from './api'
 import type { TemporalChartPoint } from './TemporalProgressChart'
+import { PatientSettingsDialog } from './PatientSettingsDialog'
+import { ReassignPatientDialog } from './ReassignPatientDialog'
 
 const TemporalProgressChart = lazy(() => import('./TemporalProgressChart').then((module) => ({
   default: module.TemporalProgressChart,
@@ -100,6 +103,11 @@ export function PatientDetailPage() {
   const { id = '' } = useParams()
   const location = useLocation()
   const [observationOpen, setObservationOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [reassignOpen, setReassignOpen] = useState(false)
+  const [routeTab, setRouteTab] = useState<'activa' | 'historial'>('activa')
+  const [routesPage, setRoutesPage] = useState(1)
+  const [routeFilter, setRouteFilter] = useState<'Activa' | 'Histórica' | ''>('')
   const [historyPage, setHistoryPage] = useState(1)
   const [observationPage, setObservationPage] = useState(1)
   const [fromDate, setFromDate] = useState('')
@@ -121,6 +129,11 @@ export function PatientDetailPage() {
     queryKey: queryKeys.patients.exercises(id),
     queryFn: getExercises,
     enabled: Boolean(routeId),
+  })
+  const routesQuery = useQuery({
+    queryKey: queryKeys.patients.routes(id, routesPage, 10, routeFilter || undefined),
+    queryFn: () => getRouteHistory(id, routesPage, 10, routeFilter || undefined),
+    enabled: Boolean(id) && patientQuery.isSuccess && routeTab === 'historial',
   })
   const dateFilters = useMemo(() => ({
     ...(fromDate ? { desde: fromDate } : {}),
@@ -188,10 +201,14 @@ export function PatientDetailPage() {
           <p className="mb-1 text-sm font-semibold text-brand-primary">AiKO · Especialista</p>
           <h1 className="mb-0 text-3xl">{patient.nombre || 'Paciente'}</h1>
         </div>
-        <Button onClick={() => setObservationOpen(true)}>
-          <Plus aria-hidden="true" className="size-4" strokeWidth={1.75} />
-          Nueva observación
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" onClick={() => setSettingsOpen(true)}>Editar información</Button>
+          <Button variant="secondary" onClick={() => setReassignOpen(true)}>Reasignar especialista</Button>
+          <Button onClick={() => setObservationOpen(true)}>
+            <Plus aria-hidden="true" className="size-4" strokeWidth={1.75} />
+            Nueva observación
+          </Button>
+        </div>
       </header>
 
       <PatientInformation patient={patient} />
@@ -208,7 +225,7 @@ export function PatientDetailPage() {
             <EmptyState
               title="Sin ruta activa"
               description="Todavía no hay una ruta terapéutica activa para este paciente."
-              action={<Button variant="secondary" disabled>Crear ruta</Button>}
+              action={<Link className="inline-flex min-h-11 items-center justify-center rounded-xl border border-[var(--color-border)] bg-white px-4 py-2 text-sm font-semibold text-brand-heading hover:bg-purple-50 focus-visible:outline focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-brand-primary" to={`/especialista/pacientes/${id}/ruta`}>Crear ruta</Link>}
             />
           )}
           {routeQuery.data && (
@@ -242,6 +259,34 @@ export function PatientDetailPage() {
               </div>
             </div>
           )}
+        </Card>
+      </section>
+
+      <section aria-labelledby="route-history-title">
+        <Card>
+          <div role="tablist" aria-label="Rutas del paciente" className="mb-4 flex flex-wrap items-center gap-2">
+            <Button role="tab" aria-selected={routeTab === 'activa'} variant={routeTab === 'activa' ? 'primary' : 'secondary'} onClick={() => setRouteTab('activa')}>Ruta activa</Button>
+            <Button role="tab" aria-selected={routeTab === 'historial'} variant={routeTab === 'historial' ? 'primary' : 'secondary'} onClick={() => setRouteTab('historial')}>Historial de rutas</Button>
+          </div>
+          {routeTab === 'activa' && <p className="mb-0 text-sm text-[var(--color-text-muted)]">La ruta actual se muestra en la sección anterior. <Link to={`/especialista/pacientes/${id}/ruta`}>Abrir constructor de ruta</Link></p>}
+          {routeTab === 'historial' && <>
+            <h2 id="route-history-title" className="mb-3 text-xl">Historial de rutas</h2>
+            <label htmlFor="route-history-state" className="mb-4 block text-sm font-semibold">Estado
+              <Select id="route-history-state" className="mt-1 max-w-xs" value={routeFilter} onChange={(event) => { setRouteFilter(event.target.value as typeof routeFilter); setRoutesPage(1) }}>
+                <option value="">Todos</option><option>Activa</option><option>Histórica</option>
+              </Select>
+            </label>
+            {routesQuery.isPending && <SectionSkeleton title="historial de rutas" />}
+            {routesQuery.isError && <SectionError error={routesQuery.error} retry={() => void routesQuery.refetch()} />}
+            {routesQuery.isSuccess && (routesQuery.data.data ?? []).length === 0 && <EmptyState title="Sin rutas registradas" />}
+            <ol className="space-y-3 pl-6">{(routesQuery.data?.data ?? []).map((route, index) => (
+              <li key={route.id ?? index} className="rounded-xl border border-[var(--color-border)] p-3">
+                <div className="flex flex-wrap items-center justify-between gap-3"><span>{route.fecha_creacion ? formatDate(route.fecha_creacion, { dateStyle: 'medium', timeStyle: 'short' }) : 'Fecha no disponible'}</span><Badge variant={route.estado === 'Activa' ? 'success' : 'neutral'}>{route.estado ?? 'Estado no disponible'}</Badge></div>
+                <p className="mb-0 mt-2 text-xs text-[var(--color-text-muted)]">{(route.ejercicios ?? []).filter((step) => step.estado !== 'Reemplazado').length} ejercicios activos en la ruta</p>
+              </li>
+            ))}</ol>
+            {(routesQuery.data?.total ?? 0) > 10 && <div className="mt-4 flex justify-end gap-2"><Button size="sm" variant="secondary" disabled={routesPage <= 1} onClick={() => setRoutesPage((page) => page - 1)}>Anterior</Button><Button size="sm" variant="secondary" disabled={routesPage >= Math.ceil((routesQuery.data?.total ?? 0) / 10)} onClick={() => setRoutesPage((page) => page + 1)}>Siguiente</Button></div>}
+          </>}
         </Card>
       </section>
 
@@ -417,6 +462,8 @@ export function PatientDetailPage() {
       </section>
 
       {observationOpen && <ObservationDialog patientId={id} onClose={closeObservation} />}
+      {settingsOpen && <PatientSettingsDialog patient={patient} patientId={id} onClose={() => setSettingsOpen(false)} />}
+      {reassignOpen && <ReassignPatientDialog patientId={id} currentSpecialistId={patient.especialista_id} onClose={() => setReassignOpen(false)} />}
     </div>
   )
 }

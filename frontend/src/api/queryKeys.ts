@@ -2,6 +2,8 @@ export const queryKeys = {
   users: {
     all: ['usuarios'] as const,
     list: (filters: Record<string, string | number | boolean | undefined>) => ['usuarios', 'lista', filters] as const,
+    detail: (id: string) => ['usuarios', id] as const,
+    specialists: ['usuarios', 'especialistas'] as const,
   },
   patients: {
     all: ['pacientes'] as const,
@@ -21,6 +23,9 @@ export const queryKeys = {
     observations: (id: string, page: number, limit: number) =>
       ['pacientes', id, 'observaciones', page, limit] as const,
     observationsList: (id: string) => ['pacientes', id, 'observaciones'] as const,
+    routes: (id: string, page: number, limit: number, estado?: string) =>
+      ['pacientes', id, 'rutas', page, limit, estado] as const,
+    routesAll: (id: string) => ['pacientes', id, 'rutas'] as const,
   },
   alerts: {
     all: ['alertas'] as const,

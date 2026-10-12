@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Activity, Bell, ChevronDown, ClipboardList, KeyRound, LogOut, Users, Dumbbell } from 'lucide-react'
+import { Activity, Bell, ChevronDown, KeyRound, LogOut, Users, Dumbbell } from 'lucide-react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../auth/AuthContext'
 import { getErrorMessage } from '../../api/client'
@@ -11,7 +11,10 @@ type PanelRole = 'admin' | 'specialist'
 type NavigationItem = { to: string; label: string; icon: typeof Users }
 
 const navigation: Record<PanelRole, NavigationItem[]> = {
-  admin: [{ to: '/admin/usuarios', label: 'Usuarios', icon: Users }],
+  admin: [
+    { to: '/admin/usuarios', label: 'Usuarios', icon: Users },
+    { to: '/admin/indicadores', label: 'Indicadores', icon: Activity },
+  ],
   specialist: [
     { to: '/especialista/pacientes', label: 'Mis pacientes', icon: Users },
     { to: '/especialista/alertas', label: 'Alertas', icon: Bell },
@@ -128,11 +131,8 @@ function PanelLayoutBase({ role }: { role: PanelRole }) {
           </nav>
         )}
         {role === 'admin' && (
-          <nav aria-label="Navegación principal móvil" className="px-4 py-2 lg:hidden">
-            <NavLink to="/admin/usuarios" className="flex min-h-10 items-center gap-2 rounded-lg px-3 text-sm text-brand-heading">
-              <ClipboardList aria-hidden="true" className="size-4" strokeWidth={1.75} />
-              Usuarios
-            </NavLink>
+          <nav aria-label="Navegación principal móvil" className="flex gap-1 overflow-x-auto bg-white/70 px-3 py-2 lg:hidden">
+            {navigation.admin.map(({ to, label, icon: Icon }) => <NavLink key={to} to={to} className="flex min-h-10 shrink-0 items-center gap-2 rounded-lg px-3 text-sm text-brand-heading"><Icon aria-hidden="true" className="size-4" strokeWidth={1.75} />{label}</NavLink>)}
           </nav>
         )}
 

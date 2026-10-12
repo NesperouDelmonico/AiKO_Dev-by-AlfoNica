@@ -4,6 +4,7 @@ import { tokenStorage } from '../auth/tokenStorage'
 
 type UnauthorizedHandler = () => void
 let unauthorizedHandler: UnauthorizedHandler | undefined
+const responseErrorBodies = new WeakMap<Response, Promise<unknown>>()
 
 export function setUnauthorizedHandler(handler: UnauthorizedHandler): () => void {
   unauthorizedHandler = handler
@@ -14,7 +15,13 @@ export function setUnauthorizedHandler(handler: UnauthorizedHandler): () => void
 
 export const apiClient = createClient<paths>({
   baseUrl: import.meta.env.VITE_API_URL || 'http://localhost:3000/v1',
-  fetch: (request: Request) => globalThis.fetch(request),
+  fetch: async (request: Request) => {
+    const response = await globalThis.fetch(request)
+    if (!response.ok) {
+      responseErrorBodies.set(response, response.clone().json().catch(() => undefined))
+    }
+    return response
+  },
 })
 
 apiClient.use({
@@ -50,7 +57,7 @@ const fixedMessages: Record<number, string> = {
 async function errorFromResponse(response: Response): Promise<ApiError> {
   let serverMessage: string | undefined
   try {
-    const body: unknown = await response.clone().json()
+    const body: unknown = await (responseErrorBodies.get(response) ?? response.clone().json())
     if (typeof body === 'object' && body !== null && 'message' in body) {
       const message = body.message
       if (typeof message === 'string') serverMessage = message
