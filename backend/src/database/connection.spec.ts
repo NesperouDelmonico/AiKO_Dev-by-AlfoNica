@@ -13,7 +13,7 @@ describe('postgresConnection', () => {
       password: 'postgres',
       database: 'aiko',
       ssl: false,
-      extra: { max: 10 },
+      extra: { max: 10, connectionTimeoutMillis: 10000 },
     });
   });
 
@@ -40,7 +40,7 @@ describe('postgresConnection', () => {
     expect(options).toMatchObject({
       host: 'localhost',
       ssl: false,
-      extra: { max: 10 },
+      extra: { max: 10, connectionTimeoutMillis: 10000 },
     });
   });
 

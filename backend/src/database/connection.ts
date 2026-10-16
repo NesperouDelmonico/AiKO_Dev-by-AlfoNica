@@ -44,7 +44,7 @@ export function postgresConnection(
     password: env.DB_PASSWORD ?? 'postgres',
     database: read(env, 'DB_NAME') ?? 'aiko',
     ssl,
-    extra: { max: poolMax },
+    extra: { max: poolMax, connectionTimeoutMillis: 10000 },
   };
 }
 

@@ -71,4 +71,11 @@ async function bootstrap() {
   }
   await app.listen(process.env.PORT ?? 3000);
 }
-void bootstrap();
+bootstrap().catch((error: unknown) => {
+  // Sin esto el error de arranque (p. ej. la BD inalcanzable) no llega a los logs.
+  new Logger('Bootstrap').error(
+    'La aplicación no pudo iniciar',
+    error instanceof Error ? error.stack : String(error),
+  );
+  process.exit(1);
+});

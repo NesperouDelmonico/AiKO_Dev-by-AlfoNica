@@ -49,6 +49,10 @@ import { CronModule } from './cron/cron.module';
       synchronize: shouldSynchronize(),
       migrationsRun: shouldRunMigrations(),
       migrations: ['dist/database/migrations/*{.ts,.js}'],
+      // En Vercel conviene fallar rápido y dejar el error en los logs en vez
+      // de reintentar 10 veces con 3 s de espera hasta que la función muera.
+      retryAttempts: process.env.VERCEL ? 1 : 10,
+      retryDelay: process.env.VERCEL ? 500 : 3000,
     }),
     TherapyModule,
     GamificationModule,
