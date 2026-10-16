@@ -59,6 +59,6 @@ export function jwtOptionsFromConfig(
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
   ],
-  exports: [JwtModule, AUTH_REPOSITORY],
+  exports: [JwtModule, AUTH_REPOSITORY, AuthScheduler],
 })
 export class AuthModule {}

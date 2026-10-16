@@ -94,3 +94,55 @@ docker compose down
 La imagen usa etapas separadas de build/runtime, ejecuta como usuario no-root,
 usa PostgreSQL 16 persistente y ejecuta las migraciones al iniciar en
 producción.
+
+## Despliegue en Vercel + Supabase
+
+El backend se despliega en Vercel sin configuración especial (detecta
+`src/main.ts`). Hay que configurar el **Root Directory = `backend`** del
+proyecto en Vercel, porque el repositorio es un monorepo.
+
+**Base de datos (Supabase).** Usa el _Transaction pooler_ (puerto `6543`) en
+Vercel, porque cada instancia serverless abre sus propias conexiones. Variables:
+
+```env
+DB_HOST=aws-0-<region>.pooler.supabase.com
+DB_PORT=6543
+DB_USER=postgres.<project-ref>
+DB_PASSWORD=<contraseña de la base>
+DB_NAME=postgres
+DB_SSL=true
+DB_POOL_MAX=2
+DB_SYNCHRONIZE=false      # el esquema lo crean las migraciones
+DB_MIGRATIONS_RUN=false   # no migrar en cada arranque en frío
+```
+
+**Migraciones.** Se ejecutan una vez desde tu máquina, contra el _Session
+pooler_ (puerto `5432`) o la conexión directa, no contra el puerto `6543`:
+
+```bash
+DB_PORT=5432 DB_SYNCHRONIZE=false npm run migration:run
+```
+
+**Tareas programadas.** Las funciones serverless no tienen un proceso
+permanente, por lo que `@nestjs/schedule` no corre. Con `SCHEDULER_ENABLED=false`
+los `@Cron` no se registran y las tareas se disparan por HTTP en
+`/v1/cron/*` (fuera del contrato público y protegidas con `CRON_SECRET`, que
+Vercel envía como `Authorization: Bearer`):
+
+| Endpoint                       | Equivale a                    | Disparador                             |
+| ------------------------------ | ----------------------------- | -------------------------------------- |
+| `GET /v1/cron/evaluate-alerts` | alertas diarias, 1:00 a. m.   | `vercel.json` (06:00 UTC)              |
+| `GET /v1/cron/purge-tokens`    | limpieza diaria, 2:00 a. m.   | `vercel.json` (07:00 UTC)              |
+| `GET /v1/cron/send-reminders`  | recordatorios, cada minuto    | Vercel Pro o un pinger externo         |
+
+Los recordatorios necesitan una frecuencia menor a un día: el plan Hobby de
+Vercel solo permite crons diarios. Con un pinger externo (p. ej. GitHub Actions
+o cron-job.org cada 5 minutos) llama a `/v1/cron/send-reminders?window=5`;
+`window` indica los minutos hacia atrás en que se buscan recordatorios, y el
+filtro de duplicados evita enviarlos dos veces.
+
+**Otras variables:** `NODE_ENV=production`, `JWT_SECRET` (≥ 32 bytes),
+`CORS_ORIGINS`, `TRUST_PROXY=1`, `CRON_SECRET` (≥ 16 caracteres) y las de
+SMTP/Firebase. El limitador de peticiones (`RATE_LIMIT_MAX`) guarda su
+contador en memoria, así que en serverless limita por instancia y no de forma
+global.
