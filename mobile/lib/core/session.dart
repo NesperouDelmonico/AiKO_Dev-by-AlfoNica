@@ -21,6 +21,9 @@ class Session extends ChangeNotifier {
   /// Mensaje para mostrar en el login (p. ej. sesión vencida).
   String? notice;
 
+  /// Id del perfil de paciente (lo que usan las rutas /pacientes/:id/...).
+  String? get pacienteId => user?['paciente_id'] as String?;
+
   bool get isAuthenticated => api.token != null && user != null;
   String get firstName {
     final name = (user?['nombre'] as String?)?.trim() ?? '';
