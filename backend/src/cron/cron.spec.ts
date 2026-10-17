@@ -89,3 +89,23 @@ describe('CronController', () => {
     expect(tracking.sendConfiguredReminders).not.toHaveBeenCalled();
   });
 });
+
+describe('CronController.smtpCheck', () => {
+  it('reporta variables ausentes sin lanzar excepción', async () => {
+    const saved = { ...process.env };
+    for (const key of Object.keys(process.env)) {
+      if (key.startsWith('SMTP_')) delete process.env[key];
+    }
+    try {
+      const controller = new CronController(
+        {} as never,
+        {} as never,
+      );
+      const result = await controller.smtpCheck();
+      expect(result.ok).toBe(false);
+      expect(result.variables.SMTP_HOST).toBe('ausente');
+    } finally {
+      process.env = saved;
+    }
+  });
+});
