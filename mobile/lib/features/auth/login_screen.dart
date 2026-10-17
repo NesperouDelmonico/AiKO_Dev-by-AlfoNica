@@ -4,6 +4,10 @@ import 'package:provider/provider.dart';
 import '../../core/api_client.dart';
 import '../../core/session.dart';
 import '../../core/theme.dart';
+import '../../core/validators.dart';
+import '../../widgets/password_field.dart';
+import '../../widgets/submit_button.dart';
+import 'forgot_password_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -17,7 +21,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final _email = TextEditingController();
   final _password = TextEditingController();
   bool _loading = false;
-  bool _obscure = true;
   String? _error;
 
   @override
@@ -45,6 +48,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final notice = context.select<Session, String?>((s) => s.notice);
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(gradient: AikoColors.softGradient),
@@ -84,29 +88,37 @@ class _LoginScreenState extends State<LoginScreen> {
                       autofillHints: const [AutofillHints.email],
                       textInputAction: TextInputAction.next,
                       decoration: const InputDecoration(labelText: 'Correo electrónico'),
-                      validator: (v) => (v == null || !v.contains('@'))
-                          ? 'Escribe un correo válido'
-                          : null,
+                      validator: Validators.email,
                     ),
                     const SizedBox(height: 14),
-                    TextFormField(
+                    PasswordField(
                       controller: _password,
-                      obscureText: _obscure,
-                      autofillHints: const [AutofillHints.password],
-                      onFieldSubmitted: (_) => _submit(),
-                      decoration: InputDecoration(
-                        labelText: 'Contraseña',
-                        suffixIcon: IconButton(
-                          tooltip: _obscure ? 'Mostrar contraseña' : 'Ocultar contraseña',
-                          icon: Icon(_obscure
-                              ? Icons.visibility_rounded
-                              : Icons.visibility_off_rounded),
-                          onPressed: () => setState(() => _obscure = !_obscure),
-                        ),
-                      ),
+                      label: 'Contraseña',
+                      textInputAction: TextInputAction.done,
+                      onSubmitted: _submit,
                       validator: (v) =>
                           (v == null || v.isEmpty) ? 'Escribe tu contraseña' : null,
                     ),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) =>
+                                ForgotPasswordScreen(initialEmail: _email.text.trim()),
+                          ),
+                        ),
+                        child: const Text('¿Olvidaste tu contraseña?'),
+                      ),
+                    ),
+                    if (notice != null) ...[
+                      Text(notice,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                              color: AikoColors.violet,
+                              fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 10),
+                    ],
                     if (_error != null) ...[
                       const SizedBox(height: 14),
                       Text(_error!,
@@ -115,16 +127,10 @@ class _LoginScreenState extends State<LoginScreen> {
                               color: AikoColors.error, fontWeight: FontWeight.w600)),
                     ],
                     const SizedBox(height: 24),
-                    FilledButton(
-                      onPressed: _loading ? null : _submit,
-                      child: _loading
-                          ? const SizedBox(
-                              height: 22,
-                              width: 22,
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 2.5, color: Colors.white))
-                          : const Text('Iniciar sesión'),
-                    ),
+                    SubmitButton(
+                        label: 'Iniciar sesión',
+                        loading: _loading,
+                        onPressed: _submit),
                   ],
                 ),
               ),

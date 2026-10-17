@@ -5,6 +5,7 @@ import '../../core/config.dart';
 import '../../core/session.dart';
 import '../../core/theme.dart';
 import '../../widgets/aiko_card.dart';
+import 'change_password_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -39,6 +40,14 @@ class SettingsScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
+          FilledButton.tonalIcon(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const ChangePasswordScreen()),
+            ),
+            icon: const Icon(Icons.lock_reset_rounded),
+            label: const Text('Cambiar contraseña'),
+          ),
+          const SizedBox(height: 12),
           FilledButton.tonalIcon(
             onPressed: () => context.read<Session>().logout(),
             icon: const Icon(Icons.logout_rounded),

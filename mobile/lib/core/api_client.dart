@@ -20,6 +20,11 @@ class ApiClient {
   final http.Client _client;
   String? token;
 
+  /// Se llama cuando una petición autenticada recibe 401 (token vencido o
+  /// revocado). No se llama en peticiones con `expireSessionOn401: false`
+  /// (login, cambio de contraseña), donde un 401 significa "credencial mala".
+  void Function()? onSessionExpired;
+
   Map<String, String> get _headers => {
         'Content-Type': 'application/json',
         if (token != null) 'Authorization': 'Bearer $token',
@@ -27,13 +32,36 @@ class ApiClient {
 
   Uri _uri(String path) => Uri.parse('${AppConfig.apiBaseUrl}$path');
 
-  Future<dynamic> get(String path) => _send(() => _client.get(_uri(path), headers: _headers));
+  Future<dynamic> get(String path) =>
+      _send(() => _client.get(_uri(path), headers: _headers));
 
-  Future<dynamic> post(String path, [Map<String, dynamic>? body]) => _send(
-        () => _client.post(_uri(path), headers: _headers, body: jsonEncode(body ?? {})),
+  Future<dynamic> post(
+    String path, [
+    Map<String, dynamic>? body,
+    bool expireSessionOn401 = true,
+  ]) =>
+      _send(
+        () => _client.post(_uri(path),
+            headers: _headers, body: jsonEncode(body ?? {})),
+        expireSessionOn401,
       );
 
-  Future<dynamic> _send(Future<http.Response> Function() request) async {
+  Future<dynamic> patch(
+    String path,
+    Map<String, dynamic> body, {
+    bool expireSessionOn401 = true,
+  }) =>
+      _send(
+        () => _client.patch(_uri(path),
+            headers: _headers, body: jsonEncode(body)),
+        expireSessionOn401,
+      );
+
+  Future<dynamic> _send(
+    Future<http.Response> Function() request, [
+    bool expireSessionOn401 = true,
+  ]) async {
+    final hadToken = token != null;
     final http.Response response;
     try {
       response = await request().timeout(const Duration(seconds: 25));
@@ -44,7 +72,11 @@ class ApiClient {
     }
     final decoded = response.body.isEmpty ? null : _tryDecode(response.body);
     if (response.statusCode >= 200 && response.statusCode < 300) return decoded;
-    throw ApiException(response.statusCode, _messageFor(response.statusCode, decoded));
+    if (response.statusCode == 401 && hadToken && expireSessionOn401) {
+      onSessionExpired?.call();
+    }
+    throw ApiException(
+        response.statusCode, _messageFor(response.statusCode, decoded));
   }
 
   dynamic _tryDecode(String body) {
