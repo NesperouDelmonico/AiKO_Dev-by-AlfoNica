@@ -4,6 +4,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { JwtModule, JwtModuleOptions } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { UserEntity } from '../users/domain/entities/user.entity';
+import { PatientEntity } from '../users/domain/entities/patient.entity';
 import { RevokedTokenEntity } from './domain/entities/revoked-token.entity';
 import { PasswordResetEntity } from './domain/entities/password-reset.entity';
 import { AuthController } from './interfaces/http/auth.controller';
@@ -41,6 +42,7 @@ export function jwtOptionsFromConfig(
     ConfigModule,
     TypeOrmModule.forFeature([
       UserEntity,
+      PatientEntity,
       RevokedTokenEntity,
       PasswordResetEntity,
     ]),

@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { MoreThan, Repository } from 'typeorm';
 import { UserEntity } from '../../../users/domain/entities/user.entity';
+import { PatientEntity } from '../../../users/domain/entities/patient.entity';
 import { RevokedTokenEntity } from '../../domain/entities/revoked-token.entity';
 import { PasswordResetEntity } from '../../domain/entities/password-reset.entity';
 import type { AuthRepositoryPort } from '../../domain/ports/auth.repository.port';
@@ -10,6 +11,8 @@ export class PostgresAuthRepository implements AuthRepositoryPort {
   constructor(
     @InjectRepository(UserEntity)
     private readonly users: Repository<UserEntity>,
+    @InjectRepository(PatientEntity)
+    private readonly patients: Repository<PatientEntity>,
     @InjectRepository(RevokedTokenEntity)
     private readonly revokedTokens: Repository<RevokedTokenEntity>,
     @InjectRepository(PasswordResetEntity)
@@ -20,6 +23,13 @@ export class PostgresAuthRepository implements AuthRepositoryPort {
   }
   findById(id: string) {
     return this.users.findOne({ where: { id } });
+  }
+  async findPatientId(userId: string) {
+    const patient = await this.patients.findOne({
+      where: { usuario: { id: userId } },
+      select: { id: true },
+    });
+    return patient?.id ?? null;
   }
   async recordFailedLogin(id: string) {
     await this.users.increment({ id }, 'intentosFallidos', 1);

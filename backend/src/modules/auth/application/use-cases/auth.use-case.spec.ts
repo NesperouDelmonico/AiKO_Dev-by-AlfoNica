@@ -19,6 +19,7 @@ describe('AuthUseCase', () => {
   const repository: jest.Mocked<AuthRepositoryPort> = {
     findByEmail: jest.fn(),
     findById: jest.fn(),
+    findPatientId: jest.fn(),
     recordFailedLogin: jest.fn(),
     resetFailedLogins: jest.fn(),
     revokeSession: jest.fn(),
@@ -137,6 +138,25 @@ describe('AuthUseCase', () => {
     const result = await useCase.executeMe(user.id);
     expect(result).not.toHaveProperty('contraseñaHash');
     expect(result).not.toHaveProperty('contraseña_hash');
+  });
+
+  it('incluye paciente_id en /auth/me solo para pacientes', async () => {
+    repository.findPatientId.mockResolvedValue('patient-1');
+    repository.findById.mockResolvedValue({
+      ...user,
+      rol: UserRole.PACIENTE,
+    } as UserEntity);
+    expect(await useCase.executeMe(user.id)).toMatchObject({
+      paciente_id: 'patient-1',
+    });
+
+    repository.findPatientId.mockClear();
+    repository.findById.mockResolvedValue({
+      ...user,
+      rol: UserRole.ESPECIALISTA,
+    } as UserEntity);
+    expect(await useCase.executeMe(user.id)).not.toHaveProperty('paciente_id');
+    expect(repository.findPatientId).not.toHaveBeenCalled();
   });
 
   it('aplica longitud máxima 72 al DTO de login', async () => {

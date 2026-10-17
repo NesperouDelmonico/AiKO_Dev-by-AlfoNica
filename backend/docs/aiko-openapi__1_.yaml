@@ -1507,6 +1507,13 @@ components:
         estado: { type: boolean, default: true }
         intentos_fallidos: { type: integer, minimum: 0, default: 0 }
         fecha_creacion: { type: string, format: date-time }
+        paciente_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: >
+            Solo en login y /auth/me para el rol Paciente: id del perfil de
+            paciente que usan las rutas /pacientes/{id}/...
 
     Paciente:
       type: object
