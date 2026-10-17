@@ -617,7 +617,14 @@ paths:
                 categoria: { $ref: "#/components/schemas/CategoriaEjercicio" }
                 nivel_dificultad: { type: integer, minimum: 1 }
                 instrucciones: { type: string }
-                parametros: { type: object, additionalProperties: true }
+                parametros:
+                  type: object
+                  additionalProperties: true
+                  description: |
+                    Según la categoría (se completan valores por defecto):
+                    Atención: duracion_segundos 30–180 (60), intervalo_ms 600–3000 (1500).
+                    Memoria: longitud_inicial 2–8 (3), longitud_maxima ≤ 9 y ≥ longitud_inicial (6), tiempo_visualizacion_ms 500–3000 (1000).
+                    Velocidad: intentos 5–30 (10), tiempo_limite_ms 300–3000 (1500).
       responses:
         "201":
           description: Ejercicio creado
@@ -657,7 +664,14 @@ paths:
                 categoria: { $ref: "#/components/schemas/CategoriaEjercicio" }
                 nivel_dificultad: { type: integer, minimum: 1 }
                 instrucciones: { type: string }
-                parametros: { type: object, additionalProperties: true }
+                parametros:
+                  type: object
+                  additionalProperties: true
+                  description: |
+                    Según la categoría (se completan valores por defecto):
+                    Atención: duracion_segundos 30–180 (60), intervalo_ms 600–3000 (1500).
+                    Memoria: longitud_inicial 2–8 (3), longitud_maxima ≤ 9 y ≥ longitud_inicial (6), tiempo_visualizacion_ms 500–3000 (1000).
+                    Velocidad: intentos 5–30 (10), tiempo_limite_ms 300–3000 (1500).
       responses:
         "200":
           description: Ejercicio actualizado
@@ -744,6 +758,7 @@ paths:
                     properties:
                       ejercicio_id: { type: string, format: uuid }
                       orden: { type: integer, minimum: 1 }
+                      dia: { type: integer, minimum: 1, description: "Día del plan; empieza en 1 y avanza de a uno (por defecto 1)" }
       responses:
         "201":
           description: Ruta creada
@@ -845,6 +860,7 @@ paths:
               properties:
                 ejercicio_id: { type: string, format: uuid }
                 orden: { type: integer, minimum: 1 }
+                dia: { type: integer, minimum: 1, description: "Último día de la ruta o el siguiente (por defecto el último)" }
       responses:
         "201":
           description: Ejercicio agregado
@@ -1558,6 +1574,7 @@ components:
         ruta_id: { type: string, format: uuid }
         ejercicio_id: { type: string, format: uuid }
         orden: { type: integer, minimum: 1 }
+        dia: { type: integer, minimum: 1 }
         estado: { $ref: "#/components/schemas/EstadoRutaEjercicio" }
 
     ResultadoEjercicio:

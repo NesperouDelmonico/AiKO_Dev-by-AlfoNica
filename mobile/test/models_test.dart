@@ -19,6 +19,7 @@ const _route = {
         'estado': 'Activo',
       },
       'orden': 2,
+      'dia': 1,
       'estado': 'Pendiente',
     },
     {
@@ -89,5 +90,45 @@ void main() {
         {'nivel_actual': 2, 'xp_total': 140, 'insignias': []});
     expect(profile.nivel, 2);
     expect(profile.xp, 140);
+  });
+
+  test('ActiveRoute agrupa por día y numera consecutivo', () {
+    Map<String, dynamic> item(String id, int orden, int dia, String estado) => {
+          'id': id,
+          'orden': orden,
+          'dia': dia,
+          'estado': estado,
+          'ejercicio': {
+            'id': 'e$id',
+            'nombre': id,
+            'categoria': 'Memoria',
+            'instrucciones': '',
+            'nivelDificultad': 1,
+          },
+        };
+    final route = ActiveRoute.fromJson({
+      'id': 'r',
+      'ejercicios': [
+        item('c', 3, 4, 'Pendiente'),
+        item('a', 1, 1, 'Completado'),
+        item('b', 2, 1, 'Pendiente'),
+      ],
+    });
+    final days = route.days;
+    expect(days.map((d) => d.numero), [1, 2]);
+    expect(days.first.ejercicios.map((e) => e.id), ['a', 'b']);
+    expect(days.first.done, 1);
+    expect(days.first.isComplete, isFalse);
+    expect(days.last.ejercicios.single.id, 'c');
+  });
+
+  test('dia es 1 si el backend no lo envía', () {
+    final item = RouteExercise.fromJson({
+      'id': 'x',
+      'orden': 1,
+      'estado': 'Pendiente',
+      'ejercicio': {'id': 'e', 'nombre': 'X', 'categoria': 'Memoria'},
+    });
+    expect(item.dia, 1);
   });
 }

@@ -32,6 +32,7 @@ class RouteExercise {
     required this.orden,
     required this.estado,
     required this.ejercicio,
+    this.dia = 1,
   });
 
   static const pending = 'Pendiente';
@@ -40,6 +41,9 @@ class RouteExercise {
 
   final String id;
   final int orden;
+
+  /// Día del plan asignado por el especialista (1, 2, …).
+  final int dia;
   final String estado;
   final Exercise ejercicio;
 
@@ -49,6 +53,7 @@ class RouteExercise {
   factory RouteExercise.fromJson(Map<String, dynamic> json) => RouteExercise(
         id: json['id'] as String,
         orden: (json['orden'] as num).toInt(),
+        dia: (json['dia'] as num?)?.toInt() ?? 1,
         estado: json['estado'] as String,
         ejercicio:
             Exercise.fromJson(Map<String, dynamic>.from(json['ejercicio'] as Map)),
@@ -74,14 +79,43 @@ class ActiveRoute {
     return null;
   }
 
+  /// Ejercicios agrupados por día, en orden. Los días se numeran
+  /// consecutivamente (Día 1, Día 2, …) aunque el backend deje huecos.
+  List<RouteDay> get days {
+    final result = <RouteDay>[];
+    int? current;
+    for (final item in ejercicios) {
+      if (item.dia != current) {
+        current = item.dia;
+        result.add(RouteDay(numero: result.length + 1, ejercicios: []));
+      }
+      result.last.ejercicios.add(item);
+    }
+    return result;
+  }
+
   factory ActiveRoute.fromJson(Map<String, dynamic> json) {
     final items = (json['ejercicios'] as List)
         .map((e) => RouteExercise.fromJson(Map<String, dynamic>.from(e as Map)))
         .where((e) => e.estado != RouteExercise.replaced)
         .toList()
-      ..sort((a, b) => a.orden.compareTo(b.orden));
+      ..sort((a, b) {
+        final byDay = a.dia.compareTo(b.dia);
+        return byDay != 0 ? byDay : a.orden.compareTo(b.orden);
+      });
     return ActiveRoute(id: json['id'] as String, ejercicios: items);
   }
+}
+
+class RouteDay {
+  RouteDay({required this.numero, required this.ejercicios});
+
+  final int numero;
+  final List<RouteExercise> ejercicios;
+
+  int get total => ejercicios.length;
+  int get done => ejercicios.where((e) => e.isCompleted).length;
+  bool get isComplete => done == total;
 }
 
 class AchievementProfile {

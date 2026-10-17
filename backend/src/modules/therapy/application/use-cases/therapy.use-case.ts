@@ -9,7 +9,11 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'node:crypto';
-import { ExerciseStatus } from '../../domain/entities/exercise.entity';
+import {
+  CognitiveCategory,
+  ExerciseStatus,
+} from '../../domain/entities/exercise.entity';
+import { normalizeExerciseParameters } from '../../domain/services/exercise-parameters';
 import { RouteExerciseStatus } from '../../domain/entities/route-exercise.entity';
 import { RouteStatus } from '../../domain/entities/therapeutic-route.entity';
 import { THERAPY_REPOSITORY } from '../../domain/ports/therapy.repository.port';
@@ -27,7 +31,7 @@ import type {
 
 type Actor = { sub: string; rol: UserRole };
 
-type RouteItemInput = { ejercicioId: string; orden: number };
+type RouteItemInput = { ejercicioId: string; orden: number; dia?: number };
 
 @Injectable()
 export class TherapyUseCase {
@@ -64,6 +68,15 @@ export class TherapyUseCase {
     return exercises.filter((_, index) => available[index]);
   }
 
+  private parameters(
+    categoria: CognitiveCategory,
+    parametros: Record<string, unknown>,
+  ) {
+    const check = normalizeExerciseParameters(categoria, parametros);
+    if (!check.ok) throw new BadRequestException(check.errores);
+    return check.parametros;
+  }
+
   create(data: CreateExerciseDto, specialistUserId: string) {
     return this.repository.saveExercise(
       {
@@ -71,7 +84,7 @@ export class TherapyUseCase {
         categoria: data.categoria,
         nivelDificultad: data.nivel_dificultad,
         instrucciones: data.instrucciones,
-        parametros: data.parametros,
+        parametros: this.parameters(data.categoria, data.parametros),
         estado: ExerciseStatus.ACTIVO,
       },
       specialistUserId,
@@ -90,6 +103,13 @@ export class TherapyUseCase {
     if (await this.repository.activeUsage(id)) {
       throw new ConflictException('Ejercicio en uso activo');
     }
+    const parametros =
+      data.parametros === undefined && data.categoria === undefined
+        ? undefined
+        : this.parameters(
+            data.categoria ?? exercise.categoria,
+            data.parametros ?? exercise.parametros,
+          );
     const updated = await this.repository.updateExercise(id, {
       ...(data.nombre === undefined ? {} : { nombre: data.nombre }),
       ...(data.categoria === undefined ? {} : { categoria: data.categoria }),
@@ -99,7 +119,7 @@ export class TherapyUseCase {
       ...(data.instrucciones === undefined
         ? {}
         : { instrucciones: data.instrucciones }),
-      ...(data.parametros === undefined ? {} : { parametros: data.parametros }),
+      ...(parametros === undefined ? {} : { parametros }),
     });
     if (!updated) throw new NotFoundException('Ejercicio no encontrado');
     return updated;
@@ -151,6 +171,18 @@ export class TherapyUseCase {
         'Los ejercicios deben tener orden secuencial desde 1',
       );
     }
+    const days = items.map((item) => item.dia ?? 1);
+    if (
+      days[0] !== 1 ||
+      days.some(
+        (day, index) =>
+          index > 0 && (day < days[index - 1] || day > days[index - 1] + 1),
+      )
+    ) {
+      throw new BadRequestException(
+        'Los días deben empezar en 1 y avanzar de a uno según el orden',
+      );
+    }
     if (new Set(items.map((item) => item.ejercicioId)).size !== items.length) {
       throw new BadRequestException('La ruta no puede repetir ejercicios');
     }
@@ -170,7 +202,10 @@ export class TherapyUseCase {
       }
     }
     try {
-      return await this.repository.createRoute(patientId, items);
+      return await this.repository.createRoute(
+        patientId,
+        items.map((item, index) => ({ ...item, dia: days[index] })),
+      );
     } catch (error) {
       if (error instanceof Error && error.message === 'ACTIVE_ROUTE_CONFLICT') {
         throw new ConflictException('Ya existe una ruta activa');
@@ -226,11 +261,17 @@ export class TherapyUseCase {
         routeId,
         data.ejercicio_id,
         data.orden,
+        data.dia,
       );
     } catch (error) {
       if (error instanceof Error && error.message === 'ROUTE_ORDER_INVALID') {
         throw new BadRequestException(
           'El ejercicio debe agregarse al final de la secuencia',
+        );
+      }
+      if (error instanceof Error && error.message === 'ROUTE_DAY_INVALID') {
+        throw new BadRequestException(
+          'El día debe ser el último de la ruta o el siguiente',
         );
       }
       if (error instanceof Error && error.message === 'ROUTE_NOT_ACTIVE') {

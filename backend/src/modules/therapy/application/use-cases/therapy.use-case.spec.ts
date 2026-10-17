@@ -1,13 +1,20 @@
-import { ForbiddenException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import type { ConfigService } from '@nestjs/config';
 import { TherapyUseCase } from './therapy.use-case';
 import type { TherapyRepositoryPort } from '../../domain/ports/therapy.repository.port';
-import { ExerciseEntity, ExerciseStatus } from '../../domain/entities/exercise.entity';
+import {
+  CognitiveCategory,
+  ExerciseEntity,
+  ExerciseStatus,
+} from '../../domain/entities/exercise.entity';
 import {
   RouteExerciseEntity,
   RouteExerciseStatus,
 } from '../../domain/entities/route-exercise.entity';
-import { RouteStatus, TherapeuticRouteEntity } from '../../domain/entities/therapeutic-route.entity';
+import {
+  RouteStatus,
+  TherapeuticRouteEntity,
+} from '../../domain/entities/therapeutic-route.entity';
 import { PatientEntity } from '../../../users/domain/entities/patient.entity';
 import { UserRole } from '../../../users/domain/entities/user.entity';
 import type { GamificationUseCase } from '../../../gamification/application/use-cases/gamification.use-case';
@@ -150,5 +157,89 @@ describe('TherapyUseCase.result', () => {
         'patient-user',
       ),
     ).resolves.toMatchObject({ insignias_obtenidas: [] });
+  });
+
+  describe('días de la ruta', () => {
+    const exercise = Object.assign(new ExerciseEntity(), {
+      id: 'e',
+      estado: ExerciseStatus.ACTIVO,
+      nivelDificultad: 1,
+    });
+
+    beforeEach(() => {
+      repository.patientAssignedToSpecialist.mockResolvedValue(true);
+      repository.patientById.mockResolvedValue(patient);
+      repository.exercise.mockResolvedValue(exercise);
+      repository.createRoute.mockResolvedValue(route);
+    });
+
+    it('usa día 1 por defecto y pasa los días al repositorio', async () => {
+      await useCase.route(
+        patient.id,
+        [
+          { ejercicioId: 'a', orden: 1 },
+          { ejercicioId: 'b', orden: 2, dia: 1 },
+          { ejercicioId: 'c', orden: 3, dia: 2 },
+        ],
+        'specialist-user',
+      );
+      expect(repository.createRoute).toHaveBeenCalledWith(patient.id, [
+        { ejercicioId: 'a', orden: 1, dia: 1 },
+        { ejercicioId: 'b', orden: 2, dia: 1 },
+        { ejercicioId: 'c', orden: 3, dia: 2 },
+      ]);
+    });
+
+    it.each([[[2, 2]], [[1, 3]], [[2, 1]]])('rechaza días %j', async (days) => {
+      await expect(
+        useCase.route(
+          patient.id,
+          days.map((dia, index) => ({
+            ejercicioId: `e${index}`,
+            orden: index + 1,
+            dia,
+          })),
+          'specialist-user',
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(repository.createRoute).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('parámetros de ejercicio', () => {
+    it('rechaza parámetros fuera de rango al crear', () => {
+      expect(() =>
+        useCase.create(
+          {
+            nombre: 'Atención',
+            categoria: CognitiveCategory.ATENCION,
+            nivel_dificultad: 1,
+            instrucciones: 'Toca el círculo',
+            parametros: { duracion_segundos: 5 },
+          },
+          'specialist-user',
+        ),
+      ).toThrow(BadRequestException);
+      expect(repository.saveExercise).not.toHaveBeenCalled();
+    });
+
+    it('guarda los parámetros completos al crear', async () => {
+      await useCase.create(
+        {
+          nombre: 'Reacción',
+          categoria: CognitiveCategory.VELOCIDAD,
+          nivel_dificultad: 1,
+          instrucciones: 'Toca rápido',
+          parametros: { intentos: 12 },
+        },
+        'specialist-user',
+      );
+      expect(repository.saveExercise).toHaveBeenCalledWith(
+        expect.objectContaining({
+          parametros: { intentos: 12, tiempo_limite_ms: 1500 },
+        }),
+        'specialist-user',
+      );
+    });
   });
 });

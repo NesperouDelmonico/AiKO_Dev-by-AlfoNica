@@ -64,6 +64,15 @@ export class ExerciseStatusDto {
 export class RouteItemDto {
   @ApiProperty() @IsUUID() ejercicio_id!: string;
   @ApiProperty() @IsInt() @Min(1) orden!: number;
+  @ApiPropertyOptional({
+    minimum: 1,
+    description:
+      'Día del plan. En una ruta nueva empieza en 1 y crece de a uno; al agregar, por defecto es el último día.',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  dia?: number;
 }
 export class CreateRouteDto {
   @ApiProperty({ type: [RouteItemDto] })

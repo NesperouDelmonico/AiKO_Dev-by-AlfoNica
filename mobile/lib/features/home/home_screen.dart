@@ -7,10 +7,11 @@ import '../../core/models.dart';
 import '../../core/session.dart';
 import '../../core/theme.dart';
 import '../../widgets/aiko_card.dart';
-import '../../widgets/segmented_progress.dart';
 import 'exercise_detail_screen.dart';
 import 'home_repository.dart';
 
+/// Pantalla principal: la ruta del paciente como un camino vertical de
+/// círculos, agrupado por días (Día 1 · Inicio … Fin, Día 2 · …).
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -20,6 +21,8 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   late Future<HomeData> _future;
+  final _nextKey = GlobalKey();
+  bool _scrolledToNext = false;
 
   @override
   void initState() {
@@ -34,7 +37,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _refresh() async {
     final next = _load();
-    setState(() => _future = next);
+    setState(() {
+      _future = next;
+      _scrolledToNext = false;
+    });
     try {
       await next;
     } catch (_) {
@@ -48,9 +54,24 @@ class _HomeScreenState extends State<HomeScreen> {
     ));
   }
 
+  /// Lleva el camino hasta el ejercicio siguiente la primera vez que carga.
+  void _scrollToNextOnce() {
+    if (_scrolledToNext) return;
+    _scrolledToNext = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final target = _nextKey.currentContext;
+      if (target == null || !target.mounted) return;
+      Scrollable.ensureVisible(
+        target,
+        alignment: 0.4,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeOutCubic,
+      );
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    final name = context.select<Session, String>((s) => s.firstName);
     return Container(
       decoration: const BoxDecoration(gradient: AikoColors.softGradient),
       child: SafeArea(
@@ -73,29 +94,24 @@ class _HomeScreenState extends State<HomeScreen> {
               );
             }
             final data = snapshot.requireData;
-            return RefreshIndicator(
-              onRefresh: _refresh,
-              child: ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-                children: [
-                  Text(name.isEmpty ? 'Hola' : 'Hola, $name',
-                      style: Theme.of(context)
-                          .textTheme
-                          .headlineMedium
-                          ?.copyWith(fontWeight: FontWeight.w800)),
-                  const SizedBox(height: 4),
-                  const Text('Un paso a la vez. Así vas.',
-                      style: TextStyle(fontSize: 16, color: AikoColors.inkSoft)),
-                  const SizedBox(height: 20),
-                  _Stats(profile: data.profile),
-                  const SizedBox(height: 20),
-                  if (data.route == null)
-                    const _EmptyRoute()
-                  else
-                    ..._routeSection(data.route!),
-                ],
-              ),
+            final route = data.route;
+            if (route != null && route.next != null) _scrollToNextOnce();
+            return Column(
+              children: [
+                _TopBar(profile: data.profile),
+                Expanded(
+                  child: RefreshIndicator(
+                    onRefresh: _refresh,
+                    child: ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+                      children: route == null || route.ejercicios.isEmpty
+                          ? const [_EmptyRoute()]
+                          : _path(route),
+                    ),
+                  ),
+                ),
+              ],
             );
           },
         ),
@@ -103,187 +119,467 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  List<Widget> _routeSection(ActiveRoute route) {
+  List<Widget> _path(ActiveRoute route) {
     final next = route.next;
-    return [
-      if (next != null)
-        _NextExerciseCard(item: next, onStart: () => _open(next, isNext: true))
-      else
-        const _RouteDoneCard(),
-      const SizedBox(height: 20),
-      AikoCard(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Tu progreso',
-                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
-                Text('${route.done} de ${route.total}',
-                    style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: AikoColors.violet)),
-              ],
-            ),
-            const SizedBox(height: 14),
-            SegmentedProgress(total: route.total, done: route.done),
-          ],
-        ),
-      ),
-      const SizedBox(height: 24),
-      const Text('Tu ruta',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-      const SizedBox(height: 10),
-      for (final item in route.ejercicios)
-        Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: _ExerciseTile(
+    final widgets = <Widget>[];
+    var index = 0; // posición global en el zigzag
+    for (final day in route.days) {
+      final isCurrent = next != null && day.ejercicios.contains(next);
+      widgets
+        ..add(_DayBanner(day: day, isCurrent: isCurrent))
+        ..add(const SizedBox(height: 18))
+        ..add(const _Marker(label: 'INICIO', icon: Icons.flag_rounded));
+      for (final item in day.ejercicios) {
+        final isNext = item.id == next?.id;
+        widgets.add(_ZigZag(
+          index: index++,
+          child: _ExerciseNode(
+            key: isNext ? _nextKey : null,
             item: item,
-            isNext: item.id == next?.id,
-            onTap: () => _open(item, isNext: item.id == next?.id),
+            state: item.isCompleted
+                ? _NodeState.done
+                : isNext
+                    ? _NodeState.next
+                    : _NodeState.locked,
+            onTap: () => _open(item, isNext: isNext),
           ),
-        ),
-    ];
+        ));
+      }
+      widgets
+        ..add(_DayEnd(day: day))
+        ..add(const SizedBox(height: 28));
+    }
+    if (next == null) widgets.add(const _RouteDoneCard());
+    return widgets;
   }
 }
 
-class _Stats extends StatelessWidget {
-  const _Stats({required this.profile});
+// ---------------------------------------------------------------------------
+// Cabecera
+
+class _TopBar extends StatelessWidget {
+  const _TopBar({required this.profile});
 
   final AchievementProfile profile;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _StatCard(
-              icon: Icons.workspace_premium_rounded,
-              value: '${profile.nivel}',
-              label: 'Nivel'),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: _StatCard(
-              icon: Icons.stars_rounded, value: '${profile.xp}', label: 'Puntos XP'),
-        ),
-      ],
-    );
-  }
-}
-
-class _StatCard extends StatelessWidget {
-  const _StatCard({required this.icon, required this.value, required this.label});
-
-  final IconData icon;
-  final String value;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      label: '$label: $value',
-      excludeSemantics: true,
-      child: AikoCard(
-        child: Row(
-          children: [
-            Container(
-              height: 44,
-              width: 44,
-              decoration: BoxDecoration(
-                color: AikoColors.peachSoft,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Icon(icon, color: AikoColors.violet),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(value,
-                      style: const TextStyle(
-                          fontSize: 24, fontWeight: FontWeight.w800)),
-                  Text(label,
-                      style: const TextStyle(
-                          fontSize: 13, color: AikoColors.inkSoft)),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _NextExerciseCard extends StatelessWidget {
-  const _NextExerciseCard({required this.item, required this.onStart});
-
-  final RouteExercise item;
-  final VoidCallback onStart;
-
-  @override
-  Widget build(BuildContext context) {
-    final exercise = item.ejercicio;
-    final style = CategoryStyle.of(exercise.categoria);
-    return AikoCard(
-      gradient: AikoColors.heroGradient,
-      padding: const EdgeInsets.all(22),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    final name = context.select<Session, String>((s) => s.firstName);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+      child: Row(
         children: [
-          const Text('SIGUIENTE EJERCICIO',
-              style: TextStyle(
-                  fontSize: 12,
-                  letterSpacing: 1.2,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white)),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.9),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Icon(style.icon, color: style.foreground, size: 28),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(exercise.nombre,
-                        style: const TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w800,
-                            color: AikoColors.ink)),
-                    Text('${exercise.categoria} · Nivel ${exercise.nivel}',
-                        style: const TextStyle(
-                            fontSize: 14, color: AikoColors.ink)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          FilledButton(
-            onPressed: onStart,
-            style: FilledButton.styleFrom(
-              backgroundColor: Colors.white,
-              foregroundColor: AikoColors.violet,
+          Expanded(
+            child: Text(
+              name.isEmpty ? 'Hola' : 'Hola, $name',
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
             ),
-            child: const Text('Ver ejercicio'),
+          ),
+          _Chip(
+            icon: Icons.workspace_premium_rounded,
+            color: AikoColors.violet,
+            text: 'Nivel ${profile.nivel}',
+          ),
+          const SizedBox(width: 8),
+          _Chip(
+            icon: Icons.stars_rounded,
+            color: const Color(0xFFE07B39),
+            text: '${profile.xp} XP',
           ),
         ],
       ),
     );
   }
 }
+
+class _Chip extends StatelessWidget {
+  const _Chip({required this.icon, required this.color, required this.text});
+
+  final IconData icon;
+  final Color color;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 20, color: color),
+          const SizedBox(width: 4),
+          Text(text,
+              style: TextStyle(fontWeight: FontWeight.w800, color: color)),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Día
+
+class _DayBanner extends StatelessWidget {
+  const _DayBanner({required this.day, required this.isCurrent});
+
+  final RouteDay day;
+  final bool isCurrent;
+
+  @override
+  Widget build(BuildContext context) {
+    final complete = day.isComplete;
+    final subtitle = complete
+        ? '¡Día completado!'
+        : '${day.done} de ${day.total} ejercicios';
+    final foreground = isCurrent ? Colors.white : AikoColors.ink;
+    return Semantics(
+      header: true,
+      label: 'Día ${day.numero}. $subtitle',
+      excludeSemantics: true,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+        decoration: BoxDecoration(
+          gradient: isCurrent
+              ? const LinearGradient(
+                  colors: [AikoColors.violet, Color(0xFF8A6FD8)])
+              : null,
+          color: isCurrent
+              ? null
+              : complete
+                  ? const Color(0xFFDDF3EA)
+                  : Colors.white,
+          borderRadius: BorderRadius.circular(22),
+          border: Border(
+            bottom: BorderSide(
+              width: 4,
+              color: isCurrent
+                  ? const Color(0xFF3F2A80)
+                  : complete
+                      ? const Color(0xFFB5E2CF)
+                      : AikoColors.lilacSoft,
+            ),
+          ),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('DÍA ${day.numero}',
+                      style: TextStyle(
+                          fontSize: 13,
+                          letterSpacing: 1.2,
+                          fontWeight: FontWeight.w800,
+                          color: foreground.withValues(alpha: 0.8))),
+                  const SizedBox(height: 2),
+                  Text(subtitle,
+                      style: TextStyle(
+                          fontSize: 19,
+                          fontWeight: FontWeight.w800,
+                          color: foreground)),
+                ],
+              ),
+            ),
+            Icon(
+              complete
+                  ? Icons.check_circle_rounded
+                  : Icons.calendar_today_rounded,
+              size: 30,
+              color: complete ? AikoColors.success : foreground,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Etiqueta "INICIO" al comienzo de cada día.
+class _Marker extends StatelessWidget {
+  const _Marker({required this.label, required this.icon});
+
+  final String label;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AikoColors.lilacSoft, width: 2),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: AikoColors.violet),
+            const SizedBox(width: 6),
+            Text(label,
+                style: const TextStyle(
+                    fontSize: 12,
+                    letterSpacing: 1.1,
+                    fontWeight: FontWeight.w800,
+                    color: AikoColors.violet)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Cierre del día: un trofeo que se enciende cuando el día está completo.
+class _DayEnd extends StatelessWidget {
+  const _DayEnd({required this.day});
+
+  final RouteDay day;
+
+  @override
+  Widget build(BuildContext context) {
+    final complete = day.isComplete;
+    return Semantics(
+      label: complete
+          ? 'Fin del día ${day.numero}, completado'
+          : 'Fin del día ${day.numero}',
+      excludeSemantics: true,
+      child: Padding(
+        padding: const EdgeInsets.only(top: 6),
+        child: Column(
+          children: [
+            _RaisedCircle(
+              size: 64,
+              color: complete ? AikoColors.peach : const Color(0xFFE6E1EF),
+              shadow: complete
+                  ? const Color(0xFFE59A72)
+                  : const Color(0xFFCFC8DC),
+              child: Icon(
+                Icons.emoji_events_rounded,
+                size: 32,
+                color: complete ? const Color(0xFF9A4A1F) : AikoColors.inkSoft,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text('FIN DEL DÍA ${day.numero}',
+                style: const TextStyle(
+                    fontSize: 12,
+                    letterSpacing: 1.1,
+                    fontWeight: FontWeight.w800,
+                    color: AikoColors.inkSoft)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Nodos del camino
+
+enum _NodeState { done, next, locked }
+
+/// Desplaza los nodos a izquierda y derecha para dibujar el camino.
+class _ZigZag extends StatelessWidget {
+  const _ZigZag({required this.index, required this.child});
+
+  static const _pattern = [0.0, 0.45, 0.7, 0.45, 0.0, -0.45, -0.7, -0.45];
+
+  final int index;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Align(
+        alignment: Alignment(_pattern[index % _pattern.length], 0),
+        child: child,
+      ),
+    );
+  }
+}
+
+class _ExerciseNode extends StatelessWidget {
+  const _ExerciseNode({
+    super.key,
+    required this.item,
+    required this.state,
+    required this.onTap,
+  });
+
+  final RouteExercise item;
+  final _NodeState state;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final exercise = item.ejercicio;
+    final style = CategoryStyle.of(exercise.categoria);
+    final status = switch (state) {
+      _NodeState.done => 'completado',
+      _NodeState.next => 'siguiente, toca para comenzar',
+      _NodeState.locked => 'bloqueado',
+    };
+
+    final (Color fill, Color shadow, Color icon) = switch (state) {
+      _NodeState.done => (style.foreground, _darken(style.foreground), Colors.white),
+      _NodeState.next => (AikoColors.violet, const Color(0xFF3F2A80), Colors.white),
+      _NodeState.locked => (
+          const Color(0xFFE6E1EF),
+          const Color(0xFFCFC8DC),
+          const Color(0xFFA59EB8)
+        ),
+    };
+
+    final circle = _RaisedCircle(
+      size: state == _NodeState.next ? 84 : 76,
+      color: fill,
+      shadow: shadow,
+      child: Icon(
+        state == _NodeState.done ? Icons.check_rounded : style.icon,
+        size: 36,
+        color: icon,
+      ),
+    );
+
+    return Semantics(
+      button: true,
+      label: '${exercise.nombre}, ${exercise.categoria}, $status',
+      excludeSemantics: true,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: SizedBox(
+          width: 150,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (state == _NodeState.next) const _StartBubble(),
+              if (state == _NodeState.next)
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: AikoColors.lilac, width: 4),
+                  ),
+                  child: circle,
+                )
+              else
+                circle,
+              const SizedBox(height: 6),
+              Text(
+                exercise.nombre,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: state == _NodeState.locked
+                      ? AikoColors.inkSoft
+                      : AikoColors.ink,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  static Color _darken(Color color) {
+    final hsl = HSLColor.fromColor(color);
+    return hsl.withLightness((hsl.lightness - 0.12).clamp(0.0, 1.0)).toColor();
+  }
+}
+
+/// Círculo con "borde inferior" más oscuro, para dar sensación de botón.
+class _RaisedCircle extends StatelessWidget {
+  const _RaisedCircle({
+    required this.size,
+    required this.color,
+    required this.shadow,
+    required this.child,
+  });
+
+  final double size;
+  final Color color;
+  final Color shadow;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: size,
+      width: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+        boxShadow: [BoxShadow(color: shadow, offset: const Offset(0, 6))],
+      ),
+      child: child,
+    );
+  }
+}
+
+class _StartBubble extends StatelessWidget {
+  const _StartBubble();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AikoColors.lilacSoft, width: 2),
+            ),
+            child: const Text('COMENZAR',
+                style: TextStyle(
+                    fontSize: 14,
+                    letterSpacing: 1,
+                    fontWeight: FontWeight.w800,
+                    color: AikoColors.violet)),
+          ),
+          CustomPaint(
+            size: const Size(16, 8),
+            painter: _ArrowPainter(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ArrowPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width / 2, size.height)
+      ..lineTo(size.width, 0)
+      ..close();
+    canvas.drawPath(path, Paint()..color = AikoColors.lilacSoft);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+// ---------------------------------------------------------------------------
+// Estados
 
 class _RouteDoneCard extends StatelessWidget {
   const _RouteDoneCard();
@@ -312,93 +608,21 @@ class _EmptyRoute extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const AikoCard(
-      child: Column(
-        children: [
-          Icon(Icons.hourglass_empty_rounded, size: 40, color: AikoColors.lilac),
-          SizedBox(height: 10),
-          Text('Aún no tienes ejercicios',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
-          SizedBox(height: 4),
-          Text('Tu especialista te asignará una ruta pronto.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: AikoColors.inkSoft)),
-        ],
-      ),
-    );
-  }
-}
-
-class _ExerciseTile extends StatelessWidget {
-  const _ExerciseTile({
-    required this.item,
-    required this.isNext,
-    required this.onTap,
-  });
-
-  final RouteExercise item;
-  final bool isNext;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final exercise = item.ejercicio;
-    final style = CategoryStyle.of(exercise.categoria);
-    final done = item.isCompleted;
-    final status = done ? 'completado' : (isNext ? 'siguiente' : 'pendiente');
-    return Semantics(
-      button: true,
-      label: '${exercise.nombre}, ${exercise.categoria}, $status',
-      excludeSemantics: true,
-      child: Opacity(
-        opacity: done ? 0.6 : 1,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(24),
-          onTap: onTap,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(
-                color: isNext ? AikoColors.violet : Colors.transparent,
-                width: 2,
-              ),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  height: 48,
-                  width: 48,
-                  decoration: BoxDecoration(
-                    color: style.background,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Icon(style.icon, color: style.foreground),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(exercise.nombre,
-                          style: const TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.w700)),
-                      Text('${exercise.categoria} · Nivel ${exercise.nivel}',
-                          style: const TextStyle(
-                              fontSize: 13, color: AikoColors.inkSoft)),
-                    ],
-                  ),
-                ),
-                if (done)
-                  const Icon(Icons.check_circle_rounded,
-                      color: AikoColors.success, size: 28)
-                else
-                  Icon(Icons.chevron_right_rounded,
-                      color: isNext ? AikoColors.violet : AikoColors.inkSoft),
-              ],
-            ),
-          ),
+    return const Padding(
+      padding: EdgeInsets.only(top: 24),
+      child: AikoCard(
+        child: Column(
+          children: [
+            Icon(Icons.hourglass_empty_rounded,
+                size: 40, color: AikoColors.lilac),
+            SizedBox(height: 10),
+            Text('Aún no tienes ejercicios',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+            SizedBox(height: 4),
+            Text('Tu especialista te asignará una ruta pronto.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: AikoColors.inkSoft)),
+          ],
         ),
       ),
     );
@@ -432,7 +656,8 @@ class _MessageState extends StatelessWidget {
             const SizedBox(height: 14),
             Text(title,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+                style:
+                    const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
             const SizedBox(height: 6),
             Text(message,
                 textAlign: TextAlign.center,

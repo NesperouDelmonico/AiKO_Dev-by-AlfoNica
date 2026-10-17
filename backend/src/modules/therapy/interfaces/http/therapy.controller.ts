@@ -86,6 +86,7 @@ export class TherapyController {
       d.ejercicios.map((x) => ({
         ejercicioId: x.ejercicio_id,
         orden: x.orden,
+        dia: x.dia,
       })),
       user.sub,
     );
@@ -169,7 +170,13 @@ export class TherapyController {
     @Query() query: RoutesQueryDto,
     @CurrentAuthUser() user: { sub: string; rol: UserRole },
   ) {
-    return this.use.routeHistory(id, query.page, query.limit, user, query.estado);
+    return this.use.routeHistory(
+      id,
+      query.page,
+      query.limit,
+      user,
+      query.estado,
+    );
   }
   @Get('pacientes/:id/progreso/dominio')
   @Roles(UserRole.PACIENTE, UserRole.ESPECIALISTA, UserRole.ADMINISTRADOR)

@@ -143,7 +143,7 @@ export class PostgresTherapyRepository implements TherapyRepositoryPort {
   }
   async createRoute(
     patientId: string,
-    values: { ejercicioId: string; orden: number }[],
+    values: { ejercicioId: string; orden: number; dia: number }[],
   ) {
     return this.routes.manager.transaction(async (manager) => {
       const patient = await manager
@@ -181,6 +181,7 @@ export class PostgresTherapyRepository implements TherapyRepositoryPort {
               (exercise) => exercise.id === value.ejercicioId,
             )!,
             orden: value.orden,
+            dia: value.dia,
             estado: RouteExerciseStatus.PENDIENTE,
           }),
         ),
@@ -216,7 +217,12 @@ export class PostgresTherapyRepository implements TherapyRepositoryPort {
       porcentaje: all.length ? (completados * 100) / all.length : 0,
     };
   }
-  async addRouteExercise(routeId: string, exerciseId: string, orden: number) {
+  async addRouteExercise(
+    routeId: string,
+    exerciseId: string,
+    orden: number,
+    dia?: number,
+  ) {
     return this.routes.manager.transaction(async (manager) => {
       const ruta = await manager.findOneOrFail(TherapeuticRouteEntity, {
         where: { id: routeId },
@@ -234,6 +240,18 @@ export class PostgresTherapyRepository implements TherapyRepositoryPort {
       if (orden !== currentCount + 1) {
         throw new Error('ROUTE_ORDER_INVALID');
       }
+      const last = await manager.findOne(RouteExerciseEntity, {
+        where: {
+          ruta: { id: routeId },
+          estado: Not(RouteExerciseStatus.REEMPLAZADO),
+        },
+        order: { orden: 'DESC' },
+      });
+      const lastDay = last?.dia ?? 1;
+      const day = dia ?? lastDay;
+      if (day < lastDay || day > lastDay + 1) {
+        throw new Error('ROUTE_DAY_INVALID');
+      }
       const ejercicio = await manager.findOneByOrFail(ExerciseEntity, {
         id: exerciseId,
       });
@@ -243,6 +261,7 @@ export class PostgresTherapyRepository implements TherapyRepositoryPort {
           ruta,
           ejercicio,
           orden,
+          dia: day,
           estado: RouteExerciseStatus.PENDIENTE,
         }),
       );
@@ -319,6 +338,7 @@ export class PostgresTherapyRepository implements TherapyRepositoryPort {
           ruta: route,
           ejercicio: exercise,
           orden: old.orden,
+          dia: old.dia,
           estado: RouteExerciseStatus.PENDIENTE,
         }),
       );
