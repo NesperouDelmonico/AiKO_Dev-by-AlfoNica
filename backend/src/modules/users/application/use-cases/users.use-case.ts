@@ -210,6 +210,9 @@ export class UsersUseCase {
         text: `Tu cuenta fue creada. Contraseña temporal: ${temporaryPassword}. Cámbiala al ingresar.`,
       });
     } catch (error) {
+      this.logger.error(
+        `No se pudo enviar las credenciales a la cuenta ${user.id}: ${String(error)}`,
+      );
       await this.repository.setState(user.id, false);
       if (error instanceof ServiceUnavailableException) throw error;
       throw new ServiceUnavailableException(
