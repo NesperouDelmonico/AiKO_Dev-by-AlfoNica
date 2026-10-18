@@ -5,6 +5,7 @@ import {
   ManyToOne,
   JoinColumn,
   Check,
+  Index,
 } from 'typeorm';
 import { TherapeuticRouteEntity } from './therapeutic-route.entity';
 import { ExerciseEntity } from './exercise.entity';
@@ -16,28 +17,41 @@ export enum RouteExerciseStatus {
 }
 
 @Entity('ruta_ejercicio')
-@Check(`"orden" > 0`)
+@Check('CHK_58942faafae2e47edaa448b991', `"orden" > 0`)
+@Check('CHK_ruta_ejercicio_dia', `"dia" > 0`)
+@Index('UQ_ruta_orden_vigente', ['ruta', 'orden'], {
+  unique: true,
+  where: `"estado" <> 'Reemplazado'`,
+})
 export class RouteExerciseEntity {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @ManyToOne(() => TherapeuticRouteEntity, {
     onDelete: 'RESTRICT',
     onUpdate: 'CASCADE',
   })
   @JoinColumn({ name: 'ruta_id' })
-  ruta: TherapeuticRouteEntity;
+  ruta!: TherapeuticRouteEntity;
 
   @ManyToOne(() => ExerciseEntity, {
     onDelete: 'RESTRICT',
     onUpdate: 'CASCADE',
   })
   @JoinColumn({ name: 'ejercicio_id' })
-  ejercicio: ExerciseEntity;
+  ejercicio!: ExerciseEntity;
 
   @Column({ type: 'int' })
-  orden: number;
+  orden!: number;
+
+  /** Día del plan en el que el especialista ubica este ejercicio (1, 2, …). */
+  @Column({ type: 'int', default: 1 })
+  dia!: number;
 
   @Column({ type: 'enum', enum: RouteExerciseStatus })
-  estado: RouteExerciseStatus;
+  estado!: RouteExerciseStatus;
+
+  /** Cuándo se completó; con esto se habilita el día siguiente por fecha. */
+  @Column({ type: 'timestamp', name: 'fecha_completado', nullable: true })
+  fechaCompletado!: Date | null;
 }

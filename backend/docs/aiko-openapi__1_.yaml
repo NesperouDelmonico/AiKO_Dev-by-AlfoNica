@@ -1,0 +1,1824 @@
+openapi: 3.0.3
+info:
+  title: AiKO API
+  description: >
+    API REST de AiKO, plataforma de rehabilitación cognitiva gamificada para
+    pacientes con traumatismo craneoencefálico leve o moderado (30-60 años).
+    Expone los casos de uso de los módulos Usuarios, Terapia, Gamificación y
+    Seguimiento, consumidos por la app móvil (Flutter, rol Paciente) y el
+    panel web (React, roles Especialista y Administrador).
+  version: "1.0.0"
+servers:
+  - url: https://api.aiko.com/v1
+    description: Producción
+
+tags:
+  - name: Imágenes
+  - name: Autenticación
+  - name: Usuarios
+  - name: Pacientes
+  - name: Incidencias
+  - name: Ejercicios
+  - name: Rutas terapéuticas
+  - name: Ejecución y resultados
+  - name: Gamificación
+  - name: Observaciones clínicas
+  - name: Alertas
+  - name: Notificaciones y preferencias
+  - name: Administración
+
+security:
+  - bearerAuth: []
+
+paths:
+  # ============================================================
+  # MÓDULO: USUARIOS — Autenticación
+  # ============================================================
+  /auth/login:
+    post:
+      tags: [Autenticación]
+      summary: Iniciar sesión (RF-001)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [correo, contraseña]
+              properties:
+                correo:
+                  type: string
+                  format: email
+                contraseña:
+                  type: string
+                  format: password
+                  maxLength: 72
+      responses:
+        BadRequest:
+          description: Solicitud inválida o política de contraseña incumplida
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        Unauthorized:
+          description: Credenciales o autenticación inválidas
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        Forbidden:
+          description: Operación no autorizada para esta cuenta
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "200":
+          description: Login exitoso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                  rol:
+                    $ref: "#/components/schemas/Rol"
+                  usuario:
+                    $ref: "#/components/schemas/Usuario"
+        "401":
+          description: Credenciales inválidas (RF-002)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "423":
+          description: Cuenta bloqueada tras 5 intentos fallidos (RF-003)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "429": { description: Máximo cinco solicitudes por minuto }
+
+  /auth/logout:
+    post:
+      tags: [Autenticación]
+      summary: Cerrar sesión (RF-004)
+      responses:
+        "204":
+          description: Sesión cerrada
+
+  /auth/me:
+    get:
+      tags: [Autenticación]
+      summary: Obtener usuario autenticado y redirigir según rol (RF-005)
+      responses:
+        "200":
+          description: Usuario autenticado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Usuario" }
+
+  /auth/contrasena:
+    patch:
+      tags: [Autenticación]
+      summary: Cambiar la contraseña de la cuenta autenticada
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [contraseña_actual, nueva_contraseña]
+              properties:
+                contraseña_actual: { type: string, format: password, maxLength: 72 }
+                nueva_contraseña:
+                  type: string
+                  format: password
+                  minLength: 8
+                  maxLength: 72
+                  description: Debe contener minúscula, mayúscula y número.
+      responses:
+        "204": { description: Contraseña actualizada }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /auth/olvide-contrasena:
+    post:
+      tags: [Autenticación]
+      summary: Solicitar código de restablecimiento de contraseña
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [correo]
+              properties:
+                correo: { type: string, format: email }
+      responses:
+        "202":
+          description: Se envían instrucciones si la cuenta existe, sin revelar su existencia
+        "429": { description: Máximo cinco solicitudes por minuto }
+
+  /auth/restablecer-contrasena:
+    post:
+      tags: [Autenticación]
+      summary: Restablecer contraseña con código temporal
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [correo, codigo, nueva_contraseña]
+              properties:
+                correo: { type: string, format: email, maxLength: 150 }
+                codigo:
+                  type: string
+                  pattern: '^\d{6}$'
+                  description: Código de seis dígitos, válido durante 15 minutos y con máximo cinco intentos.
+                nueva_contraseña:
+                  type: string
+                  format: password
+                  minLength: 8
+                  maxLength: 72
+                  description: Debe contener minúscula, mayúscula y número.
+      responses:
+        "204": { description: Contraseña restablecida }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "429": { description: Máximo cinco solicitudes por minuto }
+
+  # ============================================================
+  # MÓDULO: USUARIOS — Usuario (recurso base)
+  # ============================================================
+  /usuarios:
+    get:
+      tags: [Usuarios]
+      summary: Listar usuarios (admin) (RF-059)
+      parameters:
+        - { $ref: "#/components/parameters/page" }
+        - { $ref: "#/components/parameters/limit" }
+        - name: q
+          in: query
+          description: Busca por nombre o correo sin distinguir mayúsculas ni tildes
+          schema: { type: string }
+        - name: rol
+          in: query
+          schema: { $ref: "#/components/schemas/Rol" }
+        - name: estado
+          in: query
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: Lista paginada de usuarios
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginatedMeta"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/Usuario" }
+
+  /usuarios/{id}:
+    parameters:
+      - { $ref: "#/components/parameters/idPathParam" }
+    get:
+      tags: [Usuarios]
+      summary: Obtener usuario por ID
+      responses:
+        "200":
+          description: Usuario encontrado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Usuario" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put:
+      tags: [Usuarios]
+      summary: Editar información de usuario (RF-056)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nombre: { type: string, maxLength: 150 }
+                correo: { type: string, format: email, maxLength: 150 }
+                cedula: { type: string, maxLength: 20 }
+      responses:
+        "200":
+          description: Usuario actualizado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Usuario" }
+        "409":
+          description: Correo duplicado (RF-055)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /usuarios/{id}/estado:
+    parameters:
+      - { $ref: "#/components/parameters/idPathParam" }
+    patch:
+      tags: [Usuarios]
+      summary: Activar/desactivar usuario, revoca acceso (RF-057)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [estado]
+              properties:
+                estado: { type: boolean }
+      responses:
+        "200":
+          description: Usuario actualizado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Usuario" }
+        "409":
+          description: No puedes desactivar al último administrador activo ni desactivarte a ti mismo
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /usuarios/administrador-inicial:
+    post:
+      tags: [Usuarios]
+      summary: Registrar cuenta administradora inicial, solo si no existe ninguna (RF-074)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [nombre, cedula, correo, contraseña]
+              properties:
+                nombre: { type: string, maxLength: 150 }
+                cedula: { type: string, maxLength: 20 }
+                correo: { type: string, format: email }
+                contraseña: { type: string, format: password }
+      responses:
+        "201":
+          description: Administrador creado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Usuario" }
+        "409":
+          description: Ya existe un administrador
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /usuarios/administradores:
+    post:
+      tags: [Usuarios]
+      summary: Crear cuenta de administrador por delegación (RF-076)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [nombre, cedula, correo]
+              properties:
+                nombre: { type: string, maxLength: 150 }
+                cedula: { type: string, maxLength: 20 }
+                correo: { type: string, format: email }
+      responses:
+        "201":
+          description: Administrador creado (acción registrada en auditoría, RF-062)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Usuario" }
+
+  /usuarios/especialistas:
+    post:
+      tags: [Usuarios]
+      summary: Crear cuenta de especialista (RF-075)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [nombre, cedula, correo]
+              properties:
+                nombre: { type: string, maxLength: 150 }
+                cedula: { type: string, maxLength: 20 }
+                correo: { type: string, format: email }
+      responses:
+        "201":
+          description: Especialista creado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Usuario" }
+
+  /usuarios/{id}/restablecer-contrasena:
+    parameters:
+      - { $ref: "#/components/parameters/idPathParam" }
+    post:
+      tags: [Usuarios]
+      summary: Restablecer la contraseña de un usuario como administrador
+      responses:
+        "204": { description: Contraseña temporal enviada; se reinician los intentos y se reactiva la cuenta }
+        "503": { description: No se pudo enviar el correo; la cuenta no fue modificada }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { description: Máximo cinco solicitudes por minuto }
+
+  # ============================================================
+  # MÓDULO: USUARIOS — Pacientes
+  # ============================================================
+  /pacientes:
+    post:
+      tags: [Pacientes]
+      summary: Crear paciente (lo crea su especialista, sin autorregistro)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [nombre, cedula, correo, fecha_nacimiento, umbral_bajo_rendimiento, umbral_dias_inactividad]
+              properties:
+                nombre: { type: string, maxLength: 150 }
+                cedula: { type: string, maxLength: 20 }
+                correo: { type: string, format: email }
+                fecha_nacimiento: { type: string, format: date, description: Fecha ISO válida, no futura y con edad calculada máxima de 120 años }
+                umbral_bajo_rendimiento: { type: number, format: float, minimum: 0, maximum: 100 }
+                umbral_dias_inactividad: { type: integer, minimum: 1 }
+      responses:
+        "201":
+          description: Paciente creado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Paciente" }
+    get:
+      tags: [Pacientes]
+      summary: Listar pacientes asignados al especialista (RF-025)
+      parameters:
+        - { $ref: "#/components/parameters/page" }
+        - { $ref: "#/components/parameters/limit" }
+        - name: q
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: "Lista de pacientes (vacía si no hay asignados, RF-026)"
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginatedMeta"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/PacienteListado" }
+
+  /pacientes/buscar:
+    get:
+      tags: [Pacientes]
+      summary: Buscar/filtrar pacientes (RF-029)
+      parameters:
+        - name: q
+          in: query
+          schema: { type: string }
+        - name: estado
+          in: query
+          schema: { type: string }
+        - name: nivel
+          in: query
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Lista filtrada de pacientes
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Paciente" }
+
+  /pacientes/{id}:
+    parameters:
+      - { $ref: "#/components/parameters/idPathParam" }
+    patch:
+      tags: [Pacientes]
+      summary: Actualizar la fecha de nacimiento del paciente
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [fecha_nacimiento]
+              properties:
+                fecha_nacimiento:
+                  type: string
+                  format: date
+                  description: Fecha ISO válida, no futura y con edad calculada máxima de 120 años
+      responses:
+        "200":
+          description: Paciente actualizado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Paciente" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    get:
+      tags: [Pacientes]
+      summary: Ver información básica del paciente (RF-027)
+      responses:
+        "200":
+          description: Paciente encontrado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Paciente" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /pacientes/{id}/asignacion:
+    parameters:
+      - { $ref: "#/components/parameters/idPathParam" }
+    patch:
+      tags: [Pacientes]
+      summary: Asignar paciente a un especialista, notifica a ambas partes (RF-063)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [especialista_id]
+              properties:
+                especialista_id: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Paciente reasignado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Paciente" }
+
+  /pacientes/{id}/umbrales:
+    parameters:
+      - { $ref: "#/components/parameters/idPathParam" }
+    put:
+      tags: [Pacientes]
+      summary: Configurar umbrales de inactividad/bajo rendimiento
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [umbral_bajo_rendimiento, umbral_dias_inactividad]
+              properties:
+                umbral_bajo_rendimiento: { type: number, format: float, minimum: 0, maximum: 100 }
+                umbral_dias_inactividad: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          description: Umbrales actualizados
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Paciente" }
+
+  # ============================================================
+  # MÓDULO: USUARIOS — Incidencias
+  # ============================================================
+  /incidencias:
+    post:
+      tags: [Incidencias]
+      summary: Registrar incidencia de soporte
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [descripcion]
+              properties:
+                descripcion: { type: string }
+      responses:
+        "201":
+          description: Incidencia creada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Incidencia" }
+    get:
+      tags: [Incidencias]
+      summary: Listar incidencias de soporte (RF-071)
+      parameters:
+        - { $ref: "#/components/parameters/page" }
+        - { $ref: "#/components/parameters/limit" }
+        - name: estado
+          in: query
+          schema: { $ref: "#/components/schemas/EstadoIncidencia" }
+      responses:
+        "200":
+          description: Lista de incidencias
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginatedMeta"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/Incidencia" }
+
+  /incidencias/{id}:
+    parameters:
+      - { $ref: "#/components/parameters/idPathParam" }
+    get:
+      tags: [Incidencias]
+      summary: Mostrar detalle completo de incidencia (RF-073)
+      responses:
+        "200":
+          description: Incidencia encontrada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Incidencia" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /incidencias/{id}/estado:
+    parameters:
+      - { $ref: "#/components/parameters/idPathParam" }
+    patch:
+      tags: [Incidencias]
+      summary: Actualizar estado de incidencia (RF-072)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [estado]
+              properties:
+                estado: { $ref: "#/components/schemas/EstadoIncidencia" }
+      responses:
+        "200":
+          description: Incidencia actualizada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Incidencia" }
+
+  # ============================================================
+  # MÓDULO: TERAPIA — Ejercicios
+  # ============================================================
+  /imagenes:
+    post:
+      tags: [Imágenes]
+      summary: Subir imagen de ejercicio (PNG o JPG, máx. 1,5 MB)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tipo_mime, datos]
+              properties:
+                tipo_mime: { type: string, enum: [image/png, image/jpeg] }
+                datos: { type: string, description: Contenido en base64 }
+      responses:
+        "201":
+          description: Imagen guardada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Imagen" }
+        "400":
+          description: Formato inválido
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "413":
+          description: Imagen demasiado grande
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /imagenes/{id}:
+    parameters:
+      - { $ref: "#/components/parameters/idPathParam" }
+    get:
+      tags: [Imágenes]
+      summary: Obtener imagen de ejercicio (pública por id)
+      security: []
+      responses:
+        "200":
+          description: Contenido de la imagen
+          content:
+            image/png: { schema: { type: string, format: binary } }
+            image/jpeg: { schema: { type: string, format: binary } }
+        "404":
+          description: Imagen no encontrada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /ejercicios:
+    get:
+      tags: [Ejercicios]
+      summary: Listar catálogo filtrable (RF-033) / ejercicios filtrados por nivel y ruta (RF-006)
+      parameters:
+        - name: categoria
+          in: query
+          schema: { $ref: "#/components/schemas/CategoriaEjercicio" }
+        - name: nivel_dificultad
+          in: query
+          schema: { type: integer }
+        - name: estado
+          in: query
+          schema: { $ref: "#/components/schemas/EstadoEjercicio" }
+      responses:
+        "200":
+          description: Lista de ejercicios
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Ejercicio" }
+    post:
+      tags: [Ejercicios]
+      summary: Crear ejercicio terapéutico (RF-030)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [nombre, categoria, nivel_dificultad, instrucciones, parametros]
+              properties:
+                nombre: { type: string, maxLength: 150 }
+                categoria: { $ref: "#/components/schemas/CategoriaEjercicio" }
+                tipo: { $ref: "#/components/schemas/TipoJuego" }
+                nivel_dificultad: { type: integer, minimum: 1 }
+                instrucciones: { type: string }
+                parametros:
+                  type: object
+                  additionalProperties: true
+                  description: |
+                    Según el tipo de juego (se completan valores por defecto):
+                    atencion_sostenida: duracion_segundos 30–180 (60), intervalo_ms 600–3000 (1500).
+                    memoria_secuencias: longitud_inicial 2–8 (3), longitud_maxima ≤ 9 y ≥ longitud_inicial (6), tiempo_visualizacion_ms 500–3000 (1000).
+                    reaccion: intentos 5–30 (10), tiempo_limite_ms 300–3000 (1500).
+                    completar_palabras: frase (2–120 caracteres, máx. 12 palabras), imagen_id opcional, letras_ocultas 1–4 (2), duracion_segundos 60–600 (300).
+                    recordar_imagenes: imagenes [{ imagen_id, respuestas: [palabras clave] }] (1–6), tiempo_visualizacion_segundos 3–30 (8).
+                    logica: preguntas [{ enunciado, imagen_id opcional, opciones (2–6), correcta (índice) }] (1–10).
+      responses:
+        "201":
+          description: Ejercicio creado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Ejercicio" }
+        "400":
+          description: Campos obligatorios faltantes (RF-034)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /ejercicios/{id}:
+    parameters:
+      - { $ref: "#/components/parameters/idPathParam" }
+    get:
+      tags: [Ejercicios]
+      summary: Obtener ejercicio por ID
+      responses:
+        "200":
+          description: Ejercicio encontrado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Ejercicio" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put:
+      tags: [Ejercicios]
+      summary: Editar ejercicio, solo si no está en uso activo (RF-031)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nombre: { type: string, maxLength: 150 }
+                categoria: { $ref: "#/components/schemas/CategoriaEjercicio" }
+                tipo: { $ref: "#/components/schemas/TipoJuego" }
+                nivel_dificultad: { type: integer, minimum: 1 }
+                instrucciones: { type: string }
+                parametros:
+                  type: object
+                  additionalProperties: true
+                  description: |
+                    Según el tipo de juego (se completan valores por defecto):
+                    atencion_sostenida: duracion_segundos 30–180 (60), intervalo_ms 600–3000 (1500).
+                    memoria_secuencias: longitud_inicial 2–8 (3), longitud_maxima ≤ 9 y ≥ longitud_inicial (6), tiempo_visualizacion_ms 500–3000 (1000).
+                    reaccion: intentos 5–30 (10), tiempo_limite_ms 300–3000 (1500).
+                    completar_palabras: frase (2–120 caracteres, máx. 12 palabras), imagen_id opcional, letras_ocultas 1–4 (2), duracion_segundos 60–600 (300).
+                    recordar_imagenes: imagenes [{ imagen_id, respuestas: [palabras clave] }] (1–6), tiempo_visualizacion_segundos 3–30 (8).
+                    logica: preguntas [{ enunciado, imagen_id opcional, opciones (2–6), correcta (índice) }] (1–10).
+      responses:
+        "200":
+          description: Ejercicio actualizado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Ejercicio" }
+        "409":
+          description: Ejercicio en uso activo
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /ejercicios/{id}/estado:
+    parameters:
+      - { $ref: "#/components/parameters/idPathParam" }
+    patch:
+      tags: [Ejercicios]
+      summary: Desactivar ejercicio sin eliminar históricos (RF-032)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [estado]
+              properties:
+                estado: { $ref: "#/components/schemas/EstadoEjercicio" }
+      responses:
+        "200":
+          description: Ejercicio desactivado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Ejercicio" }
+
+  /ejercicios/{id}/ejecutar:
+    parameters:
+      - { $ref: "#/components/parameters/idPathParam" }
+    post:
+      tags: [Ejecución y resultados]
+      summary: Iniciar/registrar ejecución del ejercicio (RF-008, RF-009, RF-010)
+      responses:
+        "200":
+          description: Sesión de ejercicio iniciada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sesion_id:
+                    type: string
+                    format: uuid
+                    description: >
+                      Identificador temporal generado en cada llamada. No se
+                      persiste ni se usa en otros endpoints.
+                  ejercicio: { $ref: "#/components/schemas/Ejercicio" }
+        "403":
+          description: Bloqueado por nivel superior (RF-007)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  # ============================================================
+  # MÓDULO: TERAPIA — Rutas terapéuticas
+  # ============================================================
+  /pacientes/{id}/rutas:
+    parameters:
+      - { $ref: "#/components/parameters/idPathParam" }
+    post:
+      tags: [Rutas terapéuticas]
+      summary: Crear ruta terapéutica; valida una sola ruta activa por paciente (RF-035, RF-036)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ejercicios]
+              properties:
+                duracion_dias:
+                  type: integer
+                  enum: [1, 7, 15, 30]
+                  description: Periodo del plan (día, semana, quincena, mes); cada día debe tener ejercicios
+                ejercicios:
+                  type: array
+                  maxItems: 300
+                  items:
+                    type: object
+                    required: [ejercicio_id, orden]
+                    properties:
+                      ejercicio_id: { type: string, format: uuid }
+                      orden: { type: integer, minimum: 1 }
+                      dia: { type: integer, minimum: 1, description: "Día del plan; empieza en 1 y avanza de a uno (por defecto 1)" }
+      responses:
+        "201":
+          description: Ruta creada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RutaTerapeutica" }
+        "409":
+          description: Ya existe una ruta activa
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404":
+          description: Paciente no encontrado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+    get:
+      tags: [Rutas terapéuticas]
+      summary: Consultar rutas terapéuticas paginadas del paciente
+      parameters:
+        - { $ref: "#/components/parameters/page" }
+        - { $ref: "#/components/parameters/limit" }
+        - name: estado
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [Activa, Histórica]
+      responses:
+        "200":
+          description: Rutas paginadas, de más reciente a más antigua
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginatedMeta"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/RutaTerapeutica" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /pacientes/{id}/rutas/activa:
+    parameters:
+      - { $ref: "#/components/parameters/idPathParam" }
+    get:
+      tags: [Rutas terapéuticas]
+      summary: Mostrar ruta terapéutica activa (RF-028)
+      responses:
+        "200":
+          description: Ruta activa con ejercicios y progreso
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RutaTerapeutica" }
+        "404":
+          description: Sin ruta activa
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /rutas/{id}/progreso:
+    parameters:
+      - { $ref: "#/components/parameters/idPathParam" }
+    get:
+      tags: [Rutas terapéuticas]
+      summary: Mostrar progreso porcentual de la ruta (RF-041)
+      responses:
+        "200":
+          description: Progreso de la ruta
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  porcentaje: { type: number, format: float }
+                  completados: { type: integer }
+                  pendientes: { type: integer }
+        "404":
+          description: Ruta no encontrada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /rutas/{id}/ejercicios:
+    parameters:
+      - { $ref: "#/components/parameters/idPathParam" }
+    post:
+      tags: [Rutas terapéuticas]
+      summary: Agregar ejercicio en orden secuencial (RF-037)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ejercicio_id, orden]
+              properties:
+                ejercicio_id: { type: string, format: uuid }
+                orden: { type: integer, minimum: 1 }
+                dia: { type: integer, minimum: 1, description: "Último día de la ruta o el siguiente (por defecto el último)" }
+      responses:
+        "201":
+          description: Ejercicio agregado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RutaEjercicio" }
+        "403":
+          description: Ejercicio bloqueado por nivel
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404":
+          description: Ruta o ejercicio activo no encontrado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /rutas/{id}/ejercicios/{rutaEjercicioId}:
+    parameters:
+      - { $ref: "#/components/parameters/idPathParam" }
+      - name: rutaEjercicioId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    delete:
+      tags: [Rutas terapéuticas]
+      summary: Eliminar ejercicio no completado de la ruta (RF-038, RF-039)
+      responses:
+        "204":
+          description: Eliminado
+        "409":
+          description: Ejercicio ya completado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404":
+          description: Ruta o ejercicio de ruta no encontrado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /rutas/{id}/ejercicios/{rutaEjercicioId}/reemplazar:
+    parameters:
+      - { $ref: "#/components/parameters/idPathParam" }
+      - name: rutaEjercicioId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    patch:
+      tags: [Rutas terapéuticas]
+      summary: Reemplazar ejercicio marcando el anterior como histórico (RF-040)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [nuevo_ejercicio_id]
+              properties:
+                nuevo_ejercicio_id: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Ejercicio reemplazado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RutaEjercicio" }
+        "403":
+          description: Ejercicio bloqueado por nivel
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404":
+          description: Ejercicio de ruta o ejercicio activo no encontrado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "409":
+          description: Ejercicio completado o ruta inactiva
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  # ============================================================
+  # MÓDULO: TERAPIA — Ejecución y resultados
+  # ============================================================
+  /rutas/{rutaId}/ejercicios/{rutaEjercicioId}/resultados:
+    parameters:
+      - name: rutaId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+      - name: rutaEjercicioId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      tags: [Ejecución y resultados]
+      summary: Guardar resultado al completar ejercicio, calcula XP (RF-011, RF-012, RF-013)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [puntaje, aciertos]
+              properties:
+                puntaje: { type: integer, minimum: 0 }
+                tiempo_reaccion_ms: { type: integer, minimum: 0, nullable: true }
+                aciertos: { type: integer, minimum: 0 }
+      responses:
+        "201":
+          description: Resultado guardado, incluye retroalimentación (RF-019)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ResultadoEjercicio" }
+        "403":
+          description: Puntaje mínimo no alcanzado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404":
+          description: Ejercicio de ruta no encontrado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /pacientes/{id}/resultados:
+    parameters:
+      - { $ref: "#/components/parameters/idPathParam" }
+    get:
+      tags: [Ejecución y resultados]
+      summary: Visualizar puntajes del paciente (RF-042)
+      parameters:
+        - { $ref: "#/components/parameters/page" }
+        - { $ref: "#/components/parameters/limit" }
+      responses:
+        "200":
+          description: Lista de resultados
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginatedMeta"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/ResultadoEjercicio" }
+
+  /pacientes/{id}/historial:
+    parameters:
+      - { $ref: "#/components/parameters/idPathParam" }
+    get:
+      tags: [Ejecución y resultados]
+      summary: Consultar historial de intentos, orden cronológico inverso (RF-043, RF-020)
+      parameters:
+        - { $ref: "#/components/parameters/page" }
+        - { $ref: "#/components/parameters/limit" }
+      responses:
+        "200":
+          description: Lista de resultados ordenada
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginatedMeta"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/ResultadoEjercicio" }
+
+  /pacientes/{id}/progreso/dominio:
+    parameters:
+      - { $ref: "#/components/parameters/idPathParam" }
+    get:
+      tags: [Ejecución y resultados]
+      summary: Generar gráfica de progreso por dominio cognitivo (RF-021)
+      parameters:
+        - name: desde
+          in: query
+          schema: { type: string, format: date }
+        - name: hasta
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: Datos agregados por categoría
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    categoria: { $ref: "#/components/schemas/CategoriaEjercicio" }
+                    porcentaje: { type: number, format: float }
+                    ejercicios:
+                      type: array
+                      items:
+                        type: object
+                        required: [ejercicio_id, nombre, intentos, promedio_puntaje, mejor_puntaje, ultimo_puntaje]
+                        properties:
+                          ejercicio_id: { type: string, format: uuid }
+                          nombre: { type: string }
+                          intentos: { type: integer, minimum: 0 }
+                          promedio_puntaje: { type: number, format: float }
+                          mejor_puntaje: { type: number, format: float }
+                          ultimo_puntaje: { type: number, format: float }
+
+  /pacientes/{id}/progreso/temporal:
+    parameters:
+      - { $ref: "#/components/parameters/idPathParam" }
+    get:
+      tags: [Ejecución y resultados]
+      summary: Generar gráfico temporal de progreso (RF-044)
+      parameters:
+        - name: desde
+          in: query
+          schema: { type: string, format: date }
+        - name: hasta
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: "Serie temporal (con aviso si hay menos de 2 sesiones, RF-045)"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  serie:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        fecha: { type: string, format: date }
+                        valor: { type: number, format: float }
+                  aviso: { type: string, nullable: true }
+
+  # ============================================================
+  # MÓDULO: GAMIFICACIÓN
+  # ============================================================
+  /pacientes/{id}/perfil-logros:
+    parameters:
+      - { $ref: "#/components/parameters/idPathParam" }
+    get:
+      tags: [Gamificación]
+      summary: "Mostrar perfil de logros: nivel, XP, insignias (RF-018)"
+      responses:
+        "200":
+          description: Perfil de logros
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  nivel_actual: { type: integer }
+                  xp_total: { type: integer }
+                  insignias:
+                    type: array
+                    items: { $ref: "#/components/schemas/Insignia" }
+
+  /insignias:
+    get:
+      tags: [Gamificación]
+      summary: Listar catálogo de insignias disponibles
+      responses:
+        "200":
+          description: Lista de insignias
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Insignia" }
+
+  /pacientes/{id}/insignias:
+    parameters:
+      - { $ref: "#/components/parameters/idPathParam" }
+    get:
+      tags: [Gamificación]
+      summary: Consultar insignias obtenidas por el paciente (RF-017)
+      responses:
+        "200":
+          description: Lista de PacienteInsignia
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/PacienteInsignia" }
+
+  /pacientes/{id}/contenido-desbloqueado:
+    parameters:
+      - { $ref: "#/components/parameters/idPathParam" }
+    get:
+      tags: [Gamificación]
+      summary: Consultar ejercicios/niveles desbloqueados por nivel actual (RF-016)
+      responses:
+        "200":
+          description: Lista de contenido disponible
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Ejercicio" }
+
+  # ============================================================
+  # MÓDULO: SEGUIMIENTO — Observaciones clínicas
+  # ============================================================
+  /pacientes/{id}/observaciones:
+    parameters:
+      - { $ref: "#/components/parameters/idPathParam" }
+    post:
+      tags: [Observaciones clínicas]
+      summary: Registrar observación con fecha/hora automática (RF-050)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [texto]
+              properties:
+                texto: { type: string }
+      responses:
+        "201":
+          description: Observación creada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Observacion" }
+    get:
+      tags: [Observaciones clínicas]
+      summary: Visualizar observaciones en orden cronológico inverso (RF-052)
+      parameters:
+        - { $ref: "#/components/parameters/page" }
+        - { $ref: "#/components/parameters/limit" }
+      responses:
+        "200":
+          description: Lista de observaciones
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginatedMeta"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/Observacion" }
+
+  /observaciones/{id}:
+    parameters:
+      - { $ref: "#/components/parameters/idPathParam" }
+    put:
+      tags: [Observaciones clínicas]
+      summary: Editar observación existente (RF-051)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [texto]
+              properties:
+                texto: { type: string }
+      responses:
+        "200":
+          description: Observación actualizada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Observacion" }
+
+  # ============================================================
+  # MÓDULO: SEGUIMIENTO — Alertas
+  # ============================================================
+  /pacientes/{id}/alertas:
+    parameters:
+      - { $ref: "#/components/parameters/idPathParam" }
+    get:
+      tags: [Alertas]
+      summary: Listar alertas del paciente (bajo rendimiento / inactividad) (RF-048, RF-046)
+      parameters:
+        - name: estado
+          in: query
+          schema: { $ref: "#/components/schemas/EstadoAlerta" }
+      responses:
+        "200":
+          description: Lista de alertas
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Alerta" }
+
+  /alertas:
+    get:
+      tags: [Alertas]
+      summary: Listar alertas activas (vista especialista)
+      parameters:
+        - name: especialista_id
+          in: query
+          schema: { type: string, format: uuid }
+        - name: tipo
+          in: query
+          schema: { $ref: "#/components/schemas/TipoAlerta" }
+        - name: estado
+          in: query
+          schema: { $ref: "#/components/schemas/EstadoAlerta" }
+      responses:
+        "200":
+          description: Lista de alertas
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Alerta" }
+
+  # ============================================================
+  # MÓDULO: SEGUIMIENTO — Notificaciones y preferencias
+  # ============================================================
+  /pacientes/{id}/notificaciones:
+    parameters:
+      - { $ref: "#/components/parameters/idPathParam" }
+    get:
+      tags: [Notificaciones y preferencias]
+      summary: Listar notificaciones del paciente
+      parameters:
+        - name: leida
+          in: query
+          schema: { type: boolean }
+        - { $ref: "#/components/parameters/page" }
+        - { $ref: "#/components/parameters/limit" }
+      responses:
+        "200":
+          description: Lista de notificaciones
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PaginatedMeta"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/Notificacion" }
+
+  /notificaciones/{id}/leida:
+    parameters:
+      - { $ref: "#/components/parameters/idPathParam" }
+    patch:
+      tags: [Notificaciones y preferencias]
+      summary: Marcar notificación como leída
+      responses:
+        "200":
+          description: Notificación actualizada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Notificacion" }
+
+  /pacientes/{id}/preferencia-notificacion:
+    parameters:
+      - { $ref: "#/components/parameters/idPathParam" }
+    get:
+      tags: [Notificaciones y preferencias]
+      summary: Consultar horario/frecuencia configurada
+      responses:
+        "200":
+          description: Preferencia de notificación
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PreferenciaNotificacion" }
+    put:
+      tags: [Notificaciones y preferencias]
+      summary: Configurar horario y frecuencia de notificaciones (RF-024)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [frecuencia, horario_recordatorio]
+              properties:
+                frecuencia: { type: string, enum: [Diaria, Semanal, Ninguna] }
+                horario_recordatorio: { type: string, format: time }
+      responses:
+        "200":
+          description: Preferencia actualizada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PreferenciaNotificacion" }
+
+  # ============================================================
+  # MÓDULO: ADMINISTRACIÓN (extensión del contrato original)
+  # ============================================================
+  /admin/indicadores:
+    get:
+      tags: [Administración]
+      summary: Calcular indicadores generales del sistema (RF-068)
+      description: Solo rol Administrador. "sesiones_activas" cuenta los resultados registrados en las últimas 24 horas.
+      responses:
+        "200":
+          description: Indicadores generales
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_usuarios: { type: integer }
+                  total_pacientes: { type: integer }
+                  sesiones_activas: { type: integer }
+        "403":
+          description: El usuario no es Administrador
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /admin/tendencias:
+    get:
+      tags: [Administración]
+      summary: Consultar tendencia semanal o mensual de uso (RF-069)
+      description: Solo rol Administrador. La vista semanal abarca los últimos 3 meses y la mensual los últimos 12.
+      parameters:
+        - name: periodo
+          in: query
+          required: true
+          schema: { type: string, enum: [semanal, mensual] }
+      responses:
+        "200":
+          description: Sesiones agregadas por periodo
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    fecha: { type: string, format: date }
+                    sesiones: { type: integer }
+        "400":
+          description: Parámetro periodo inválido
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "403":
+          description: El usuario no es Administrador
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  # ============================================================
+  # MÓDULO: SEGUIMIENTO — Dispositivos push (extensión)
+  # ============================================================
+  /pacientes/{id}/dispositivos:
+    parameters:
+      - { $ref: "#/components/parameters/idPathParam" }
+    post:
+      tags: [Notificaciones y preferencias]
+      summary: Registrar token FCM del dispositivo del paciente para notificaciones push
+      description: Solo rol Paciente, sobre su propio id.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: { type: string, maxLength: 4096, description: Token FCM del dispositivo móvil }
+      responses:
+        "201":
+          description: Dispositivo registrado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  registrado: { type: boolean }
+        "403":
+          description: No tienes acceso a este paciente
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    idPathParam:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    page:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 1, default: 1 }
+    limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+
+  responses:
+    BadRequest:
+      description: Datos inválidos
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+
+    Unauthorized:
+      description: No autenticado o credenciales inválidas
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+
+    Forbidden:
+      description: Sin permiso para esta operación
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+
+    NotFound:
+      description: Recurso no encontrado
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        statusCode: { type: integer }
+        message: { type: string }
+
+    PaginatedMeta:
+      type: object
+      properties:
+        total: { type: integer }
+        page: { type: integer }
+        limit: { type: integer }
+
+    Rol:
+      type: string
+      enum: [Paciente, Especialista, Administrador]
+
+    EstadoIncidencia:
+      type: string
+      enum: [Pendiente, "En proceso", Resuelta]
+
+    CategoriaEjercicio:
+      type: string
+      description: Dominio cognitivo
+      enum: [Atención, Memoria, Velocidad]
+
+    TipoJuego:
+      type: string
+      description: Mini-juego de la app móvil; si no se envía, se deduce de la categoría
+      enum: [atencion_sostenida, memoria_secuencias, reaccion, completar_palabras, recordar_imagenes, logica]
+
+    AgendaRuta:
+      type: object
+      description: Día habilitado; el siguiente día se habilita al día calendario siguiente (hora Colombia)
+      properties:
+        dia_actual: { type: integer, minimum: 1 }
+        disponible: { type: boolean }
+        disponible_desde: { type: string, format: date, nullable: true }
+        completada: { type: boolean }
+        duracion_dias: { type: integer, nullable: true }
+
+    Imagen:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        tipo_mime: { type: string, enum: [image/png, image/jpeg] }
+        tamano: { type: integer }
+        url: { type: string, example: "/v1/imagenes/<id>" }
+
+    EstadoEjercicio:
+      type: string
+      enum: [Activo, Desactivado]
+
+    EstadoRuta:
+      type: string
+      enum: [Activa, Histórica]
+
+    EstadoRutaEjercicio:
+      type: string
+      enum: [Pendiente, Completado, Reemplazado]
+
+    TipoAlerta:
+      type: string
+      enum: [BajoRendimiento, Inactividad]
+
+    EstadoAlerta:
+      type: string
+      enum: [Activa, Resuelta]
+
+    TipoNotificacion:
+      type: string
+      enum: [Recordatorio, SubidaNivel, InsigniaObtenida]
+
+    Usuario:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        nombre: { type: string, maxLength: 150 }
+        cedula: { type: string, maxLength: 20 }
+        correo: { type: string, format: email, maxLength: 150 }
+        rol: { $ref: "#/components/schemas/Rol" }
+        estado: { type: boolean, default: true }
+        intentos_fallidos: { type: integer, minimum: 0, default: 0 }
+        fecha_creacion: { type: string, format: date-time }
+        paciente_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: >
+            Solo en login y /auth/me para el rol Paciente: id del perfil de
+            paciente que usan las rutas /pacientes/{id}/...
+
+    Paciente:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        usuario_id: { type: string, format: uuid }
+        especialista_id: { type: string, format: uuid }
+        xp_total: { type: integer, minimum: 0, default: 0 }
+        nivel_actual: { type: integer, minimum: 1, default: 1 }
+        umbral_bajo_rendimiento: { type: number, format: float, minimum: 0, maximum: 100 }
+        umbral_dias_inactividad: { type: integer, minimum: 1 }
+        fecha_asignacion: { type: string, format: date }
+        nombre: { type: string, maxLength: 150 }
+        correo: { type: string, format: email, maxLength: 150 }
+        cedula: { type: string, maxLength: 20 }
+        estado: { type: boolean, description: Estado de la cuenta del paciente }
+        fecha_nacimiento: { type: string, format: date, nullable: true }
+        edad: { type: integer, minimum: 0, maximum: 120, nullable: true }
+
+    PacienteListado:
+      allOf:
+        - $ref: "#/components/schemas/Paciente"
+        - type: object
+          properties:
+            alertas_activas: { type: integer, minimum: 0 }
+            progreso_ruta:
+              type: object
+              nullable: true
+              required: [ruta_id, total, completados, porcentaje]
+              properties:
+                ruta_id: { type: string, format: uuid }
+                total: { type: integer, minimum: 0 }
+                completados: { type: integer, minimum: 0 }
+                porcentaje: { type: number, minimum: 0, maximum: 100 }
+
+    Ejercicio:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        nombre: { type: string, maxLength: 150 }
+        categoria: { $ref: "#/components/schemas/CategoriaEjercicio" }
+        tipo: { $ref: "#/components/schemas/TipoJuego" }
+        nivel_dificultad: { type: integer, minimum: 1 }
+        instrucciones: { type: string }
+        parametros: { type: object, additionalProperties: true }
+        estado: { $ref: "#/components/schemas/EstadoEjercicio" }
+        especialista_id: { type: string, format: uuid }
+        fecha_creacion: { type: string, format: date-time }
+
+    RutaTerapeutica:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        paciente_id: { type: string, format: uuid }
+        estado: { $ref: "#/components/schemas/EstadoRuta" }
+        duracion_dias: { type: integer, nullable: true, enum: [1, 7, 15, 30] }
+        fecha_creacion: { type: string, format: date-time }
+        agenda: { $ref: "#/components/schemas/AgendaRuta" }
+        ejercicios:
+          type: array
+          items: { $ref: "#/components/schemas/RutaEjercicio" }
+
+    RutaEjercicio:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        ruta_id: { type: string, format: uuid }
+        ejercicio_id: { type: string, format: uuid }
+        orden: { type: integer, minimum: 1 }
+        dia: { type: integer, minimum: 1 }
+        estado: { $ref: "#/components/schemas/EstadoRutaEjercicio" }
+        fecha_completado: { type: string, format: date-time, nullable: true }
+
+    ResultadoEjercicio:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        paciente_id: { type: string, format: uuid }
+        ruta_ejercicio_id: { type: string, format: uuid }
+        puntaje: { type: integer, minimum: 0 }
+        tiempo_reaccion_ms: { type: integer, minimum: 0, nullable: true }
+        aciertos: { type: integer, minimum: 0 }
+        xp_ganado: { type: integer, minimum: 0 }
+        fecha: { type: string, format: date-time }
+        ejercicio_nombre: { type: string }
+        categoria: { $ref: "#/components/schemas/CategoriaEjercicio" }
+
+    Insignia:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        nombre: { type: string, maxLength: 100 }
+        descripcion: { type: string }
+        condicion: { type: string }
+
+    PacienteInsignia:
+      type: object
+      properties:
+        paciente_id: { type: string, format: uuid }
+        insignia_id: { type: string, format: uuid }
+        fecha_obtenida: { type: string, format: date-time }
+
+    Observacion:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        paciente_id: { type: string, format: uuid }
+        especialista_id: { type: string, format: uuid }
+        texto: { type: string }
+        fecha: { type: string, format: date-time }
+
+    PreferenciaNotificacion:
+      type: object
+      properties:
+        paciente_id: { type: string, format: uuid }
+        frecuencia: { type: string, enum: [Diaria, Semanal, Ninguna] }
+        horario_recordatorio: { type: string, format: time }
+
+    Notificacion:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        paciente_id: { type: string, format: uuid }
+        tipo: { $ref: "#/components/schemas/TipoNotificacion" }
+        mensaje: { type: string }
+        leida: { type: boolean, default: false }
+        fecha_envio: { type: string, format: date-time }
+
+    Alerta:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        paciente_id: { type: string, format: uuid }
+        tipo: { $ref: "#/components/schemas/TipoAlerta" }
+        estado: { $ref: "#/components/schemas/EstadoAlerta" }
+        fecha_generada: { type: string, format: date-time }
+
+    Incidencia:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        usuario_id: { type: string, format: uuid }
+        descripcion: { type: string }
+        estado: { $ref: "#/components/schemas/EstadoIncidencia" }
+        fecha: { type: string, format: date-time }

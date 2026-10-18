@@ -12,25 +12,25 @@ import { SpecialistEntity } from '../../../users/domain/entities/specialist.enti
 @Entity('observacion')
 export class ObservationEntity {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @ManyToOne(() => PatientEntity, {
     onDelete: 'RESTRICT',
     onUpdate: 'CASCADE',
   })
   @JoinColumn({ name: 'paciente_id' })
-  paciente: PatientEntity;
+  paciente!: PatientEntity;
 
   @ManyToOne(() => SpecialistEntity, {
     onDelete: 'RESTRICT',
     onUpdate: 'CASCADE',
   })
   @JoinColumn({ name: 'especialista_id' })
-  especialista: SpecialistEntity;
+  especialista!: SpecialistEntity;
 
   @Column({ type: 'text' })
-  texto: string;
+  texto!: string;
 
   @CreateDateColumn({ type: 'timestamp' })
-  fecha: Date;
+  fecha!: Date;
 }

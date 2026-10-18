@@ -17,25 +17,24 @@ export enum NotificationType {
 @Entity('notificacion')
 export class NotificationEntity {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
-
+  id!: string;
 
   @ManyToOne(() => PatientEntity, {
     onDelete: 'RESTRICT',
     onUpdate: 'CASCADE',
   })
   @JoinColumn({ name: 'paciente_id' })
-  paciente: PatientEntity;
+  paciente!: PatientEntity;
 
   @Column({ type: 'enum', enum: NotificationType })
-  tipo: NotificationType;
+  tipo!: NotificationType;
 
   @Column({ type: 'text' })
-  mensaje: string;
+  mensaje!: string;
 
   @Column({ type: 'boolean', default: false })
-  leida: boolean;
+  leida!: boolean;
 
   @CreateDateColumn({ type: 'timestamp', name: 'fecha_envio' })
-  fechaEnvio: Date;
+  fechaEnvio!: Date;
 }

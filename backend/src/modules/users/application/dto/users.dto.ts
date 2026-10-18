@@ -1,16 +1,21 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsBoolean,
   IsEmail,
+  IsEnum,
   IsInt,
   IsNotEmpty,
   IsOptional,
+  Matches,
   IsString,
-  IsUUID,
+  MaxLength,
   Max,
+  MinLength,
   Min,
 } from 'class-validator';
+import { UserRole } from '../../domain/entities/user.entity';
+import { PASSWORD_POLICY_PATTERN } from '../../../shared/application/password-policy';
 export class UsersQueryDto {
   @ApiPropertyOptional()
   @IsOptional()
@@ -25,10 +30,21 @@ export class UsersQueryDto {
   @Min(1)
   @Max(100)
   limit = 20;
-  @ApiPropertyOptional() @IsOptional() @IsString() rol?: string;
+  @ApiPropertyOptional({ enum: UserRole })
+  @IsOptional()
+  @IsEnum(UserRole)
+  rol?: UserRole;
+  @ApiPropertyOptional({
+    description: 'Busca por nombre o correo sin distinguir mayúsculas ni tildes',
+  })
+  @IsOptional()
+  @IsString()
+  q?: string;
   @ApiPropertyOptional()
   @IsOptional()
-  @Type(() => Boolean)
+  @Transform(({ value }) =>
+    value === 'true' ? true : value === 'false' ? false : value,
+  )
   @IsBoolean()
   estado?: boolean;
 }
@@ -37,25 +53,44 @@ export class UpdateUserDto {
   @IsOptional()
   @IsString()
   @IsNotEmpty()
+  @MinLength(3)
+  @MaxLength(100)
   nombre?: string;
-  @ApiPropertyOptional() @IsOptional() @IsEmail() correo?: string;
+  @ApiPropertyOptional({ maxLength: 150 })
+  @IsOptional()
+  @IsEmail()
+  @MaxLength(150)
+  correo?: string;
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   @IsNotEmpty()
+  @Matches(/^\d{6,15}$/)
   cedula?: string;
 }
 export class UserStateDto {
   @ApiProperty() @IsBoolean() estado!: boolean;
 }
 export class AccountDto {
-  @ApiProperty() @IsString() @IsNotEmpty() nombre!: string;
-  @ApiProperty() @IsString() @IsNotEmpty() cedula!: string;
-  @ApiProperty() @IsEmail() correo!: string;
+  @ApiProperty({ minLength: 3, maxLength: 100 })
+  @IsString()
+  @MinLength(3)
+  @MaxLength(100)
+  nombre!: string;
+  @ApiProperty({ minLength: 6, maxLength: 15, pattern: '^\\d+$' })
+  @IsString()
+  @Matches(/^\d{6,15}$/)
+  cedula!: string;
+  @ApiProperty({ format: 'email', maxLength: 150 })
+  @IsEmail()
+  @MaxLength(150)
+  correo!: string;
 }
 export class InitialAdministratorDto extends AccountDto {
   @ApiProperty({ format: 'password' })
   @IsString()
-  @IsNotEmpty()
+  @MinLength(8)
+  @MaxLength(72)
+  @Matches(PASSWORD_POLICY_PATTERN)
   contraseña!: string;
 }
