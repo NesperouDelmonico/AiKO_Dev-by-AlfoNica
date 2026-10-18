@@ -28,9 +28,9 @@ jobs:
       run:
         working-directory: mobile
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
@@ -57,7 +57,7 @@ jobs:
         # Cada problema se publica como anotación (visible en la ejecución).
         run: |
           set +e
-          flutter analyze --format=machine > analyze.txt 2>&1
+          dart analyze --format=machine --fatal-infos > analyze.txt 2>&1
           status=$?
           cat analyze.txt
           awk -F'|' 'NF>=8 { lvl = ($1=="INFO") ? "notice" : (($1=="WARNING") ? "warning" : "error"); f=$4; sub(".*/mobile/", "mobile/", f); printf "::%s file=%s,line=%s,col=%s::%s (%s)\n", lvl, f, $5, $6, $8, $3 }' analyze.txt
