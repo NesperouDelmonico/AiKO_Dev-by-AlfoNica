@@ -54,10 +54,17 @@ jobs:
       - run: flutter pub get
 
       - name: Analizar
-        run: flutter analyze
+        # Cada problema se publica como anotación (visible en la ejecución).
+        run: |
+          set +e
+          flutter analyze --format=machine > analyze.txt 2>&1
+          status=$?
+          cat analyze.txt
+          awk -F'|' 'NF>=8 { lvl = ($1=="INFO") ? "notice" : (($1=="WARNING") ? "warning" : "error"); f=$4; sub(".*/mobile/", "mobile/", f); printf "::%s file=%s,line=%s,col=%s::%s (%s)\n", lvl, f, $5, $6, $8, $3 }' analyze.txt
+          exit $status
 
       - name: Pruebas
-        run: flutter test
+        run: flutter test --reporter github
 
       - name: Compilar APK
         run: |
