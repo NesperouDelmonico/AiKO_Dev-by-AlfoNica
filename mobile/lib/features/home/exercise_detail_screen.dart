@@ -14,11 +14,15 @@ class ExerciseDetailScreen extends StatelessWidget {
     required this.routeId,
     required this.item,
     required this.isNext,
+    this.lockedMessage,
   });
 
   final String routeId;
   final RouteExercise item;
   final bool isNext;
+
+  /// Motivo por el que aún no se puede jugar (día que se habilita mañana).
+  final String? lockedMessage;
 
   Future<void> _start(BuildContext context) async {
     final submitted =
@@ -85,6 +89,15 @@ class ExerciseDetailScreen extends StatelessWidget {
                         textAlign: TextAlign.center,
                         style: TextStyle(
                             color: AikoColors.success,
+                            fontWeight: FontWeight.w700)),
+                  )
+                else if (lockedMessage != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Text(lockedMessage!,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                            color: AikoColors.violet,
                             fontWeight: FontWeight.w700)),
                   )
                 else if (!isNext)

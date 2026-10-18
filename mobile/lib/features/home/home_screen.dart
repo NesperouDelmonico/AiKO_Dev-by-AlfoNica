@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/api_client.dart';
 import '../../core/category_style.dart';
+import '../../core/dates.dart';
 import '../../core/models.dart';
 import '../../core/session.dart';
 import '../../core/theme.dart';
@@ -52,10 +53,15 @@ class _HomeScreenState extends State<HomeScreen> {
     String routeId,
     RouteExercise item, {
     required bool isNext,
+    String? lockedMessage,
   }) async {
     final played = await Navigator.of(context).push<bool>(MaterialPageRoute(
-      builder: (_) =>
-          ExerciseDetailScreen(routeId: routeId, item: item, isNext: isNext),
+      builder: (_) => ExerciseDetailScreen(
+        routeId: routeId,
+        item: item,
+        isNext: isNext,
+        lockedMessage: lockedMessage,
+      ),
     ));
     // Tras jugar, recarga la ruta y el XP.
     if (played == true && mounted) await _refresh();
@@ -128,12 +134,26 @@ class _HomeScreenState extends State<HomeScreen> {
 
   List<Widget> _path(ActiveRoute route) {
     final next = route.next;
+    final agenda = route.agenda;
+    // El siguiente ejercicio puede estar esperando a que llegue su fecha.
+    final playable = next != null && agenda.isPlayable(next.dia);
+    final unlockDate = agenda.disponibleDesde == null
+        ? null
+        : shortDate(agenda.disponibleDesde!);
     final widgets = <Widget>[];
     var index = 0; // posición global en el zigzag
     for (final day in route.days) {
       final isCurrent = next != null && day.ejercicios.contains(next);
       widgets
-        ..add(_DayBanner(day: day, isCurrent: isCurrent))
+        ..add(_DayBanner(
+          day: day,
+          isCurrent: isCurrent && playable,
+          totalDays: agenda.duracionDias ?? route.days.length,
+          lockedUntil: day.dia == agenda.diaActual && !agenda.disponible
+              ? unlockDate
+              : null,
+          upcoming: day.dia > agenda.diaActual,
+        ))
         ..add(const SizedBox(height: 18))
         ..add(const _Marker(label: 'INICIO', icon: Icons.flag_rounded));
       for (final item in day.ejercicios) {
@@ -146,9 +166,17 @@ class _HomeScreenState extends State<HomeScreen> {
             state: item.isCompleted
                 ? _NodeState.done
                 : isNext
-                    ? _NodeState.next
+                    ? (playable ? _NodeState.next : _NodeState.waiting)
                     : _NodeState.locked,
-            onTap: () => _open(route.id, item, isNext: isNext),
+            waitingLabel: unlockDate == null ? null : 'EL $unlockDate'.toUpperCase(),
+            onTap: () => _open(
+              route.id,
+              item,
+              isNext: isNext && playable,
+              lockedMessage: isNext && !playable && unlockDate != null
+                  ? 'Se habilita el $unlockDate. ¡Hoy ya cumpliste!'
+                  : null,
+            ),
           ),
         ));
       }
@@ -232,17 +260,34 @@ class _Chip extends StatelessWidget {
 // Día
 
 class _DayBanner extends StatelessWidget {
-  const _DayBanner({required this.day, required this.isCurrent});
+  const _DayBanner({
+    required this.day,
+    required this.isCurrent,
+    required this.totalDays,
+    this.lockedUntil,
+    this.upcoming = false,
+  });
 
   final RouteDay day;
   final bool isCurrent;
+  final int totalDays;
+
+  /// Fecha corta en que se habilita este día (si es el día en espera).
+  final String? lockedUntil;
+  final bool upcoming;
 
   @override
   Widget build(BuildContext context) {
     final complete = day.isComplete;
     final subtitle = complete
         ? '¡Día completado!'
-        : '${day.done} de ${day.total} ejercicios';
+        : lockedUntil != null
+            ? 'Se habilita el $lockedUntil'
+            : upcoming
+                ? 'Próximamente · ${day.total} ejercicios'
+                : '${day.done} de ${day.total} ejercicios';
+    final title =
+        totalDays > 1 ? 'DÍA ${day.numero} DE $totalDays' : 'DÍA ${day.numero}';
     final foreground = isCurrent ? Colors.white : AikoColors.ink;
     return Semantics(
       header: true,
@@ -278,7 +323,7 @@ class _DayBanner extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('DÍA ${day.numero}',
+                  Text(title,
                       style: TextStyle(
                           fontSize: 13,
                           letterSpacing: 1.2,
@@ -296,7 +341,9 @@ class _DayBanner extends StatelessWidget {
             Icon(
               complete
                   ? Icons.check_circle_rounded
-                  : Icons.calendar_today_rounded,
+                  : lockedUntil != null || upcoming
+                      ? Icons.lock_clock_rounded
+                      : Icons.calendar_today_rounded,
               size: 30,
               color: complete ? AikoColors.success : foreground,
             ),
@@ -390,7 +437,7 @@ class _DayEnd extends StatelessWidget {
 // ---------------------------------------------------------------------------
 // Nodos del camino
 
-enum _NodeState { done, next, locked }
+enum _NodeState { done, next, waiting, locked }
 
 /// Desplaza los nodos a izquierda y derecha para dibujar el camino.
 class _ZigZag extends StatelessWidget {
@@ -419,11 +466,15 @@ class _ExerciseNode extends StatelessWidget {
     required this.item,
     required this.state,
     required this.onTap,
+    this.waitingLabel,
   });
 
   final RouteExercise item;
   final _NodeState state;
   final VoidCallback onTap;
+
+  /// Texto del globo cuando el siguiente espera su fecha ("EL 19 OCT").
+  final String? waitingLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -432,12 +483,14 @@ class _ExerciseNode extends StatelessWidget {
     final status = switch (state) {
       _NodeState.done => 'completado',
       _NodeState.next => 'siguiente, toca para comenzar',
+      _NodeState.waiting => 'siguiente, se habilita otro día',
       _NodeState.locked => 'bloqueado',
     };
 
     final (Color fill, Color shadow, Color icon) = switch (state) {
       _NodeState.done => (style.foreground, _darken(style.foreground), Colors.white),
       _NodeState.next => (AikoColors.violet, const Color(0xFF3F2A80), Colors.white),
+      _NodeState.waiting => (AikoColors.lilacSoft, AikoColors.lilac, AikoColors.violet),
       _NodeState.locked => (
           const Color(0xFFE6E1EF),
           const Color(0xFFCFC8DC),
@@ -450,7 +503,11 @@ class _ExerciseNode extends StatelessWidget {
       color: fill,
       shadow: shadow,
       child: Icon(
-        state == _NodeState.done ? Icons.check_rounded : style.icon,
+        state == _NodeState.done
+            ? Icons.check_rounded
+            : state == _NodeState.waiting
+                ? Icons.lock_clock_rounded
+                : style.icon,
         size: 36,
         color: icon,
       ),
@@ -469,6 +526,8 @@ class _ExerciseNode extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (state == _NodeState.next) const _StartBubble(),
+              if (state == _NodeState.waiting)
+                _StartBubble(label: waitingLabel ?? 'MAÑANA'),
               if (state == _NodeState.next)
                 Container(
                   padding: const EdgeInsets.all(6),
@@ -538,7 +597,9 @@ class _RaisedCircle extends StatelessWidget {
 }
 
 class _StartBubble extends StatelessWidget {
-  const _StartBubble();
+  const _StartBubble({this.label = 'COMENZAR'});
+
+  final String label;
 
   @override
   Widget build(BuildContext context) {
@@ -553,8 +614,8 @@ class _StartBubble extends StatelessWidget {
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: AikoColors.lilacSoft, width: 2),
             ),
-            child: const Text('COMENZAR',
-                style: TextStyle(
+            child: Text(label,
+                style: const TextStyle(
                     fontSize: 14,
                     letterSpacing: 1,
                     fontWeight: FontWeight.w800,
