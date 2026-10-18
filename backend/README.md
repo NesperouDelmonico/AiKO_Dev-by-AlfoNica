@@ -20,6 +20,27 @@ los adaptadores PostgreSQL implementan la persistencia.
 La API usa el prefijo `/v1`. Swagger está disponible en `/api` fuera de
 producción; en producción solo se habilita con `SWAGGER_ENABLED=true`.
 
+## Pacientes para el panel
+
+- `POST /v1/pacientes` requiere `fecha_nacimiento` en formato `YYYY-MM-DD`.
+  Se rechazan fechas inválidas o futuras y edades mayores de 120 años. La
+  edad no está limitada al rango 30-60.
+- `PATCH /v1/pacientes/{id}` permite actualizar la fecha de nacimiento a un
+  especialista asignado o administrador. El cuerpo debe incluir únicamente
+  `fecha_nacimiento`; un cuerpo vacío o con campos no declarados responde 400.
+- Las respuestas de pacientes incluyen los datos de cuenta (`nombre`, `correo`,
+  `cedula`, `estado`), `fecha_nacimiento` y `edad`. La edad se calcula con la
+  fecha actual de `America/Bogota`; es `null` para registros antiguos que aún
+  no tengan fecha de nacimiento.
+- `GET /v1/pacientes` incluye `alertas_activas` y `progreso_ruta`; este último
+  es `null` cuando no existe una ruta activa. Sus totales excluyen ejercicios
+  `Reemplazado`.
+- `GET /v1/usuarios` acepta `q` para buscar por nombre o correo sin distinguir
+  mayúsculas ni tildes, además de rol, estado y paginación.
+- Resultados e historial muestran el nombre y categoría del ejercicio. El
+  progreso por dominio también incluye el desglose por ejercicio, calculado
+  agregadamente en PostgreSQL e incluyendo todos los intentos guardados.
+
 ## Seguridad y configuración
 
 - `JWT_SECRET` es obligatorio; el vencimiento predeterminado del token es `8h`.
@@ -48,6 +69,7 @@ producción; en producción solo se habilita con `SWAGGER_ENABLED=true`.
 
 ```bash
 npm test -- --runInBand
+npm run typecheck
 npm run build
 npm run test:e2e -- --runInBand
 npm run verify:contract
@@ -73,10 +95,11 @@ El test valida este nombre antes de conectarse.
 ```bash
 npm run migration:run
 npm run migration:revert
+npm run migration:generate
 ```
 
 Para comprobar que el esquema y las entidades coinciden, corre `migration:run`
-y luego genera una migración temporal. TypeORM puede finalizar con código 1
+y luego genera una migración de comprobación. TypeORM puede finalizar con código 1
 cuando informa `No changes in database schema were found`; ese mensaje indica
 que no hay diferencias.
 

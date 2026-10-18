@@ -9,10 +9,12 @@ import {
   Query,
 } from '@nestjs/common';
 import {
+  ApiExtraModels,
   ApiBearerAuth,
   ApiOperation,
   ApiResponse,
   ApiTags,
+  getSchemaPath,
 } from '@nestjs/swagger';
 import {
   CurrentAuthUser,
@@ -25,6 +27,9 @@ import {
   PatientThresholdsDto,
   PatientsQueryDto,
   SearchPatientsQueryDto,
+  PatientResponseDto,
+  ListedPatientResponseDto,
+  UpdatePatientDto,
 } from '../../application/dto/patient.dto';
 import { PatientUseCase } from '../../application/use-cases/patient.use-case';
 
@@ -37,7 +42,11 @@ export class PatientController {
   @Post()
   @Roles(UserRole.ESPECIALISTA)
   @ApiOperation({ summary: 'Crear paciente asignado al especialista' })
-  @ApiResponse({ status: 201, description: 'Paciente creado' })
+  @ApiResponse({
+    status: 201,
+    description: 'Paciente creado',
+    type: PatientResponseDto,
+  })
   create(
     @Body() dto: CreatePatientDto,
     @CurrentAuthUser() user: { sub: string },
@@ -47,8 +56,24 @@ export class PatientController {
 
   @Get()
   @Roles(UserRole.ESPECIALISTA)
+  @ApiExtraModels(ListedPatientResponseDto)
   @ApiOperation({ summary: 'Listar pacientes asignados al especialista' })
-  @ApiResponse({ status: 200, description: 'Lista paginada de pacientes' })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista paginada de pacientes',
+    schema: {
+      type: 'object',
+      properties: {
+        total: { type: 'number' },
+        page: { type: 'number' },
+        limit: { type: 'number' },
+        data: {
+          type: 'array',
+          items: { $ref: getSchemaPath(ListedPatientResponseDto) },
+        },
+      },
+    },
+  })
   list(
     @Query() query: PatientsQueryDto,
     @CurrentAuthUser() user: { sub: string },
@@ -59,7 +84,12 @@ export class PatientController {
   @Get('buscar')
   @Roles(UserRole.ESPECIALISTA, UserRole.ADMINISTRADOR)
   @ApiOperation({ summary: 'Buscar y filtrar pacientes' })
-  @ApiResponse({ status: 200, description: 'Pacientes filtrados' })
+  @ApiResponse({
+    status: 200,
+    description: 'Pacientes filtrados',
+    type: PatientResponseDto,
+    isArray: true,
+  })
   search(
     @Query() query: SearchPatientsQueryDto,
     @CurrentAuthUser() user: { sub: string; rol: UserRole },
@@ -70,7 +100,11 @@ export class PatientController {
   @Get(':id')
   @Roles(UserRole.ESPECIALISTA, UserRole.ADMINISTRADOR)
   @ApiOperation({ summary: 'Consultar información básica del paciente' })
-  @ApiResponse({ status: 200, description: 'Paciente encontrado' })
+  @ApiResponse({
+    status: 200,
+    description: 'Paciente encontrado',
+    type: PatientResponseDto,
+  })
   @ApiResponse({ status: 404, description: 'Paciente no encontrado' })
   get(
     @Param('id') id: string,
@@ -79,10 +113,33 @@ export class PatientController {
     return this.useCase.get(id, user);
   }
 
+  @Patch(':id')
+  @Roles(UserRole.ESPECIALISTA, UserRole.ADMINISTRADOR)
+  @ApiOperation({ summary: 'Actualizar la fecha de nacimiento del paciente' })
+  @ApiResponse({
+    status: 200,
+    description: 'Paciente actualizado',
+    type: PatientResponseDto,
+  })
+  @ApiResponse({ status: 400, description: 'Cuerpo o fecha inválidos' })
+  @ApiResponse({ status: 403, description: 'Sin acceso al paciente' })
+  @ApiResponse({ status: 404, description: 'Paciente no encontrado' })
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdatePatientDto,
+    @CurrentAuthUser() user: { sub: string; rol: UserRole },
+  ) {
+    return this.useCase.update(id, dto, user);
+  }
+
   @Patch(':id/asignacion')
   @Roles(UserRole.ESPECIALISTA, UserRole.ADMINISTRADOR)
   @ApiOperation({ summary: 'Asignar paciente a un especialista' })
-  @ApiResponse({ status: 200, description: 'Paciente reasignado' })
+  @ApiResponse({
+    status: 200,
+    description: 'Paciente reasignado',
+    type: PatientResponseDto,
+  })
   assign(
     @Param('id') id: string,
     @Body() dto: AssignPatientDto,
@@ -94,7 +151,11 @@ export class PatientController {
   @Put(':id/umbrales')
   @Roles(UserRole.ESPECIALISTA, UserRole.ADMINISTRADOR)
   @ApiOperation({ summary: 'Configurar umbrales del paciente' })
-  @ApiResponse({ status: 200, description: 'Umbrales actualizados' })
+  @ApiResponse({
+    status: 200,
+    description: 'Umbrales actualizados',
+    type: PatientResponseDto,
+  })
   thresholds(
     @Param('id') id: string,
     @Body() dto: PatientThresholdsDto,

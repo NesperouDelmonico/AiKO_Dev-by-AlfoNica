@@ -227,7 +227,17 @@ export class TherapyUseCase {
     const route = await this.repository.activeRoute(patientId);
     if (!route) throw new NotFoundException('Sin ruta activa');
     const progress = await this.repository.progress(route.id);
-    return { ...route, progreso: progress };
+    // El contrato (RutaEjercicio) expone ejercicio_id y ruta_id; la web los
+    // usa y la app móvil lee el objeto `ejercicio` anidado.
+    return {
+      ...route,
+      ejercicios: (route.ejercicios ?? []).map((item) => ({
+        ...item,
+        ruta_id: route.id,
+        ejercicio_id: item.ejercicio?.id ?? null,
+      })),
+      progreso: progress,
+    };
   }
 
   async progress(routeId: string, actor: Actor) {

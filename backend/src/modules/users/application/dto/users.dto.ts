@@ -34,7 +34,12 @@ export class UsersQueryDto {
   @IsOptional()
   @IsEnum(UserRole)
   rol?: UserRole;
-  @ApiPropertyOptional() @IsOptional() @IsString() q?: string;
+  @ApiPropertyOptional({
+    description: 'Busca por nombre o correo sin distinguir mayúsculas ni tildes',
+  })
+  @IsOptional()
+  @IsString()
+  q?: string;
   @ApiPropertyOptional()
   @IsOptional()
   @Transform(({ value }) =>

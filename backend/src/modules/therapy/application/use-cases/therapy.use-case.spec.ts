@@ -242,4 +242,36 @@ describe('TherapyUseCase.result', () => {
       );
     });
   });
+
+  it('la ruta activa expone ejercicio_id y ruta_id en cada paso', async () => {
+    const exercise = Object.assign(new ExerciseEntity(), { id: 'exercise-id' });
+    repository.activeRoute.mockResolvedValue(
+      Object.assign(new TherapeuticRouteEntity(), {
+        id: 'route-id',
+        ejercicios: [
+          Object.assign(new RouteExerciseEntity(), {
+            id: 'step-id',
+            orden: 1,
+            dia: 1,
+            ejercicio: exercise,
+          }),
+        ],
+      }),
+    );
+    repository.progress.mockResolvedValue({
+      completados: 0,
+      pendientes: 1,
+      porcentaje: 0,
+    });
+    const route = await useCase.activeRoute('patient-id', {
+      sub: 'admin',
+      rol: UserRole.ADMINISTRADOR,
+    });
+    expect(route.ejercicios[0]).toMatchObject({
+      id: 'step-id',
+      ruta_id: 'route-id',
+      ejercicio_id: 'exercise-id',
+      ejercicio: { id: 'exercise-id' },
+    });
+  });
 });

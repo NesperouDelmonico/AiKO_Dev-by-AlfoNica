@@ -9,10 +9,10 @@ import { parseTrustProxy } from './trust-proxy';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bodyParser: false });
-  app.getHttpAdapter().getInstance().set(
-    'trust proxy',
-    parseTrustProxy(process.env.TRUST_PROXY),
-  );
+  const expressInstance = app.getHttpAdapter().getInstance() as {
+    set: (key: string, value: boolean | number) => void;
+  };
+  expressInstance.set('trust proxy', parseTrustProxy(process.env.TRUST_PROXY));
   const logger = new Logger('Http');
   const isProduction = process.env.NODE_ENV === 'production';
   const allowedOrigins = (process.env.CORS_ORIGINS ?? '')

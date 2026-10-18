@@ -3,6 +3,18 @@ import { UserEntity } from '../entities/user.entity';
 
 export const PATIENT_REPOSITORY = Symbol('PATIENT_REPOSITORY');
 
+export type PatientRouteProgress = {
+  rutaId: string;
+  total: number;
+  completados: number;
+  porcentaje: number;
+};
+
+export type ListedPatient = PatientEntity & {
+  alertasActivas: number;
+  progresoRuta: PatientRouteProgress | null;
+};
+
 export interface PatientRepositoryPort {
   specialistIdForUser(userId: string): Promise<string | null>;
   create(
@@ -11,6 +23,7 @@ export interface PatientRepositoryPort {
     data: {
       umbralBajoRendimiento: number;
       umbralDiasInactividad: number;
+      fechaNacimiento: string;
     },
   ): Promise<PatientEntity>;
   listAssigned(
@@ -22,7 +35,7 @@ export interface PatientRepositoryPort {
     total: number;
     page: number;
     limit: number;
-    data: PatientEntity[];
+    data: ListedPatient[];
   }>;
   search(
     filters: {
@@ -43,5 +56,9 @@ export interface PatientRepositoryPort {
       umbralBajoRendimiento: number;
       umbralDiasInactividad: number;
     },
+  ): Promise<PatientEntity | null>;
+  updateBirthDate(
+    patientId: string,
+    fechaNacimiento: string,
   ): Promise<PatientEntity | null>;
 }
