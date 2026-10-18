@@ -7,6 +7,7 @@ class Exercise {
     required this.categoria,
     required this.instrucciones,
     required this.nivel,
+    this.parametros = const {},
   });
 
   final String id;
@@ -14,6 +15,13 @@ class Exercise {
   final String categoria;
   final String instrucciones;
   final int nivel;
+
+  /// Parámetros del mini-juego (ver EXERCISE_PARAMETERS en el backend).
+  final Map<String, dynamic> parametros;
+
+  /// Lee un parámetro entero con valor por defecto.
+  int param(String key, int fallback) =>
+      (parametros[key] as num?)?.toInt() ?? fallback;
 
   factory Exercise.fromJson(Map<String, dynamic> json) => Exercise(
         id: json['id'] as String,
@@ -23,6 +31,9 @@ class Exercise {
         nivel: ((json['nivelDificultad'] ?? json['nivel_dificultad']) as num?)
                 ?.toInt() ??
             1,
+        parametros: json['parametros'] is Map
+            ? Map<String, dynamic>.from(json['parametros'] as Map)
+            : const {},
       );
 }
 

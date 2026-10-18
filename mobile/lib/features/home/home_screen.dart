@@ -48,10 +48,17 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void _open(RouteExercise item, {required bool isNext}) {
-    Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (_) => ExerciseDetailScreen(item: item, isNext: isNext),
+  Future<void> _open(
+    String routeId,
+    RouteExercise item, {
+    required bool isNext,
+  }) async {
+    final played = await Navigator.of(context).push<bool>(MaterialPageRoute(
+      builder: (_) =>
+          ExerciseDetailScreen(routeId: routeId, item: item, isNext: isNext),
     ));
+    // Tras jugar, recarga la ruta y el XP.
+    if (played == true && mounted) await _refresh();
   }
 
   /// Lleva el camino hasta el ejercicio siguiente la primera vez que carga.
@@ -141,7 +148,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 : isNext
                     ? _NodeState.next
                     : _NodeState.locked,
-            onTap: () => _open(item, isNext: isNext),
+            onTap: () => _open(route.id, item, isNext: isNext),
           ),
         ));
       }

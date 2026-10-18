@@ -4,18 +4,27 @@ import '../../core/category_style.dart';
 import '../../core/models.dart';
 import '../../core/theme.dart';
 import '../../widgets/aiko_card.dart';
+import '../games/games.dart';
 
 /// Detalle de un ejercicio: instrucciones antes de empezar.
-/// El motor de juegos (por categoría) llega en la siguiente fase.
+/// Solo el ejercicio siguiente de la ruta se puede jugar.
 class ExerciseDetailScreen extends StatelessWidget {
   const ExerciseDetailScreen({
     super.key,
+    required this.routeId,
     required this.item,
     required this.isNext,
   });
 
+  final String routeId;
   final RouteExercise item;
   final bool isNext;
+
+  Future<void> _start(BuildContext context) async {
+    final submitted =
+        await playExercise(context, routeId: routeId, item: item);
+    if (submitted && context.mounted) Navigator.of(context).pop(true);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -85,10 +94,21 @@ class ExerciseDetailScreen extends StatelessWidget {
                         textAlign: TextAlign.center,
                         style: TextStyle(color: AikoColors.inkSoft)),
                   ),
-                const FilledButton(
-                  onPressed: null,
-                  child: Text('Disponible pronto'),
-                ),
+                if (!item.isCompleted && isNext && hasGame(exercise))
+                  FilledButton(
+                    onPressed: () => _start(context),
+                    child: const Text('Comenzar'),
+                  )
+                else if (!item.isCompleted && isNext)
+                  const FilledButton(
+                    onPressed: null,
+                    child: Text('Juego disponible pronto'),
+                  )
+                else
+                  OutlinedButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Volver a mi ruta'),
+                  ),
               ],
             ),
           ),
