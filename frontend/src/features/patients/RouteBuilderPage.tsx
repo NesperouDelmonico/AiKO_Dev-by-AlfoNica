@@ -37,10 +37,8 @@ export function RouteBuilderPage() {
   const available = exercises.filter((exercise) => exercise.estado === 'Activo' && (exercise.nivel_dificultad ?? 0) <= level)
   const excluded = exercises.filter((exercise) => exercise.estado === 'Activo' && (exercise.nivel_dificultad ?? 0) > level)
   const stepExercises = (routeQuery.data?.ejercicios ?? []).filter((step) => step.estado !== 'Reemplazado')
-  const selectedIds = routeQuery.data
-    ? new Set((routeQuery.data.ejercicios ?? []).map((step) => step.ejercicio_id).filter((value): value is string => Boolean(value)))
-    : new Set(draft)
-  const addable = available.filter((exercise) => exercise.id && !selectedIds.has(exercise.id))
+  // Un ejercicio puede repetirse en la ruta (cada paso es independiente).
+  const addable = available.filter((exercise) => exercise.id)
   const routeSteps = routeQuery.data?.ejercicios ?? []
 
   const invalidateRouteData = async () => {
@@ -79,7 +77,7 @@ export function RouteBuilderPage() {
       {failure && <p role="alert" className="rounded-xl bg-[var(--color-attention-bg)] p-3 text-sm text-[var(--color-attention-text)]">{failure}</p>}
       <Card className="border-l-4 border-l-brand-primary">
         <h2 className="mb-2 flex items-center gap-2 text-lg"><RouteIcon aria-hidden="true" className="size-5" />Reglas de la ruta</h2>
-        <p className="mb-0 text-sm">Solo se pueden eliminar o reemplazar ejercicios no completados. El orden es consecutivo y no se repiten ejercicios.</p>
+        <p className="mb-0 text-sm">Solo se pueden eliminar o reemplazar ejercicios no completados. El orden es consecutivo y un ejercicio puede repetirse en varios pasos.</p>
       </Card>
 
       {!route && <>
@@ -88,14 +86,14 @@ export function RouteBuilderPage() {
           <p className="text-sm text-[var(--color-text-muted)]">Nivel del paciente: {level}. El orden se guarda desde 1 sin saltos.</p>
           {draft.length === 0 && <EmptyState title="Aún no agregas ejercicios" description="Elige ejercicios activos cuyo nivel no supere el del paciente." />}
           <ol className="space-y-2 pl-6">{draft.map((exerciseId, index) => (
-            <li key={exerciseId} className="rounded-xl bg-purple-50 p-3">
+            <li key={`${exerciseId}-${index}`} className="rounded-xl bg-purple-50 p-3">
               <div className="flex items-center justify-between gap-3"><span>{index + 1}. {exerciseName(exerciseId)}</span>
-                <span className="flex gap-1"><Button aria-label={`Subir ${exerciseName(exerciseId)}`} size="sm" variant="secondary" disabled={index === 0} onClick={() => setDraft((ids) => reorder(ids, index, index - 1))}><ArrowUp aria-hidden="true" className="size-4" /></Button><Button aria-label={`Bajar ${exerciseName(exerciseId)}`} size="sm" variant="secondary" disabled={index === draft.length - 1} onClick={() => setDraft((ids) => reorder(ids, index, index + 1))}><ArrowDown aria-hidden="true" className="size-4" /></Button><Button size="sm" variant="ghost" onClick={() => setDraft((ids) => ids.filter((item) => item !== exerciseId))}>Quitar</Button></span>
+                <span className="flex gap-1"><Button aria-label={`Subir ${exerciseName(exerciseId)}`} size="sm" variant="secondary" disabled={index === 0} onClick={() => setDraft((ids) => reorder(ids, index, index - 1))}><ArrowUp aria-hidden="true" className="size-4" /></Button><Button aria-label={`Bajar ${exerciseName(exerciseId)}`} size="sm" variant="secondary" disabled={index === draft.length - 1} onClick={() => setDraft((ids) => reorder(ids, index, index + 1))}><ArrowDown aria-hidden="true" className="size-4" /></Button><Button size="sm" variant="ghost" onClick={() => setDraft((ids) => ids.filter((_, position) => position !== index))}>Quitar</Button></span>
               </div>
             </li>
           ))}</ol>
           <div className="mt-4 flex flex-wrap gap-2">
-            <Select aria-label="Ejercicio para agregar" value={addId} onChange={(event) => setAddId(event.target.value)} className="max-w-md"><option value="">Selecciona un ejercicio</option>{available.filter((exercise) => exercise.id && !draft.includes(exercise.id)).map((exercise) => <option key={exercise.id} value={exercise.id}>{exercise.nombre} · Nivel {exercise.nivel_dificultad}</option>)}</Select>
+            <Select aria-label="Ejercicio para agregar" value={addId} onChange={(event) => setAddId(event.target.value)} className="max-w-md"><option value="">Selecciona un ejercicio</option>{addable.map((exercise) => <option key={exercise.id} value={exercise.id}>{exercise.nombre} · Nivel {exercise.nivel_dificultad}</option>)}</Select>
             <Button variant="secondary" disabled={!addId} onClick={() => { setDraft((ids) => [...ids, addId]); setAddId('') }}>Agregar al borrador</Button>
             <Button disabled={draft.length === 0 || createMutation.isPending} onClick={() => void perform(() => createMutation.mutateAsync())}>Crear ruta</Button>
           </div>
@@ -121,7 +119,7 @@ export function RouteBuilderPage() {
             </div>
             {!completed && !replaced && stepId && <div className="mt-3 flex flex-wrap gap-2">
               <Button size="sm" variant="secondary" onClick={() => setDeleteTarget({ stepId, name: exerciseName(step.ejercicio_id) })}>Eliminar</Button>
-              <Select aria-label={`Reemplazar ${exerciseName(step.ejercicio_id)}`} value={replaceTarget?.stepId === stepId ? replaceTarget.nextId : ''} onChange={(event) => setReplaceTarget(event.target.value ? { stepId, exerciseId: step.ejercicio_id ?? '', nextId: event.target.value } : null)} className="max-w-sm"><option value="">Elegir reemplazo…</option>{available.filter((exercise) => exercise.id && !selectedIds.has(exercise.id)).map((exercise) => <option key={exercise.id} value={exercise.id}>{exercise.nombre} · Nivel {exercise.nivel_dificultad}</option>)}</Select>
+              <Select aria-label={`Reemplazar ${exerciseName(step.ejercicio_id)}`} value={replaceTarget?.stepId === stepId ? replaceTarget.nextId : ''} onChange={(event) => setReplaceTarget(event.target.value ? { stepId, exerciseId: step.ejercicio_id ?? '', nextId: event.target.value } : null)} className="max-w-sm"><option value="">Elegir reemplazo…</option>{addable.filter((exercise) => exercise.id !== step.ejercicio_id).map((exercise) => <option key={exercise.id} value={exercise.id}>{exercise.nombre} · Nivel {exercise.nivel_dificultad}</option>)}</Select>
               {replaceTarget?.stepId === stepId && <Button size="sm" onClick={() => setConfirmReplace(true)}>Reemplazar</Button>}
             </div>}
           </li>

@@ -183,9 +183,8 @@ export class TherapyUseCase {
         'Los días deben empezar en 1 y avanzar de a uno según el orden',
       );
     }
-    if (new Set(items.map((item) => item.ejercicioId)).size !== items.length) {
-      throw new BadRequestException('La ruta no puede repetir ejercicios');
-    }
+    // Un ejercicio puede repetirse en la ruta (p. ej. el mismo juego en
+    // varios días); cada paso es un ruta_ejercicio distinto.
     const patient = await this.repository.patientById(patientId);
     if (!patient) throw new NotFoundException('Paciente no encontrado');
     for (const item of items) {
@@ -304,6 +303,12 @@ export class TherapyUseCase {
     try {
       await this.repository.removeRouteExercise(routeExerciseId);
     } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message === 'ROUTE_EXERCISE_NOT_FOUND'
+      ) {
+        throw new NotFoundException('Ejercicio de ruta no encontrado');
+      }
       if (
         error instanceof Error &&
         error.message === 'ROUTE_EXERCISE_ALREADY_COMPLETED'

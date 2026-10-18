@@ -279,24 +279,55 @@ export class PostgresTherapyRepository implements TherapyRepositoryPort {
       relations: { ruta: { paciente: true }, ejercicio: true },
     });
   }
+  /**
+   * Bloquea la ruta y luego el ejercicio de la ruta (mismo orden que
+   * addRouteExercise). No se puede pedir la relación `ruta` junto con el
+   * bloqueo: TypeORM genera LEFT JOIN … FOR UPDATE y Postgres lo rechaza
+   * ("FOR UPDATE cannot be applied to the nullable side of an outer join").
+   */
+  private async lockRouteExercise(
+    manager: import('typeorm').EntityManager,
+    id: string,
+  ) {
+    const ref = await manager.findOne(RouteExerciseEntity, {
+      where: { id },
+      relations: { ruta: true },
+    });
+    if (!ref) return null;
+    const route = await manager.findOneOrFail(TherapeuticRouteEntity, {
+      where: { id: ref.ruta.id },
+      lock: { mode: 'pessimistic_write' },
+    });
+    const item = await manager.findOneOrFail(RouteExerciseEntity, {
+      where: { id },
+      lock: { mode: 'pessimistic_write' },
+    });
+    item.ruta = route;
+    return { route, item };
+  }
   async removeRouteExercise(id: string) {
     await this.routes.manager.transaction(async (manager) => {
-      const item = await manager.findOneOrFail(RouteExerciseEntity, {
-        where: { id },
-        relations: { ruta: true },
-        lock: { mode: 'pessimistic_write' },
-      });
-      const route = await manager.findOneOrFail(TherapeuticRouteEntity, {
-        where: { id: item.ruta.id },
-        lock: { mode: 'pessimistic_write' },
-      });
+      const locked = await this.lockRouteExercise(manager, id);
+      if (!locked) throw new Error('ROUTE_EXERCISE_NOT_FOUND');
+      const { route, item } = locked;
       if (route.estado !== RouteStatus.ACTIVA) {
         throw new Error('ROUTE_NOT_ACTIVE');
       }
       if (item.estado === RouteExerciseStatus.COMPLETADO) {
         throw new Error('ROUTE_EXERCISE_ALREADY_COMPLETED');
       }
-      await manager.delete(RouteExerciseEntity, { id });
+      // Si ya tuvo intentos (puntaje bajo el mínimo), sus resultados lo
+      // referencian: se retira de la ruta sin borrarlo para conservar el
+      // historial que ve el especialista.
+      const attempts = await manager.count(ExerciseResultEntity, {
+        where: { rutaEjercicio: { id } },
+      });
+      if (attempts > 0) {
+        item.estado = RouteExerciseStatus.REEMPLAZADO;
+        await manager.save(item);
+      } else {
+        await manager.delete(RouteExerciseEntity, { id });
+      }
       await this.resequenceActiveItems(manager, route.id);
     });
   }
@@ -311,16 +342,9 @@ export class PostgresTherapyRepository implements TherapyRepositoryPort {
   }
   async replaceRouteExercise(id: string, exerciseId: string) {
     return this.routes.manager.transaction(async (manager) => {
-      const old = await manager.findOne(RouteExerciseEntity, {
-        where: { id },
-        relations: { ruta: true },
-        lock: { mode: 'pessimistic_write' },
-      });
-      if (!old) return null;
-      const route = await manager.findOneOrFail(TherapeuticRouteEntity, {
-        where: { id: old.ruta.id },
-        lock: { mode: 'pessimistic_write' },
-      });
+      const locked = await this.lockRouteExercise(manager, id);
+      if (!locked) return null;
+      const { route, item: old } = locked;
       if (route.estado !== RouteStatus.ACTIVA) {
         throw new Error('ROUTE_NOT_ACTIVE');
       }
