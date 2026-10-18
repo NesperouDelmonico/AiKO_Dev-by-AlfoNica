@@ -6,13 +6,18 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'node:crypto';
 import {
-  CognitiveCategory,
+  DEFAULT_GAME_TYPE,
   ExerciseStatus,
+  GameType,
 } from '../../domain/entities/exercise.entity';
+import { IMAGE_STORAGE } from '../../domain/ports/image-storage.port';
+import type { ImageStoragePort } from '../../domain/ports/image-storage.port';
+import { routeSchedule } from '../../domain/services/route-schedule';
 import { normalizeExerciseParameters } from '../../domain/services/exercise-parameters';
 import { RouteExerciseStatus } from '../../domain/entities/route-exercise.entity';
 import { RouteStatus } from '../../domain/entities/therapeutic-route.entity';
@@ -42,6 +47,9 @@ export class TherapyUseCase {
     private readonly repository: TherapyRepositoryPort,
     private readonly config: ConfigService,
     private readonly gamification: GamificationUseCase,
+    @Optional()
+    @Inject(IMAGE_STORAGE)
+    private readonly images?: ImageStoragePort,
   ) {}
 
   async list(query: ExerciseQueryDto, actor: Actor) {
@@ -68,23 +76,32 @@ export class TherapyUseCase {
     return exercises.filter((_, index) => available[index]);
   }
 
-  private parameters(
-    categoria: CognitiveCategory,
+  /** Valida los parámetros del tipo de juego y que sus imágenes existan. */
+  private async parameters(
+    tipo: GameType,
     parametros: Record<string, unknown>,
   ) {
-    const check = normalizeExerciseParameters(categoria, parametros);
+    const check = normalizeExerciseParameters(tipo, parametros);
     if (!check.ok) throw new BadRequestException(check.errores);
+    const missing = (await this.images?.missing(check.imagenes)) ?? [];
+    if (missing.length) {
+      throw new BadRequestException(
+        `Imágenes no encontradas: ${missing.join(', ')}. Súbelas de nuevo.`,
+      );
+    }
     return check.parametros;
   }
 
-  create(data: CreateExerciseDto, specialistUserId: string) {
+  async create(data: CreateExerciseDto, specialistUserId: string) {
+    const tipo = data.tipo ?? DEFAULT_GAME_TYPE[data.categoria];
     return this.repository.saveExercise(
       {
         nombre: data.nombre,
         categoria: data.categoria,
+        tipo,
         nivelDificultad: data.nivel_dificultad,
         instrucciones: data.instrucciones,
-        parametros: this.parameters(data.categoria, data.parametros),
+        parametros: await this.parameters(tipo, data.parametros),
         estado: ExerciseStatus.ACTIVO,
       },
       specialistUserId,
@@ -103,16 +120,15 @@ export class TherapyUseCase {
     if (await this.repository.activeUsage(id)) {
       throw new ConflictException('Ejercicio en uso activo');
     }
+    const tipo = data.tipo ?? exercise.tipo;
     const parametros =
-      data.parametros === undefined && data.categoria === undefined
+      data.parametros === undefined && data.tipo === undefined
         ? undefined
-        : this.parameters(
-            data.categoria ?? exercise.categoria,
-            data.parametros ?? exercise.parametros,
-          );
+        : await this.parameters(tipo, data.parametros ?? exercise.parametros);
     const updated = await this.repository.updateExercise(id, {
       ...(data.nombre === undefined ? {} : { nombre: data.nombre }),
       ...(data.categoria === undefined ? {} : { categoria: data.categoria }),
+      ...(data.tipo === undefined ? {} : { tipo: data.tipo }),
       ...(data.nivel_dificultad === undefined
         ? {}
         : { nivelDificultad: data.nivel_dificultad }),
@@ -156,6 +172,7 @@ export class TherapyUseCase {
     patientId: string,
     items: RouteItemInput[],
     specialistUserId: string,
+    duracionDias?: number,
   ) {
     const assigned = await this.repository.patientAssignedToSpecialist(
       patientId,
@@ -183,12 +200,19 @@ export class TherapyUseCase {
         'Los días deben empezar en 1 y avanzar de a uno según el orden',
       );
     }
+    const lastDay = days[days.length - 1];
+    if (duracionDias !== undefined && lastDay !== duracionDias) {
+      throw new BadRequestException(
+        `El plan es de ${duracionDias} día(s): cada día debe tener al menos un ejercicio (hay ${lastDay})`,
+      );
+    }
     // Un ejercicio puede repetirse en la ruta (p. ej. el mismo juego en
     // varios días); cada paso es un ruta_ejercicio distinto.
     const patient = await this.repository.patientById(patientId);
     if (!patient) throw new NotFoundException('Paciente no encontrado');
-    for (const item of items) {
-      const exercise = await this.repository.exercise(item.ejercicioId);
+    // Un mes puede tener cientos de pasos: se consulta cada ejercicio una vez.
+    for (const ejercicioId of new Set(items.map((item) => item.ejercicioId))) {
+      const exercise = await this.repository.exercise(ejercicioId);
       if (!exercise || exercise.estado !== ExerciseStatus.ACTIVO) {
         throw new BadRequestException(
           'Todos los ejercicios deben existir y estar activos',
@@ -204,6 +228,7 @@ export class TherapyUseCase {
       return await this.repository.createRoute(
         patientId,
         items.map((item, index) => ({ ...item, dia: days[index] })),
+        duracionDias ?? lastDay,
       );
     } catch (error) {
       if (error instanceof Error && error.message === 'ACTIVE_ROUTE_CONFLICT') {
@@ -226,10 +251,12 @@ export class TherapyUseCase {
     const route = await this.repository.activeRoute(patientId);
     if (!route) throw new NotFoundException('Sin ruta activa');
     const progress = await this.repository.progress(route.id);
+    const schedule = routeSchedule(route.ejercicios ?? []);
     // El contrato (RutaEjercicio) expone ejercicio_id y ruta_id; la web los
     // usa y la app móvil lee el objeto `ejercicio` anidado.
     return {
       ...route,
+      agenda: { ...schedule, duracion_dias: route.duracionDias ?? null },
       ejercicios: (route.ejercicios ?? []).map((item) => ({
         ...item,
         ruta_id: route.id,
@@ -394,6 +421,19 @@ export class TherapyUseCase {
       throw new ConflictException(
         'El ejercicio no está pendiente en una ruta activa',
       );
+    }
+    // Días por fecha: solo se registran resultados del día habilitado.
+    const activeRoute = await this.repository.activeRoute(patient.id);
+    if (activeRoute?.id === routeId) {
+      const schedule = routeSchedule(activeRoute.ejercicios ?? []);
+      if (item.dia > schedule.dia_actual) {
+        throw new ForbiddenException('Primero completa los días anteriores');
+      }
+      if (!schedule.disponible) {
+        throw new ForbiddenException(
+          `Este día se habilita el ${schedule.disponible_desde}`,
+        );
+      }
     }
 
     const minimumScore = this.numericConfig('MIN_SCORE_TO_ADVANCE', 60);

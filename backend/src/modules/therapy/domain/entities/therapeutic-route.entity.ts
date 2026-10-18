@@ -35,6 +35,10 @@ export class TherapeuticRouteEntity {
   @Column({ type: 'enum', enum: RouteStatus })
   estado!: RouteStatus;
 
+  /** Periodo del plan: 1 (un día), 7 (semana), 15 (quincena) o 30 (mes). */
+  @Column({ type: 'int', name: 'duracion_dias', nullable: true })
+  duracionDias!: number | null;
+
   @CreateDateColumn({ type: 'timestamp', name: 'fecha_creacion' })
   fechaCreacion!: Date;
 

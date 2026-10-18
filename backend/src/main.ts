@@ -24,6 +24,9 @@ async function bootstrap() {
   }
   const bodyLimit = process.env.API_BODY_LIMIT ?? '100kb';
   app.use(helmet());
+  // Las imágenes de ejercicios llegan en base64 (máx. 1,5 MB → ~2 MB);
+  // este parser va antes del general para que su límite aplique.
+  app.use('/v1/imagenes', json({ limit: '2200kb' }));
   app.use(json({ limit: bodyLimit }));
   app.use(urlencoded({ extended: true, limit: bodyLimit }));
   app.enableCors({

@@ -89,6 +89,7 @@ export class TherapyController {
         dia: x.dia,
       })),
       user.sub,
+      d.duracion_dias,
     );
   }
   @Get('pacientes/:id/rutas/activa')

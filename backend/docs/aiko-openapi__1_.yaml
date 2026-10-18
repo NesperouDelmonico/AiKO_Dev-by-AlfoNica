@@ -13,6 +13,7 @@ servers:
     description: Producción
 
 tags:
+  - name: Imágenes
   - name: Autenticación
   - name: Usuarios
   - name: Pacientes
@@ -610,6 +611,56 @@ paths:
   # ============================================================
   # MÓDULO: TERAPIA — Ejercicios
   # ============================================================
+  /imagenes:
+    post:
+      tags: [Imágenes]
+      summary: Subir imagen de ejercicio (PNG o JPG, máx. 1,5 MB)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tipo_mime, datos]
+              properties:
+                tipo_mime: { type: string, enum: [image/png, image/jpeg] }
+                datos: { type: string, description: Contenido en base64 }
+      responses:
+        "201":
+          description: Imagen guardada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Imagen" }
+        "400":
+          description: Formato inválido
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "413":
+          description: Imagen demasiado grande
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /imagenes/{id}:
+    parameters:
+      - { $ref: "#/components/parameters/idPathParam" }
+    get:
+      tags: [Imágenes]
+      summary: Obtener imagen de ejercicio (pública por id)
+      security: []
+      responses:
+        "200":
+          description: Contenido de la imagen
+          content:
+            image/png: { schema: { type: string, format: binary } }
+            image/jpeg: { schema: { type: string, format: binary } }
+        "404":
+          description: Imagen no encontrada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
   /ejercicios:
     get:
       tags: [Ejercicios]
@@ -645,16 +696,20 @@ paths:
               properties:
                 nombre: { type: string, maxLength: 150 }
                 categoria: { $ref: "#/components/schemas/CategoriaEjercicio" }
+                tipo: { $ref: "#/components/schemas/TipoJuego" }
                 nivel_dificultad: { type: integer, minimum: 1 }
                 instrucciones: { type: string }
                 parametros:
                   type: object
                   additionalProperties: true
                   description: |
-                    Según la categoría (se completan valores por defecto):
-                    Atención: duracion_segundos 30–180 (60), intervalo_ms 600–3000 (1500).
-                    Memoria: longitud_inicial 2–8 (3), longitud_maxima ≤ 9 y ≥ longitud_inicial (6), tiempo_visualizacion_ms 500–3000 (1000).
-                    Velocidad: intentos 5–30 (10), tiempo_limite_ms 300–3000 (1500).
+                    Según el tipo de juego (se completan valores por defecto):
+                    atencion_sostenida: duracion_segundos 30–180 (60), intervalo_ms 600–3000 (1500).
+                    memoria_secuencias: longitud_inicial 2–8 (3), longitud_maxima ≤ 9 y ≥ longitud_inicial (6), tiempo_visualizacion_ms 500–3000 (1000).
+                    reaccion: intentos 5–30 (10), tiempo_limite_ms 300–3000 (1500).
+                    completar_palabras: frase (2–120 caracteres, máx. 12 palabras), imagen_id opcional, letras_ocultas 1–4 (2), duracion_segundos 60–600 (300).
+                    recordar_imagenes: imagenes [{ imagen_id, respuestas: [palabras clave] }] (1–6), tiempo_visualizacion_segundos 3–30 (8).
+                    logica: preguntas [{ enunciado, imagen_id opcional, opciones (2–6), correcta (índice) }] (1–10).
       responses:
         "201":
           description: Ejercicio creado
@@ -692,16 +747,20 @@ paths:
               properties:
                 nombre: { type: string, maxLength: 150 }
                 categoria: { $ref: "#/components/schemas/CategoriaEjercicio" }
+                tipo: { $ref: "#/components/schemas/TipoJuego" }
                 nivel_dificultad: { type: integer, minimum: 1 }
                 instrucciones: { type: string }
                 parametros:
                   type: object
                   additionalProperties: true
                   description: |
-                    Según la categoría (se completan valores por defecto):
-                    Atención: duracion_segundos 30–180 (60), intervalo_ms 600–3000 (1500).
-                    Memoria: longitud_inicial 2–8 (3), longitud_maxima ≤ 9 y ≥ longitud_inicial (6), tiempo_visualizacion_ms 500–3000 (1000).
-                    Velocidad: intentos 5–30 (10), tiempo_limite_ms 300–3000 (1500).
+                    Según el tipo de juego (se completan valores por defecto):
+                    atencion_sostenida: duracion_segundos 30–180 (60), intervalo_ms 600–3000 (1500).
+                    memoria_secuencias: longitud_inicial 2–8 (3), longitud_maxima ≤ 9 y ≥ longitud_inicial (6), tiempo_visualizacion_ms 500–3000 (1000).
+                    reaccion: intentos 5–30 (10), tiempo_limite_ms 300–3000 (1500).
+                    completar_palabras: frase (2–120 caracteres, máx. 12 palabras), imagen_id opcional, letras_ocultas 1–4 (2), duracion_segundos 60–600 (300).
+                    recordar_imagenes: imagenes [{ imagen_id, respuestas: [palabras clave] }] (1–6), tiempo_visualizacion_segundos 3–30 (8).
+                    logica: preguntas [{ enunciado, imagen_id opcional, opciones (2–6), correcta (índice) }] (1–10).
       responses:
         "200":
           description: Ejercicio actualizado
@@ -780,8 +839,13 @@ paths:
               type: object
               required: [ejercicios]
               properties:
+                duracion_dias:
+                  type: integer
+                  enum: [1, 7, 15, 30]
+                  description: Periodo del plan (día, semana, quincena, mes); cada día debe tener ejercicios
                 ejercicios:
                   type: array
+                  maxItems: 300
                   items:
                     type: object
                     required: [ejercicio_id, orden]
@@ -1530,6 +1594,29 @@ components:
       description: Dominio cognitivo
       enum: [Atención, Memoria, Velocidad]
 
+    TipoJuego:
+      type: string
+      description: Mini-juego de la app móvil; si no se envía, se deduce de la categoría
+      enum: [atencion_sostenida, memoria_secuencias, reaccion, completar_palabras, recordar_imagenes, logica]
+
+    AgendaRuta:
+      type: object
+      description: Día habilitado; el siguiente día se habilita al día calendario siguiente (hora Colombia)
+      properties:
+        dia_actual: { type: integer, minimum: 1 }
+        disponible: { type: boolean }
+        disponible_desde: { type: string, format: date, nullable: true }
+        completada: { type: boolean }
+        duracion_dias: { type: integer, nullable: true }
+
+    Imagen:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        tipo_mime: { type: string, enum: [image/png, image/jpeg] }
+        tamano: { type: integer }
+        url: { type: string, example: "/v1/imagenes/<id>" }
+
     EstadoEjercicio:
       type: string
       enum: [Activo, Desactivado]
@@ -1613,6 +1700,7 @@ components:
         id: { type: string, format: uuid }
         nombre: { type: string, maxLength: 150 }
         categoria: { $ref: "#/components/schemas/CategoriaEjercicio" }
+        tipo: { $ref: "#/components/schemas/TipoJuego" }
         nivel_dificultad: { type: integer, minimum: 1 }
         instrucciones: { type: string }
         parametros: { type: object, additionalProperties: true }
@@ -1626,7 +1714,9 @@ components:
         id: { type: string, format: uuid }
         paciente_id: { type: string, format: uuid }
         estado: { $ref: "#/components/schemas/EstadoRuta" }
+        duracion_dias: { type: integer, nullable: true, enum: [1, 7, 15, 30] }
         fecha_creacion: { type: string, format: date-time }
+        agenda: { $ref: "#/components/schemas/AgendaRuta" }
         ejercicios:
           type: array
           items: { $ref: "#/components/schemas/RutaEjercicio" }
@@ -1640,6 +1730,7 @@ components:
         orden: { type: integer, minimum: 1 }
         dia: { type: integer, minimum: 1 }
         estado: { $ref: "#/components/schemas/EstadoRutaEjercicio" }
+        fecha_completado: { type: string, format: date-time, nullable: true }
 
     ResultadoEjercicio:
       type: object

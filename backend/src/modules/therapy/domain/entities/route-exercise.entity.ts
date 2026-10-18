@@ -50,4 +50,8 @@ export class RouteExerciseEntity {
 
   @Column({ type: 'enum', enum: RouteExerciseStatus })
   estado!: RouteExerciseStatus;
+
+  /** Cuándo se completó; con esto se habilita el día siguiente por fecha. */
+  @Column({ type: 'timestamp', name: 'fecha_completado', nullable: true })
+  fechaCompletado!: Date | null;
 }

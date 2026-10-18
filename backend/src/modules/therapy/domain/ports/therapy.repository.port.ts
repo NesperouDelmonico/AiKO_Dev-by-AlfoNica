@@ -39,6 +39,7 @@ export interface TherapyRepositoryPort {
   createRoute(
     patientId: string,
     items: { ejercicioId: string; orden: number; dia: number }[],
+    duracionDias?: number,
   ): Promise<TherapeuticRouteEntity>;
   activeRoute(patientId: string): Promise<TherapeuticRouteEntity | null>;
   progress(

@@ -144,6 +144,7 @@ export class PostgresTherapyRepository implements TherapyRepositoryPort {
   async createRoute(
     patientId: string,
     values: { ejercicioId: string; orden: number; dia: number }[],
+    duracionDias?: number,
   ) {
     return this.routes.manager.transaction(async (manager) => {
       const patient = await manager
@@ -157,11 +158,13 @@ export class PostgresTherapyRepository implements TherapyRepositoryPort {
       if (activeCount > 0) {
         throw new Error('ACTIVE_ROUTE_CONFLICT');
       }
+      const uniqueIds = [...new Set(values.map((value) => value.ejercicioId))];
       const exercises = await manager.findBy(ExerciseEntity, {
-        id: In(values.map((value) => value.ejercicioId)),
+        id: In(uniqueIds),
         estado: 'Activo' as ExerciseEntity['estado'],
       });
-      if (exercises.length !== values.length) {
+      // Un ejercicio puede repetirse: se comparan ids distintos.
+      if (exercises.length !== uniqueIds.length) {
         throw new Error('ROUTE_EXERCISE_NOT_AVAILABLE');
       }
       const route = await manager.save(
@@ -169,6 +172,7 @@ export class PostgresTherapyRepository implements TherapyRepositoryPort {
         manager.create(TherapeuticRouteEntity, {
           paciente: patient,
           estado: RouteStatus.ACTIVA,
+          duracionDias: duracionDias ?? null,
           ejercicios: [],
         }),
       );
@@ -249,7 +253,11 @@ export class PostgresTherapyRepository implements TherapyRepositoryPort {
       });
       const lastDay = last?.dia ?? 1;
       const day = dia ?? lastDay;
-      if (day < lastDay || day > lastDay + 1) {
+      if (
+        day < lastDay ||
+        day > lastDay + 1 ||
+        (ruta.duracionDias !== null && day > ruta.duracionDias)
+      ) {
         throw new Error('ROUTE_DAY_INVALID');
       }
       const ejercicio = await manager.findOneByOrFail(ExerciseEntity, {
@@ -402,6 +410,7 @@ export class PostgresTherapyRepository implements TherapyRepositoryPort {
       await manager.save(patient);
       if (shouldAdvance) {
         item.estado = RouteExerciseStatus.COMPLETADO;
+        item.fechaCompletado = new Date();
         await manager.save(item);
 
         const pendingCount = await manager.count(RouteExerciseEntity, {
