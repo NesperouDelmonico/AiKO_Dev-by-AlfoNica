@@ -52,6 +52,19 @@ Guías para otros sistemas: `docs/SETUP_MAC.md`.
 
 ## Estado
 
-- Login, sesión persistente (JWT en almacenamiento seguro), navegación inferior.
-- Inicio con datos de muestra: se conectará a `GET /v1/pacientes/:id/rutas/activa`.
-- Seguimiento y Ejercicios: pendientes.
+- Login solo para pacientes, sesión persistente (JWT en almacenamiento
+  seguro), recuperación y cambio de contraseña.
+- Inicio: la ruta real como camino de círculos por días ("Día X de N"),
+  con el día en curso, los completados y los que se habilitan por fecha.
+- Juegos: Reacción rápida, Completar palabras (arrastrar letras y ordenar
+  la frase), Recordar imágenes (tarjetas que se voltean) y Lógica
+  matemática (opciones A, B, C…). Resultado con porcentaje, aciertos,
+  tiempo, XP e insignias.
+- Pendientes: juegos de Atención sostenida y Secuencias de memoria,
+  pantallas de Seguimiento y Ejercicios, notificaciones push.
+
+## APK automático
+
+Cada push que toca `mobile/` corre `flutter analyze`, `flutter test` y
+compila el APK en GitHub Actions; en `main` se publica como Release
+([último APK](https://github.com/NesperouDelmonico/AiKO_Dev-by-AlfoNica/releases/latest/download/aiko.apk)).
