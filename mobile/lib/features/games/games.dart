@@ -63,9 +63,9 @@ Future<bool> playExercise(
   required RouteExercise item,
 }) async {
   var submitted = false;
-  while (context.mounted) {
+  while (true) {
     final game = gameFor(item.ejercicio);
-    if (game == null) return submitted;
+    if (game == null || !context.mounted) return submitted;
     final outcome = await Navigator.of(context).push<GameOutcome>(
       MaterialPageRoute(builder: (_) => game, fullscreenDialog: true),
     );
@@ -83,5 +83,4 @@ Future<bool> playExercise(
     submitted = true;
     if (action != ResultAction.retry) return submitted;
   }
-  return submitted;
 }
