@@ -21,7 +21,8 @@ export function AlertsPage() {
   const [type, setType] = useState('')
   const [state, setState] = useState('')
   const filters = {
-    ...(user?.id ? { especialista_id: user.id } : {}),
+    // El backend ya limita las alertas al especialista autenticado; user.id es
+    // el id de usuario, no el del perfil de especialista.
     ...(type ? { tipo: type as AlertType } : {}),
     ...(state ? { estado: state as AlertState } : {}),
   }
