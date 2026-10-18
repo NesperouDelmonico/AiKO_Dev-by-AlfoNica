@@ -463,7 +463,7 @@ export function PatientDetailPage() {
 
       {observationOpen && <ObservationDialog patientId={id} onClose={closeObservation} />}
       {settingsOpen && <PatientSettingsDialog patient={patient} patientId={id} onClose={() => setSettingsOpen(false)} />}
-      {reassignOpen && <ReassignPatientDialog patientId={id} currentSpecialistId={patient.especialista_id} onClose={() => setReassignOpen(false)} />}
+      {reassignOpen && <ReassignPatientDialog patientId={id} currentSpecialistId={patient.especialista_id ?? ''} onClose={() => setReassignOpen(false)} />}
     </div>
   )
 }

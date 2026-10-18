@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
@@ -113,26 +113,31 @@ describe('fase 3: administración y catálogo', () => {
     expect(await screen.findByText('No se pudo entregar la contraseña; la cuenta no se modificó.')).toBeInTheDocument()
   })
 
-  it('valida JSON y nivel de dificultad; explica el conflicto 409 al editar', async () => {
+  it('valida campos por tipo y nivel de dificultad; explica el conflicto 409 al editar', async () => {
     const seen: string[] = []
-    const fetcher = (input: RequestInfo | URL) => {
+    let sentBody: unknown
+    const fetcher = async (input: RequestInfo | URL) => {
       const url = requestUrl(input)
-      seen.push(`${input instanceof Request ? input.method : 'GET'} ${url.pathname}`)
-      if (url.pathname.endsWith('/ejercicios') && (input instanceof Request ? input.method : 'GET') === 'GET') return response(200, [{ id: 'ex1', nombre: 'Memoria', categoria: 'Memoria', nivel_dificultad: 2, estado: 'Activo', instrucciones: 'Instrucciones', parametros: {} }])
-      if (url.pathname.endsWith('/ejercicios/ex1')) return response(409, { statusCode: 409, message: 'Ejercicio en uso activo.' })
+      const method = input instanceof Request ? input.method : 'GET'
+      seen.push(`${method} ${url.pathname}`)
+      if (url.pathname.endsWith('/ejercicios') && method === 'GET') return response(200, [{ id: 'ex1', nombre: 'Reacción', categoria: 'Velocidad', tipo: 'reaccion', nivel_dificultad: 2, estado: 'Activo', instrucciones: 'Instrucciones', parametros: { intentos: 12 } }])
+      if (url.pathname.endsWith('/ejercicios/ex1')) {
+        sentBody = await requestBody(input)
+        return response(409, { statusCode: 409, message: 'Ejercicio en uso activo.' })
+      }
       return response(404, { message: 'No encontrado' })
     }
     renderPage('/especialista/ejercicios', [{ path: '/especialista/ejercicios', element: <ExercisesPage /> }], fetcher)
     const user = userEvent.setup()
-    expect(await screen.findByRole('button', { name: 'Editar' })).toBeInTheDocument()
+    expect(await screen.findByText(/Reacción rápida · Velocidad/)).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Editar' }))
     const dialog = await screen.findByRole('dialog', { name: 'Editar ejercicio' })
-    await user.clear(within(dialog).getByLabelText('Parámetros (JSON)'))
-    fireEvent.change(within(dialog).getByLabelText('Parámetros (JSON)'), { target: { value: '{bad' } })
+    expect(within(dialog).getByLabelText(/^Intentos/)).toHaveValue(12)
+    // Cambiar a lógica exige enunciado.
+    await user.selectOptions(within(dialog).getByLabelText(/Tipo de juego/), 'logica')
     await user.click(within(dialog).getByRole('button', { name: 'Guardar cambios' }))
-    expect(await within(dialog).findByText('Ingresa un objeto JSON válido para los parámetros.')).toBeInTheDocument()
-    await user.clear(within(dialog).getByLabelText('Parámetros (JSON)'))
-    fireEvent.change(within(dialog).getByLabelText('Parámetros (JSON)'), { target: { value: '{}' } })
+    expect(await within(dialog).findByText('Cada pregunta necesita su enunciado.')).toBeInTheDocument()
+    await user.selectOptions(within(dialog).getByLabelText(/Tipo de juego/), 'reaccion')
     await user.clear(within(dialog).getByLabelText('Nivel de dificultad'))
     await user.type(within(dialog).getByLabelText('Nivel de dificultad'), '0')
     await user.click(within(dialog).getByRole('button', { name: 'Guardar cambios' }))
@@ -141,6 +146,7 @@ describe('fase 3: administración y catálogo', () => {
     await user.type(within(dialog).getByLabelText('Nivel de dificultad'), '2')
     await user.click(within(dialog).getByRole('button', { name: 'Guardar cambios' }))
     await waitFor(() => expect(seen).toContain('PUT /v1/ejercicios/ex1'))
+    expect(sentBody).toMatchObject({ tipo: 'reaccion', parametros: { intentos: 10, tiempo_limite_ms: 1500 } })
     expect(await within(dialog).findByText('No se puede editar este ejercicio porque está en una ruta activa.')).toBeInTheDocument()
   })
 })
@@ -181,14 +187,50 @@ describe('fase 3: alertas y rutas', () => {
     renderPage('/especialista/pacientes/p1/ruta', [{ path: '/especialista/pacientes/:id/ruta', element: <RouteBuilderPage /> }], fetcher)
     const user = userEvent.setup()
     expect(await screen.findByText('Ejercicio avanzado')).toBeInTheDocument()
-    const select = screen.getByRole('combobox', { name: 'Ejercicio para agregar' })
+    const select = screen.getByRole('combobox', { name: 'Ejercicio para agregar al día 1' })
     expect(within(select).queryByRole('option', { name: /Ejercicio avanzado/ })).not.toBeInTheDocument()
     await user.selectOptions(select, 'e1')
-    await user.click(screen.getByRole('button', { name: 'Agregar al borrador' }))
+    await user.click(screen.getByRole('button', { name: 'Agregar al día 1' }))
+    await user.selectOptions(select, 'e1')
+    await user.click(screen.getByRole('button', { name: 'Agregar al día 1' }))
     await user.selectOptions(select, 'e2')
-    await user.click(screen.getByRole('button', { name: 'Agregar al borrador' }))
+    await user.click(screen.getByRole('button', { name: 'Agregar al día 1' }))
     await user.click(screen.getByRole('button', { name: 'Crear ruta' }))
-    await waitFor(() => expect(createdOrder).toEqual({ ejercicios: [{ ejercicio_id: 'e1', orden: 1 }, { ejercicio_id: 'e2', orden: 2 }] }))
+    await waitFor(() => expect(createdOrder).toEqual({
+      duracion_dias: 1,
+      ejercicios: [
+        { ejercicio_id: 'e1', orden: 1, dia: 1 },
+        { ejercicio_id: 'e1', orden: 2, dia: 1 },
+        { ejercicio_id: 'e2', orden: 3, dia: 1 },
+      ],
+    }))
+  })
+
+  it('arma un plan semanal copiando el día 1 y exige ejercicios en todos los días', async () => {
+    let created: { duracion_dias?: number; ejercicios: Array<{ dia: number }> } | undefined
+    const fetcher = async (input: RequestInfo | URL) => {
+      const url = requestUrl(input)
+      const method = input instanceof Request ? input.method : 'GET'
+      if (url.pathname.endsWith('/pacientes/p1') && method === 'GET') return response(200, { id: 'p1', nombre: 'Paciente', especialista_id: 's1', nivel_actual: 2 })
+      if (url.pathname.endsWith('/rutas/activa')) return response(404, { statusCode: 404, message: 'Sin ruta activa' })
+      if (url.pathname.endsWith('/ejercicios') && method === 'GET') return response(200, [{ id: 'e1', nombre: 'Ejercicio uno', categoria: 'Memoria', tipo: 'recordar_imagenes', nivel_dificultad: 1, estado: 'Activo' }])
+      if (url.pathname.endsWith('/pacientes/p1/rutas') && method === 'POST') {
+        created = (await requestBody(input)) as typeof created
+        return response(201, { id: 'r1', estado: 'Activa' })
+      }
+      return response(404, { message: 'No encontrado' })
+    }
+    renderPage('/especialista/pacientes/p1/ruta', [{ path: '/especialista/pacientes/:id/ruta', element: <RouteBuilderPage /> }], fetcher)
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('radio', { name: /Semana/ }))
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Ejercicio para agregar al día 1' }), 'e1')
+    await user.click(screen.getByRole('button', { name: 'Agregar al día 1' }))
+    expect(screen.getByText(/Faltan ejercicios en los días 2, 3, 4, 5, 6, 7/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Crear ruta' })).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: 'Copiar a días vacíos' }))
+    await user.click(screen.getByRole('button', { name: 'Crear ruta' }))
+    await waitFor(() => expect(created?.duracion_dias).toBe(7))
+    expect(created?.ejercicios.map((step) => step.dia)).toEqual([1, 2, 3, 4, 5, 6, 7])
   })
 
   it('etiqueta el primer paso pendiente como En curso y no ofrece acciones al completado', async () => {

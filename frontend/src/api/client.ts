@@ -13,8 +13,15 @@ export function setUnauthorizedHandler(handler: UnauthorizedHandler): () => void
   }
 }
 
+export const apiBaseUrl: string = import.meta.env.VITE_API_URL || 'http://localhost:3000/v1'
+
+/** URL pública de una imagen de ejercicio subida al backend. */
+export function imageUrl(id: string): string {
+  return `${apiBaseUrl}/imagenes/${id}`
+}
+
 export const apiClient = createClient<paths>({
-  baseUrl: import.meta.env.VITE_API_URL || 'http://localhost:3000/v1',
+  baseUrl: apiBaseUrl,
   fetch: async (request: Request) => {
     const response = await globalThis.fetch(request)
     if (!response.ok) {

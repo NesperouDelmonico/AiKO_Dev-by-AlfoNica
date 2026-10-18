@@ -1561,6 +1561,24 @@ components:
       schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
 
   responses:
+    BadRequest:
+      description: Datos inválidos
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+
+    Unauthorized:
+      description: No autenticado o credenciales inválidas
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+
+    Forbidden:
+      description: Sin permiso para esta operación
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+
     NotFound:
       description: Recurso no encontrado
       content:
