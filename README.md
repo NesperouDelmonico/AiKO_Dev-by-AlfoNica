@@ -125,4 +125,4 @@ instalar la nueva.
 |---|---|
 | `main` | Versión probada y validada; publica el APK |
 | `dev_nesp` | Desarrollo de la app móvil (Flutter) y backend; despliega la API |
-| `dev_vero` | Desarrollo del panel web (React) |
+| `dev_vero` | Desarrollo del backend y panel web (React) |
