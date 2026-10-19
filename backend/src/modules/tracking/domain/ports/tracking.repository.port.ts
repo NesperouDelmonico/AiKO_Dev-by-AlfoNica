@@ -14,6 +14,7 @@ export type NotificationPreferenceData = {
   frecuencia: ReminderFrequency;
   horarioRecordatorio: string;
 };
+export type AlertWithPatientName = AlertEntity & { pacienteNombre: string };
 
 export interface TrackingRepositoryPort {
   patientOwnedByUser(patientId: string, userId: string): Promise<boolean>;
@@ -51,7 +52,7 @@ export interface TrackingRepositoryPort {
     id: string,
     texto: string,
   ): Promise<ObservationEntity | null>;
-  alerts(id?: string, filters?: any): Promise<AlertEntity[]>;
+  alerts(id?: string, filters?: any): Promise<AlertWithPatientName[]>;
   notifications(
     id: string,
     leida: boolean | undefined,

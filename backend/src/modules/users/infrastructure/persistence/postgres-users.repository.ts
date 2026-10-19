@@ -9,7 +9,10 @@ import { UserEntity, UserRole } from '../../domain/entities/user.entity';
 import { IncidentEntity } from '../../domain/entities/incident.entity';
 import { ExerciseResultEntity } from '../../../therapy/domain/entities/exercise-result.entity';
 import { PasswordResetEntity } from '../../../auth/domain/entities/password-reset.entity';
-import type { UsersRepositoryPort } from '../../domain/ports/users.repository.port';
+import type {
+  UserWithSpecialistId,
+  UsersRepositoryPort,
+} from '../../domain/ports/users.repository.port';
 @Injectable()
 export class PostgresUsersRepository implements UsersRepositoryPort {
   constructor(
@@ -33,7 +36,14 @@ export class PostgresUsersRepository implements UsersRepositoryPort {
     estado?: boolean,
     query?: string,
   ) {
-    const builder = this.users.createQueryBuilder('user');
+    const builder = this.users
+      .createQueryBuilder('user')
+      .leftJoin(
+        SpecialistEntity,
+        'specialist',
+        'specialist.usuario_id = user.id',
+      )
+      .addSelect('specialist.id', 'especialista_id');
     if (rol) builder.andWhere('user.rol = :rol', { rol });
     if (estado !== undefined)
       builder.andWhere('user.estado = :estado', { estado });
@@ -47,15 +57,43 @@ export class PostgresUsersRepository implements UsersRepositoryPort {
         { query: `%${normalizedQuery}%` },
       );
     }
-    const [data, total] = await builder
+    const { entities, raw } = await builder
       .orderBy('user.fechaCreacion', 'DESC')
       .skip((page - 1) * limit)
       .take(limit)
-      .getManyAndCount();
-    return { total, page, limit, data };
+      .getRawAndEntities();
+    const total = await builder.getCount();
+    return {
+      total,
+      page,
+      limit,
+      data: this.withSpecialistIds(entities, raw),
+    };
   }
-  find(id: string) {
-    return this.users.findOneBy({ id });
+
+  async find(id: string): Promise<UserWithSpecialistId | null> {
+    const { entities, raw } = await this.users
+      .createQueryBuilder('user')
+      .leftJoin(
+        SpecialistEntity,
+        'specialist',
+        'specialist.usuario_id = user.id',
+      )
+      .addSelect('specialist.id', 'especialista_id')
+      .where('user.id = :id', { id })
+      .getRawAndEntities();
+    return entities[0] ? this.withSpecialistIds(entities, raw)[0] : null;
+  }
+
+  private withSpecialistIds(
+    users: UserEntity[],
+    rows: { especialista_id: string | null }[],
+  ): UserWithSpecialistId[] {
+    return users.map((user, index) =>
+      Object.assign(user, {
+        especialistaId: rows[index]?.especialista_id ?? null,
+      }),
+    );
   }
   findByEmail(correo: string) {
     return this.users.findOneBy({ correo });
@@ -107,7 +145,14 @@ export class PostgresUsersRepository implements UsersRepositoryPort {
           ...(estado ? { intentosFallidos: 0 } : {}),
         },
       );
-      return manager.findOneBy(UserEntity, { id });
+      const updated = await manager.findOneBy(UserEntity, { id });
+      if (!updated) return null;
+      const specialist = await manager.findOne(SpecialistEntity, {
+        where: { usuario: { id } },
+      });
+      return Object.assign(updated, {
+        especialistaId: specialist?.id ?? null,
+      });
     });
   }
   async setPassword(id: string, passwordHash: string) {
@@ -185,17 +230,19 @@ export class PostgresUsersRepository implements UsersRepositoryPort {
       return user;
     });
   }
-  async createSpecialist(data: Partial<UserEntity>) {
+  async createSpecialist(
+    data: Partial<UserEntity>,
+  ): Promise<UserWithSpecialistId> {
     return this.users.manager.transaction(async (manager) => {
       const user = await manager.save(
         UserEntity,
         manager.create(UserEntity, { ...data, rol: UserRole.ESPECIALISTA }),
       );
-      await manager.save(
+      const specialist = await manager.save(
         SpecialistEntity,
         manager.create(SpecialistEntity, { usuario: user }),
       );
-      return user;
+      return Object.assign(user, { especialistaId: specialist.id });
     });
   }
   incidents() {

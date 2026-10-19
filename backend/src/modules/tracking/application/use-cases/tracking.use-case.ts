@@ -88,7 +88,12 @@ export class TrackingUseCase {
     } else if (query.especialista_id) {
       filters.especialistaId = query.especialista_id;
     }
-    return this.repository.alerts(patientId, filters);
+    const alerts = await this.repository.alerts(patientId, filters);
+    return alerts.map(({ pacienteNombre, ...alert }) => ({
+      ...alert,
+      paciente_id: alert.paciente.id,
+      paciente_nombre: pacienteNombre,
+    }));
   }
 
   async notifications(

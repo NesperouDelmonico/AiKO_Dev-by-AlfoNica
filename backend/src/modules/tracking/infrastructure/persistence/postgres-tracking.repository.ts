@@ -12,7 +12,10 @@ import { ExerciseResultEntity } from '../../../therapy/domain/entities/exercise-
 import { AlertStatus, AlertType } from '../../domain/entities/alert.entity';
 import { NotificationType } from '../../domain/entities/notification.entity';
 import { DeviceTokenEntity } from '../../domain/entities/device-token.entity';
-import type { TrackingRepositoryPort } from '../../domain/ports/tracking.repository.port';
+import type {
+  AlertWithPatientName,
+  TrackingRepositoryPort,
+} from '../../domain/ports/tracking.repository.port';
 @Injectable()
 export class PostgresTrackingRepository implements TrackingRepositoryPort {
   constructor(
@@ -98,10 +101,15 @@ export class PostgresTrackingRepository implements TrackingRepositoryPort {
     await this.obs.update(id, { texto });
     return this.obs.findOneBy({ id });
   }
-  alerts(id?: string, filters?: any) {
+  async alerts(
+    id?: string,
+    filters?: any,
+  ): Promise<AlertWithPatientName[]> {
     const query = this.alert
       .createQueryBuilder('alert')
       .leftJoinAndSelect('alert.paciente', 'paciente')
+      .leftJoin('paciente.usuario', 'pacienteUsuario')
+      .addSelect('pacienteUsuario.nombre', 'paciente_nombre')
       .leftJoinAndSelect('paciente.especialista', 'especialista');
     if (id) query.andWhere('paciente.id = :patientId', { patientId: id });
     if (filters?.estado)
@@ -112,7 +120,14 @@ export class PostgresTrackingRepository implements TrackingRepositoryPort {
       query.andWhere('especialista.id = :specialistId', {
         specialistId: filters.especialistaId,
       });
-    return query.orderBy('alert.fechaGenerada', 'DESC').getMany();
+    const { entities, raw } = await query
+      .orderBy('alert.fechaGenerada', 'DESC')
+      .getRawAndEntities<{ paciente_nombre: string }>();
+    return entities.map((alert, index) =>
+      Object.assign(alert, {
+        pacienteNombre: raw[index].paciente_nombre,
+      }),
+    );
   }
   async notifications(
     id: string,

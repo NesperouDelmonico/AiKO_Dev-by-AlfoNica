@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -124,6 +124,110 @@ afterEach(() => {
 })
 
 describe('autenticación y cliente API', () => {
+  it('permite pasar el correo entre las pantallas públicas de recuperación', async () => {
+    const locations: string[] = []
+    const fetcher = (input: RequestInfo | URL) => {
+      const url = new URL(routeFor(input))
+      if (url.pathname.endsWith('/auth/olvide-contrasena')) return jsonResponse(202)
+      return jsonResponse(404, { statusCode: 404, message: 'Not found' })
+    }
+    const user = userEvent.setup()
+    renderApplication('/login', fetcher, undefined, locations)
+
+    const forgotLink = await screen.findByRole('link', { name: '¿Olvidaste tu contraseña?' })
+    await user.click(forgotLink)
+    expect(await screen.findByText('Te ayudamos a recuperar el acceso a tu cuenta')).toBeInTheDocument()
+    await user.type(screen.getByLabelText('Correo electrónico'), 'persona@example.com')
+    await user.click(screen.getByRole('button', { name: 'Enviar instrucciones' }))
+    expect(await screen.findByText('Si el correo está registrado, recibirás instrucciones para restablecer tu contraseña.')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Ya tengo mi código' }))
+    expect(await screen.findByLabelText('Correo electrónico')).toHaveValue('persona@example.com')
+    expect(locations.at(-1)).toBe('/restablecer-contrasena')
+
+    await user.click(screen.getByRole('link', { name: 'Pedir un código nuevo' }))
+    expect(await screen.findByLabelText('Correo electrónico')).toHaveValue('persona@example.com')
+    expect(locations.at(-1)).toBe('/olvide-contrasena')
+    await user.click(screen.getByRole('link', { name: 'Volver al inicio de sesión' }))
+    expect(await screen.findByRole('button', { name: 'Iniciar sesión' })).toBeInTheDocument()
+    expect(locations.at(-1)).toBe('/login')
+  })
+
+  it('permite volver al login desde restablecer contraseña', async () => {
+    const locations: string[] = []
+    renderApplication('/restablecer-contrasena', () => jsonResponse(404), undefined, locations)
+
+    expect(await screen.findByText('El código tiene 6 dígitos, vence en 15 minutos y permite 5 intentos')).toBeInTheDocument()
+    await userEvent.setup().click(screen.getByRole('link', { name: 'Volver al inicio de sesión' }))
+    expect(await screen.findByRole('button', { name: 'Iniciar sesión' })).toBeInTheDocument()
+    expect(locations.at(-1)).toBe('/login')
+  })
+
+  it('lleva al login con el aviso al completar el restablecimiento', async () => {
+    const locations: string[] = []
+    const fetcher = (input: RequestInfo | URL) => {
+      const url = new URL(routeFor(input))
+      if (url.pathname.endsWith('/auth/restablecer-contrasena')) return jsonResponse(204)
+      return jsonResponse(404, { statusCode: 404, message: 'Not found' })
+    }
+    const user = userEvent.setup()
+    renderApplication('/restablecer-contrasena', fetcher, undefined, locations)
+    await user.type(screen.getByLabelText('Correo electrónico'), 'persona@example.com')
+    await user.type(screen.getByLabelText('Código de 6 dígitos'), '123456')
+    await user.type(screen.getByLabelText('Nueva contraseña'), 'NuevaClave1')
+    await user.click(screen.getByRole('button', { name: 'Restablecer contraseña' }))
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Contraseña actualizada')
+    expect(screen.getByRole('button', { name: 'Iniciar sesión' })).toBeInTheDocument()
+    expect(locations.at(-1)).toBe('/login')
+  })
+
+  it.each([
+    ['/olvide-contrasena', { ...specialist, rol: 'Administrador' as const }, '/admin/usuarios', 'Usuarios'],
+    ['/restablecer-contrasena', { ...specialist, rol: 'Administrador' as const }, '/admin/usuarios', 'Usuarios'],
+    ['/olvide-contrasena', specialist, '/especialista/pacientes', 'Mis pacientes'],
+    ['/restablecer-contrasena', specialist, '/especialista/pacientes', 'Mis pacientes'],
+  ])('redirige desde %s al inicio por rol para una sesión activa', async (path, userData, home, heading) => {
+    const locations: string[] = []
+    const fetcher = (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(routeFor(input))
+      if (url.pathname.endsWith('/usuarios')) return jsonResponse(200, { total: 0, page: 1, limit: 10, data: [] })
+      return applicationFetch(userData)(input, init)
+    }
+    renderApplication(path, fetcher, 'authenticated-token', locations)
+
+    expect(await screen.findByRole('heading', { name: heading })).toBeInTheDocument()
+    await waitFor(() => expect(locations.at(-1)).toBe(home))
+    expect(locations.filter((location) => location === path)).toHaveLength(1)
+  })
+
+  it('mantiene Usuarios e Indicadores en el menú admin y muestra pacientes solo como cuentas', async () => {
+    const admin = { ...specialist, rol: 'Administrador' as const }
+    const calls: string[] = []
+    const fetcher = (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(routeFor(input))
+      calls.push(`${init?.method ?? 'GET'} ${url.pathname}`)
+      if (url.pathname.endsWith('/auth/me')) return jsonResponse(200, admin)
+      if (url.pathname.endsWith('/usuarios')) return jsonResponse(200, {
+        total: 1,
+        page: 1,
+        limit: 10,
+        data: [{ id: 'patient-user', nombre: 'Paciente Uno', correo: 'patient@example.com', rol: 'Paciente', estado: true }],
+      })
+      return jsonResponse(404, { statusCode: 404, message: 'Not found' })
+    }
+    renderApplication('/admin/usuarios', fetcher, 'admin-token')
+
+    expect(await screen.findByText('Paciente Uno')).toBeInTheDocument()
+    const navigation = screen.getAllByRole('navigation', { name: 'Navegación principal' })
+    for (const nav of navigation) {
+      expect(within(nav).getAllByRole('link').map((link) => link.textContent)).toEqual(['Usuarios', 'Indicadores'])
+    }
+    expect(screen.queryByRole('link', { name: /pacientes|historial|ruta clínica/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Editar' })).toBeInTheDocument()
+    expect(calls.some((call) => call.includes('/pacientes'))).toBe(false)
+  })
+
   it('adjunta el token de sesión en las solicitudes', async () => {
     tokenStorage.set('test-session-token')
     const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>(

@@ -47,6 +47,11 @@ export class PatientController {
     description: 'Paciente creado',
     type: PatientResponseDto,
   })
+  @ApiResponse({ status: 409, description: 'El correo o la cédula ya existen' })
+  @ApiResponse({
+    status: 503,
+    description: 'No se pudo entregar el correo; la cuenta quedó inactiva',
+  })
   create(
     @Body() dto: CreatePatientDto,
     @CurrentAuthUser() user: { sub: string },
@@ -83,12 +88,23 @@ export class PatientController {
 
   @Get('buscar')
   @Roles(UserRole.ESPECIALISTA, UserRole.ADMINISTRADOR)
+  @ApiExtraModels(ListedPatientResponseDto)
   @ApiOperation({ summary: 'Buscar y filtrar pacientes' })
   @ApiResponse({
     status: 200,
-    description: 'Pacientes filtrados',
-    type: PatientResponseDto,
-    isArray: true,
+    description: 'Lista paginada de pacientes filtrados',
+    schema: {
+      type: 'object',
+      properties: {
+        total: { type: 'number' },
+        page: { type: 'number' },
+        limit: { type: 'number' },
+        data: {
+          type: 'array',
+          items: { $ref: getSchemaPath(ListedPatientResponseDto) },
+        },
+      },
+    },
   })
   search(
     @Query() query: SearchPatientsQueryDto,
@@ -106,6 +122,7 @@ export class PatientController {
     type: PatientResponseDto,
   })
   @ApiResponse({ status: 404, description: 'Paciente no encontrado' })
+  @ApiResponse({ status: 403, description: 'Sin acceso al paciente' })
   get(
     @Param('id') id: string,
     @CurrentAuthUser() user: { sub: string; rol: UserRole },

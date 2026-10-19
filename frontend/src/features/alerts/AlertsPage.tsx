@@ -21,7 +21,6 @@ export function AlertsPage() {
   const [type, setType] = useState('')
   const [state, setState] = useState('')
   const filters = {
-    ...(user?.id ? { especialista_id: user.id } : {}),
     ...(type ? { tipo: type as AlertType } : {}),
     ...(state ? { estado: state as AlertState } : {}),
   }
@@ -52,7 +51,7 @@ export function AlertsPage() {
         <ul className="space-y-3 pl-0">{alerts.map((alert, i) => {
           const label = alert.tipo === 'BajoRendimiento' ? 'Bajo rendimiento' : alert.tipo === 'Inactividad' ? 'Inactividad' : 'Tipo no disponible'
           return <li key={alert.id ?? `${alert.paciente_id}-${i}`} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--color-border)] p-4">
-            <div><h2 className="mb-1 text-base">{label}</h2><p className="mb-1 text-sm">Paciente: {alert.paciente_id ? <Link to={`/especialista/pacientes/${alert.paciente_id}`}>Ver paciente</Link> : '—'}</p><p className="mb-0 text-xs text-[var(--color-text-muted)]">{alert.fecha_generada ? formatDate(alert.fecha_generada, { dateStyle: 'medium', timeStyle: 'short' }) : 'Fecha no disponible'}</p></div>
+            <div><h2 className="mb-1 text-base">{label}</h2><p className="mb-1 text-sm">Paciente: {alert.paciente_id ? <Link to={`/especialista/pacientes/${alert.paciente_id}`}>{alert.paciente_nombre ?? 'Ver paciente'}</Link> : '—'}</p><p className="mb-0 text-xs text-[var(--color-text-muted)]">{alert.fecha_generada ? formatDate(alert.fecha_generada, { dateStyle: 'medium', timeStyle: 'short' }) : 'Fecha no disponible'}</p></div>
             <Badge variant={alert.estado === 'Activa' ? 'attention' : 'success'}>{alert.estado ?? 'Estado no disponible'}</Badge>
           </li>
         })}</ul>

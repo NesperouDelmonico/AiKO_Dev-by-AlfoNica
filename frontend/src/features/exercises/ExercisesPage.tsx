@@ -111,13 +111,24 @@ function ExerciseDialog({ exercise, onClose, onSaved }: {
     } finally { setSaving(false) }
   }
 
+  function formatParameters() {
+    try {
+      setParameters(JSON.stringify(JSON.parse(parameters) as unknown, null, 2))
+    } catch {
+      return
+    }
+  }
+
   return <Dialog title={exercise ? 'Editar ejercicio' : 'Crear ejercicio'} onClose={onClose}>
     <form className="space-y-3" onSubmit={(event) => void submit(event)} noValidate>
       <label className="block text-sm font-semibold" htmlFor="exercise-name">Nombre<Input id="exercise-name" value={nombre} onChange={(e) => setNombre(e.target.value)} required className="mt-1" /></label>
       <label className="block text-sm font-semibold" htmlFor="exercise-cat">Categoría<Select id="exercise-cat" value={categoria} onChange={(e) => setCategoria(e.target.value as Category)} className="mt-1">{categories.map((value) => <option key={value}>{value}</option>)}</Select></label>
       <label className="block text-sm font-semibold" htmlFor="exercise-level">Nivel de dificultad<Input id="exercise-level" type="number" min="1" step="1" value={level} onChange={(e) => setLevel(e.target.value)} required className="mt-1" /></label>
       <label className="block text-sm font-semibold" htmlFor="exercise-instructions">Instrucciones<Textarea id="exercise-instructions" value={instructions} onChange={(e) => setInstructions(e.target.value)} required className="mt-1" /></label>
-      <label className="block text-sm font-semibold" htmlFor="exercise-params">Parámetros (JSON)<Textarea id="exercise-params" value={parameters} onChange={(e) => setParameters(e.target.value)} rows={6} className="mt-1 font-mono text-xs" /></label>
+      <label className="block text-sm font-semibold" htmlFor="exercise-params">Parámetros (JSON)<Textarea id="exercise-params" aria-describedby="exercise-params-help" value={parameters} onChange={(e) => setParameters(e.target.value)} rows={6} className="mt-1 font-mono text-xs" /></label>
+      <p id="exercise-params-help" className="text-xs text-[var(--color-text-muted)]">Configuración del juego en formato JSON. Las claves deben coincidir con las que lee la app móvil; consúltalas con el equipo antes de usar valores propios</p>
+      <p className="text-xs text-[var(--color-text-muted)]">Ejemplo: <code className="text-gray-500">{'{"tiempo_limite": 60}'}</code></p>
+      <Button type="button" variant="secondary" onClick={formatParameters}>Formatear JSON</Button>
       {fieldError && <p role="alert" className="text-sm text-[var(--color-attention-text)]">{fieldError}</p>}
       {dialogError && <p role="alert" className="rounded-xl bg-[var(--color-attention-bg)] p-3 text-sm text-[var(--color-attention-text)]">{dialogError}</p>}
       <div className="flex justify-end gap-2"><Button type="button" variant="secondary" onClick={onClose}>Cancelar</Button><Button type="submit" disabled={saving}>{exercise ? 'Guardar cambios' : 'Crear ejercicio'}</Button></div>

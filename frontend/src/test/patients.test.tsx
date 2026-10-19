@@ -221,6 +221,7 @@ describe('pantallas de pacientes', () => {
     renderPage('/especialista/pacientes/patient-1', <PatientDetailPage />)
 
     expect(await screen.findByRole('heading', { name: 'María Gómez' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Reasignar especialista' })).not.toBeInTheDocument()
     const ageLabel = screen.getByText('Edad')
     expect(ageLabel.parentElement).toHaveTextContent('—')
     expect(await screen.findByText('Memoria breve')).toBeInTheDocument()

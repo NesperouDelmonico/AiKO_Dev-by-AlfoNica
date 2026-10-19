@@ -958,7 +958,10 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Asignar paciente a un especialista, notifica a ambas partes (RF-063) */
+        /**
+         * Asignar paciente a un especialista, notifica a ambas partes (RF-063)
+         * @description especialista_id es el identificador de la tabla especialista expuesto por GET /usuarios en especialista_id; no es el id del usuario.
+         */
         patch: {
             parameters: {
                 query?: never;
@@ -984,6 +987,16 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["Paciente"];
+                    };
+                };
+                404: components["responses"]["NotFound"];
+                /** @description El especialista está inactivo */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
                     };
                 };
             };
@@ -2860,6 +2873,11 @@ export interface components {
         Usuario: {
             /** Format: uuid */
             id?: string;
+            /**
+             * Format: uuid
+             * @description Identificador del registro especialista; null si el usuario no tiene ese rol
+             */
+            especialista_id?: string | null;
             nombre?: string;
             cedula?: string;
             /** Format: email */
@@ -2897,6 +2915,8 @@ export interface components {
             /** Format: date */
             fecha_nacimiento: string | null;
             edad: number | null;
+            /** @description Nombre del especialista asignado */
+            especialista_nombre?: string;
         };
         PacienteListado: components["schemas"]["Paciente"] & {
             alertas_activas: number;
@@ -3011,6 +3031,7 @@ export interface components {
             id?: string;
             /** Format: uuid */
             paciente_id?: string;
+            paciente_nombre?: string;
             tipo?: components["schemas"]["TipoAlerta"];
             estado?: components["schemas"]["EstadoAlerta"];
             /** Format: date-time */

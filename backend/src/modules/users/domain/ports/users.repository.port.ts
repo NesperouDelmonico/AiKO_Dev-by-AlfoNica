@@ -4,6 +4,10 @@ import { PatientEntity } from '../entities/patient.entity';
 import { SpecialistEntity } from '../entities/specialist.entity';
 import { UserEntity, UserRole } from '../entities/user.entity';
 export const USERS_REPOSITORY = Symbol('USERS_REPOSITORY');
+export type UserWithSpecialistId = UserEntity & {
+  especialistaId?: string | null;
+};
+
 export interface UsersRepositoryPort {
   list(
     page: number,
@@ -15,9 +19,9 @@ export interface UsersRepositoryPort {
     total: number;
     page: number;
     limit: number;
-    data: UserEntity[];
+    data: UserWithSpecialistId[];
   }>;
-  find(id: string): Promise<UserEntity | null>;
+  find(id: string): Promise<UserWithSpecialistId | null>;
   findByEmail(correo: string): Promise<UserEntity | null>;
   findByCedula(cedula: string): Promise<UserEntity | null>;
   hasAdministrator(): Promise<boolean>;
@@ -38,7 +42,7 @@ export interface UsersRepositoryPort {
     data: Partial<UserEntity>,
   ): Promise<UserEntity | null>;
   createAdministrator(data: Partial<UserEntity>): Promise<UserEntity>;
-  createSpecialist(data: Partial<UserEntity>): Promise<UserEntity>;
+  createSpecialist(data: Partial<UserEntity>): Promise<UserWithSpecialistId>;
   indicators(): Promise<{
     total_usuarios: number;
     total_pacientes: number;

@@ -143,6 +143,45 @@ describe('fase 3: administración y catálogo', () => {
     await waitFor(() => expect(seen).toContain('PUT /v1/ejercicios/ex1'))
     expect(await within(dialog).findByText('No se puede editar este ejercicio porque está en una ruta activa.')).toBeInTheDocument()
   })
+
+  it('abre el diálogo con foco inicial y lo cierra con Escape devolviendo el foco', async () => {
+    const fetcher = (input: RequestInfo | URL) => {
+      const url = requestUrl(input)
+      if (url.pathname.endsWith('/ejercicios')) return response(200, [])
+      return response(404, { message: 'No encontrado' })
+    }
+    renderPage('/especialista/ejercicios', [{ path: '/especialista/ejercicios', element: <ExercisesPage /> }], fetcher)
+    const opener = await screen.findByRole('button', { name: 'Crear ejercicio' })
+    await userEvent.setup().click(opener)
+    const dialog = await screen.findByRole('dialog', { name: 'Crear ejercicio' })
+    expect(dialog).toHaveAttribute('aria-modal', 'true')
+    expect(dialog).toHaveClass('fixed', 'inset-0', 'm-auto', 'max-h-[90vh]', 'overflow-y-auto')
+    expect(within(dialog).getByLabelText('Nombre')).toHaveFocus()
+    expect(within(dialog).getByRole('button', { name: 'Crear ejercicio' })).toBeInTheDocument()
+    fireEvent(dialog, new Event('cancel', { cancelable: true }))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Crear ejercicio' })).not.toBeInTheDocument())
+    expect(opener).toHaveFocus()
+  })
+
+  it('explica y formatea los parámetros JSON válidos sin cambiar los inválidos', async () => {
+    const fetcher = (input: RequestInfo | URL) => {
+      if (requestUrl(input).pathname.endsWith('/ejercicios')) return response(200, [])
+      return response(404, { message: 'No encontrado' })
+    }
+    renderPage('/especialista/ejercicios', [{ path: '/especialista/ejercicios', element: <ExercisesPage /> }], fetcher)
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Crear ejercicio' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Crear ejercicio' })
+    const parameters = within(dialog).getByLabelText('Parámetros (JSON)')
+    expect(within(dialog).getByText('Configuración del juego en formato JSON. Las claves deben coincidir con las que lee la app móvil; consúltalas con el equipo antes de usar valores propios')).toBeInTheDocument()
+    expect(within(dialog).getByText('Ejemplo:')).toBeInTheDocument()
+    fireEvent.change(parameters, { target: { value: '{"tiempo_limite":60}' } })
+    await user.click(within(dialog).getByRole('button', { name: 'Formatear JSON' }))
+    expect(parameters).toHaveValue('{\n  "tiempo_limite": 60\n}')
+    fireEvent.change(parameters, { target: { value: '{invalid' } })
+    await user.click(within(dialog).getByRole('button', { name: 'Formatear JSON' }))
+    expect(parameters).toHaveValue('{invalid')
+  })
 })
 
 describe('fase 3: alertas y rutas', () => {
@@ -152,12 +191,15 @@ describe('fase 3: alertas y rutas', () => {
     signIn: vi.fn(), signOut: vi.fn(), rejectPatient: vi.fn(), rejectUnsupportedRole: vi.fn(), clearPatientNotice: vi.fn(),
   }
 
-  it('presenta el estado textual de las alertas y enlaza al paciente', async () => {
-    const fetcher = () => response(200, [{ id: 'a1', paciente_id: 'p1', tipo: 'BajoRendimiento', estado: 'Activa', fecha_generada: '2026-10-01T12:00:00Z' }])
+  it('presenta el estado textual y el nombre del paciente en las alertas', async () => {
+    const fetcher = (input: RequestInfo | URL) => {
+      expect(requestUrl(input).searchParams.has('especialista_id')).toBe(false)
+      return response(200, [{ id: 'a1', paciente_id: 'p1', paciente_nombre: 'Paciente Uno', tipo: 'BajoRendimiento', estado: 'Activa', fecha_generada: '2026-10-01T12:00:00Z' }])
+    }
     renderPage('/especialista/alertas', [{ path: '/especialista/alertas', element: <AlertsPage /> }], fetcher, auth)
     expect(await screen.findByText('Bajo rendimiento')).toBeInTheDocument()
     expect(screen.getByText('Activa')).toBeInTheDocument()
-    expect(await screen.findByRole('link', { name: 'Ver paciente' })).toHaveAttribute('href', '/especialista/pacientes/p1')
+    expect(await screen.findByRole('link', { name: 'Paciente Uno' })).toHaveAttribute('href', '/especialista/pacientes/p1')
   })
 
   it('excluye ejercicios de nivel superior y envía orden consecutivo al crear ruta', async () => {
