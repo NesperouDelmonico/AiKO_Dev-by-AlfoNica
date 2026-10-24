@@ -13,6 +13,7 @@ export {
   ExerciseEntity,
   CognitiveCategory,
   ExerciseStatus,
+  GameType,
 } from '../modules/therapy/domain/entities/exercise.entity';
 export {
   TherapeuticRouteEntity,
@@ -39,6 +40,7 @@ export { NotificationPreferenceEntity } from '../modules/tracking/domain/entitie
 export { RevokedTokenEntity } from '../modules/auth/domain/entities/revoked-token.entity';
 export { PasswordResetEntity } from '../modules/auth/domain/entities/password-reset.entity';
 export { DeviceTokenEntity } from '../modules/tracking/domain/entities/device-token.entity';
+export { ImageEntity } from '../modules/therapy/domain/entities/image.entity';
 
 import { UserEntity } from '../modules/users/domain/entities/user.entity';
 import { AdministratorEntity } from '../modules/users/domain/entities/administrator.entity';
@@ -58,6 +60,7 @@ import { NotificationPreferenceEntity } from '../modules/tracking/domain/entitie
 import { RevokedTokenEntity } from '../modules/auth/domain/entities/revoked-token.entity';
 import { PasswordResetEntity } from '../modules/auth/domain/entities/password-reset.entity';
 import { DeviceTokenEntity } from '../modules/tracking/domain/entities/device-token.entity';
+import { ImageEntity } from '../modules/therapy/domain/entities/image.entity';
 export const entities = [
   UserEntity,
   AdministratorEntity,
@@ -77,4 +80,5 @@ export const entities = [
   RevokedTokenEntity,
   PasswordResetEntity,
   DeviceTokenEntity,
+  ImageEntity,
 ];

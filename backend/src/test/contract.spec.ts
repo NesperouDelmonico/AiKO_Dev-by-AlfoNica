@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { verifyContract } from '../../scripts/verify-contract';
 
 type Schema = {
   $ref?: string;
@@ -31,17 +32,18 @@ const contract = yaml.load(
 ) as Contract;
 
 describe('OpenAPI contract', () => {
-  it('keeps 59 operations and documents the searched-patient pagination shape', () => {
-    const operationCount = Object.values(contract.paths).reduce(
-      (count, path) =>
-        count +
-        Object.keys(path).filter((method) =>
-          ['get', 'post', 'put', 'patch', 'delete', 'head', 'options'].includes(
-            method,
-          ),
-        ).length,
-      0,
-    );
+  it('documents every implemented operation and no unimplemented operations', () => {
+    const coverage = verifyContract(process.cwd(), resolve(
+      process.cwd(),
+      'docs/aiko-openapi__1_.yaml',
+    ));
+
+    expect(coverage.missing).toEqual([]);
+    expect(coverage.undocumented).toEqual([]);
+    expect(coverage.parameterMismatches).toEqual([]);
+  });
+
+  it('documents the searched-patient pagination shape', () => {
     const search = contract.paths['/pacientes/buscar'].get;
     const queryParameters = search.parameters?.map((parameter) => {
       if (!parameter.$ref) return parameter;
@@ -59,7 +61,6 @@ describe('OpenAPI contract', () => {
       (schema) => schema.properties?.data,
     );
 
-    expect(operationCount).toBe(59);
     expect(queryParameters).toEqual(
       expect.arrayContaining(['page', 'limit', 'q', 'estado', 'nivel']),
     );

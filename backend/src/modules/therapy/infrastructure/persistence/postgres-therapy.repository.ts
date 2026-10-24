@@ -143,7 +143,8 @@ export class PostgresTherapyRepository implements TherapyRepositoryPort {
   }
   async createRoute(
     patientId: string,
-    values: { ejercicioId: string; orden: number }[],
+    values: { ejercicioId: string; orden: number; dia: number }[],
+    duracionDias?: number,
   ) {
     return this.routes.manager.transaction(async (manager) => {
       const patient = await manager
@@ -157,11 +158,13 @@ export class PostgresTherapyRepository implements TherapyRepositoryPort {
       if (activeCount > 0) {
         throw new Error('ACTIVE_ROUTE_CONFLICT');
       }
+      const uniqueIds = [...new Set(values.map((value) => value.ejercicioId))];
       const exercises = await manager.findBy(ExerciseEntity, {
-        id: In(values.map((value) => value.ejercicioId)),
+        id: In(uniqueIds),
         estado: 'Activo' as ExerciseEntity['estado'],
       });
-      if (exercises.length !== values.length) {
+      // Un ejercicio puede repetirse: se comparan ids distintos.
+      if (exercises.length !== uniqueIds.length) {
         throw new Error('ROUTE_EXERCISE_NOT_AVAILABLE');
       }
       const route = await manager.save(
@@ -169,6 +172,7 @@ export class PostgresTherapyRepository implements TherapyRepositoryPort {
         manager.create(TherapeuticRouteEntity, {
           paciente: patient,
           estado: RouteStatus.ACTIVA,
+          duracionDias: duracionDias ?? null,
           ejercicios: [],
         }),
       );
@@ -181,6 +185,7 @@ export class PostgresTherapyRepository implements TherapyRepositoryPort {
               (exercise) => exercise.id === value.ejercicioId,
             )!,
             orden: value.orden,
+            dia: value.dia,
             estado: RouteExerciseStatus.PENDIENTE,
           }),
         ),
@@ -216,7 +221,12 @@ export class PostgresTherapyRepository implements TherapyRepositoryPort {
       porcentaje: all.length ? (completados * 100) / all.length : 0,
     };
   }
-  async addRouteExercise(routeId: string, exerciseId: string, orden: number) {
+  async addRouteExercise(
+    routeId: string,
+    exerciseId: string,
+    orden: number,
+    dia?: number,
+  ) {
     return this.routes.manager.transaction(async (manager) => {
       const ruta = await manager.findOneOrFail(TherapeuticRouteEntity, {
         where: { id: routeId },
@@ -234,6 +244,22 @@ export class PostgresTherapyRepository implements TherapyRepositoryPort {
       if (orden !== currentCount + 1) {
         throw new Error('ROUTE_ORDER_INVALID');
       }
+      const last = await manager.findOne(RouteExerciseEntity, {
+        where: {
+          ruta: { id: routeId },
+          estado: Not(RouteExerciseStatus.REEMPLAZADO),
+        },
+        order: { orden: 'DESC' },
+      });
+      const lastDay = last?.dia ?? 1;
+      const day = dia ?? lastDay;
+      if (
+        day < lastDay ||
+        day > lastDay + 1 ||
+        (ruta.duracionDias !== null && day > ruta.duracionDias)
+      ) {
+        throw new Error('ROUTE_DAY_INVALID');
+      }
       const ejercicio = await manager.findOneByOrFail(ExerciseEntity, {
         id: exerciseId,
       });
@@ -243,6 +269,7 @@ export class PostgresTherapyRepository implements TherapyRepositoryPort {
           ruta,
           ejercicio,
           orden,
+          dia: day,
           estado: RouteExerciseStatus.PENDIENTE,
         }),
       );
@@ -260,24 +287,55 @@ export class PostgresTherapyRepository implements TherapyRepositoryPort {
       relations: { ruta: { paciente: true }, ejercicio: true },
     });
   }
+  /**
+   * Bloquea la ruta y luego el ejercicio de la ruta (mismo orden que
+   * addRouteExercise). No se puede pedir la relación `ruta` junto con el
+   * bloqueo: TypeORM genera LEFT JOIN … FOR UPDATE y Postgres lo rechaza
+   * ("FOR UPDATE cannot be applied to the nullable side of an outer join").
+   */
+  private async lockRouteExercise(
+    manager: import('typeorm').EntityManager,
+    id: string,
+  ) {
+    const ref = await manager.findOne(RouteExerciseEntity, {
+      where: { id },
+      relations: { ruta: true },
+    });
+    if (!ref) return null;
+    const route = await manager.findOneOrFail(TherapeuticRouteEntity, {
+      where: { id: ref.ruta.id },
+      lock: { mode: 'pessimistic_write' },
+    });
+    const item = await manager.findOneOrFail(RouteExerciseEntity, {
+      where: { id },
+      lock: { mode: 'pessimistic_write' },
+    });
+    item.ruta = route;
+    return { route, item };
+  }
   async removeRouteExercise(id: string) {
     await this.routes.manager.transaction(async (manager) => {
-      const item = await manager.findOneOrFail(RouteExerciseEntity, {
-        where: { id },
-        relations: { ruta: true },
-        lock: { mode: 'pessimistic_write' },
-      });
-      const route = await manager.findOneOrFail(TherapeuticRouteEntity, {
-        where: { id: item.ruta.id },
-        lock: { mode: 'pessimistic_write' },
-      });
+      const locked = await this.lockRouteExercise(manager, id);
+      if (!locked) throw new Error('ROUTE_EXERCISE_NOT_FOUND');
+      const { route, item } = locked;
       if (route.estado !== RouteStatus.ACTIVA) {
         throw new Error('ROUTE_NOT_ACTIVE');
       }
       if (item.estado === RouteExerciseStatus.COMPLETADO) {
         throw new Error('ROUTE_EXERCISE_ALREADY_COMPLETED');
       }
-      await manager.delete(RouteExerciseEntity, { id });
+      // Si ya tuvo intentos (puntaje bajo el mínimo), sus resultados lo
+      // referencian: se retira de la ruta sin borrarlo para conservar el
+      // historial que ve el especialista.
+      const attempts = await manager.count(ExerciseResultEntity, {
+        where: { rutaEjercicio: { id } },
+      });
+      if (attempts > 0) {
+        item.estado = RouteExerciseStatus.REEMPLAZADO;
+        await manager.save(item);
+      } else {
+        await manager.delete(RouteExerciseEntity, { id });
+      }
       await this.resequenceActiveItems(manager, route.id);
     });
   }
@@ -292,16 +350,9 @@ export class PostgresTherapyRepository implements TherapyRepositoryPort {
   }
   async replaceRouteExercise(id: string, exerciseId: string) {
     return this.routes.manager.transaction(async (manager) => {
-      const old = await manager.findOne(RouteExerciseEntity, {
-        where: { id },
-        relations: { ruta: true },
-        lock: { mode: 'pessimistic_write' },
-      });
-      if (!old) return null;
-      const route = await manager.findOneOrFail(TherapeuticRouteEntity, {
-        where: { id: old.ruta.id },
-        lock: { mode: 'pessimistic_write' },
-      });
+      const locked = await this.lockRouteExercise(manager, id);
+      if (!locked) return null;
+      const { route, item: old } = locked;
       if (route.estado !== RouteStatus.ACTIVA) {
         throw new Error('ROUTE_NOT_ACTIVE');
       }
@@ -319,6 +370,7 @@ export class PostgresTherapyRepository implements TherapyRepositoryPort {
           ruta: route,
           ejercicio: exercise,
           orden: old.orden,
+          dia: old.dia,
           estado: RouteExerciseStatus.PENDIENTE,
         }),
       );
@@ -358,6 +410,7 @@ export class PostgresTherapyRepository implements TherapyRepositoryPort {
       await manager.save(patient);
       if (shouldAdvance) {
         item.estado = RouteExerciseStatus.COMPLETADO;
+        item.fechaCompletado = new Date();
         await manager.save(item);
 
         const pendingCount = await manager.count(RouteExerciseEntity, {

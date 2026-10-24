@@ -6,6 +6,7 @@ import {
   OneToMany,
   JoinColumn,
   CreateDateColumn,
+  Check,
   Index,
 } from 'typeorm';
 import { PatientEntity } from '../../../users/domain/entities/patient.entity';
@@ -17,6 +18,10 @@ export enum RouteStatus {
 }
 
 @Entity('ruta_terapeutica')
+@Check(
+  'CHK_ruta_duracion_dias',
+  `"duracion_dias" IS NULL OR "duracion_dias" BETWEEN 1 AND 31`,
+)
 @Index('UQ_ruta_activa_por_paciente', ['paciente'], {
   unique: true,
   where: `"estado" = 'Activa'`,
@@ -34,6 +39,10 @@ export class TherapeuticRouteEntity {
 
   @Column({ type: 'enum', enum: RouteStatus })
   estado!: RouteStatus;
+
+  /** Periodo del plan: 1 (un día), 7 (semana), 15 (quincena) o 30 (mes). */
+  @Column({ type: 'int', name: 'duracion_dias', nullable: true })
+  duracionDias!: number | null;
 
   @CreateDateColumn({ type: 'timestamp', name: 'fecha_creacion' })
   fechaCreacion!: Date;

@@ -1206,6 +1206,119 @@ export interface paths {
         };
         trace?: never;
     };
+    "/imagenes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Subir imagen de ejercicio (PNG o JPG, máx. 1,5 MB) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        tipo_mime: "image/png" | "image/jpeg";
+                        /** @description Contenido en base64 */
+                        datos: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Imagen guardada */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Imagen"];
+                    };
+                };
+                /** @description Formato inválido */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Imagen demasiado grande */
+                413: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/imagenes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPathParam"];
+            };
+            cookie?: never;
+        };
+        /** Obtener imagen de ejercicio (pública por id) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPathParam"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Contenido de la imagen */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "image/png": string;
+                        "image/jpeg": string;
+                    };
+                };
+                /** @description Imagen no encontrada */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/ejercicios": {
         parameters: {
             query?: never;
@@ -1252,8 +1365,18 @@ export interface paths {
                     "application/json": {
                         nombre: string;
                         categoria: components["schemas"]["CategoriaEjercicio"];
+                        tipo?: components["schemas"]["TipoJuego"];
                         nivel_dificultad: number;
                         instrucciones: string;
+                        /**
+                         * @description Según el tipo de juego (se completan valores por defecto):
+                         *     atencion_sostenida: duracion_segundos 30–180 (60), intervalo_ms 600–3000 (1500).
+                         *     memoria_secuencias: longitud_inicial 2–8 (3), longitud_maxima ≤ 9 y ≥ longitud_inicial (6), tiempo_visualizacion_ms 500–3000 (1000).
+                         *     reaccion: intentos 5–30 (10), tiempo_limite_ms 300–3000 (1500).
+                         *     completar_palabras: frase (2–120 caracteres, máx. 12 palabras), imagen_id opcional, letras_ocultas 1–4 (2), duracion_segundos 60–600 (300).
+                         *     recordar_imagenes: imagenes [{ imagen_id, respuestas: [palabras clave] }] (1–6), tiempo_visualizacion_segundos 3–30 (8).
+                         *     logica: preguntas [{ enunciado, imagen_id opcional, opciones (2–6), correcta (índice) }] (1–10).
+                         */
                         parametros: {
                             [key: string]: unknown;
                         };
@@ -1335,8 +1458,18 @@ export interface paths {
                     "application/json": {
                         nombre?: string;
                         categoria?: components["schemas"]["CategoriaEjercicio"];
+                        tipo?: components["schemas"]["TipoJuego"];
                         nivel_dificultad?: number;
                         instrucciones?: string;
+                        /**
+                         * @description Según el tipo de juego (se completan valores por defecto):
+                         *     atencion_sostenida: duracion_segundos 30–180 (60), intervalo_ms 600–3000 (1500).
+                         *     memoria_secuencias: longitud_inicial 2–8 (3), longitud_maxima ≤ 9 y ≥ longitud_inicial (6), tiempo_visualizacion_ms 500–3000 (1000).
+                         *     reaccion: intentos 5–30 (10), tiempo_limite_ms 300–3000 (1500).
+                         *     completar_palabras: frase (2–120 caracteres, máx. 12 palabras), imagen_id opcional, letras_ocultas 1–4 (2), duracion_segundos 60–600 (300).
+                         *     recordar_imagenes: imagenes [{ imagen_id, respuestas: [palabras clave] }] (1–6), tiempo_visualizacion_segundos 3–30 (8).
+                         *     logica: preguntas [{ enunciado, imagen_id opcional, opciones (2–6), correcta (índice) }] (1–10).
+                         */
                         parametros?: {
                             [key: string]: unknown;
                         };
@@ -1527,10 +1660,17 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
+                        /**
+                         * @description Periodo del plan (día, semana, quincena, mes); cada día debe tener ejercicios
+                         * @enum {integer}
+                         */
+                        duracion_dias?: 1 | 7 | 15 | 30;
                         ejercicios: {
                             /** Format: uuid */
                             ejercicio_id: string;
                             orden: number;
+                            /** @description Día del plan; empieza en 1 y avanza de a uno (por defecto 1) */
+                            dia?: number;
                         }[];
                     };
                 };
@@ -1701,6 +1841,8 @@ export interface paths {
                         /** Format: uuid */
                         ejercicio_id: string;
                         orden: number;
+                        /** @description Último día de la ruta o el siguiente (por defecto el último) */
+                        dia?: number;
                     };
                 };
             };
@@ -2858,6 +3000,29 @@ export interface components {
          * @enum {string}
          */
         CategoriaEjercicio: "Atención" | "Memoria" | "Velocidad";
+        /**
+         * @description Mini-juego de la app móvil; si no se envía, se deduce de la categoría
+         * @enum {string}
+         */
+        TipoJuego: "atencion_sostenida" | "memoria_secuencias" | "reaccion" | "completar_palabras" | "recordar_imagenes" | "logica";
+        /** @description Día habilitado; el siguiente día se habilita al día calendario siguiente (hora Colombia) */
+        AgendaRuta: {
+            dia_actual?: number;
+            disponible?: boolean;
+            /** Format: date */
+            disponible_desde?: string | null;
+            completada?: boolean;
+            duracion_dias?: number | null;
+        };
+        Imagen: {
+            /** Format: uuid */
+            id?: string;
+            /** @enum {string} */
+            tipo_mime?: "image/png" | "image/jpeg";
+            tamano?: number;
+            /** @example /v1/imagenes/<id> */
+            url?: string;
+        };
         /** @enum {string} */
         EstadoEjercicio: "Activo" | "Desactivado";
         /** @enum {string} */
@@ -2889,6 +3054,11 @@ export interface components {
             intentos_fallidos: number;
             /** Format: date-time */
             fecha_creacion?: string;
+            /**
+             * Format: uuid
+             * @description Solo en login y /auth/me para el rol Paciente: id del perfil de paciente que usan las rutas /pacientes/{id}/...
+             */
+            paciente_id?: string | null;
         };
         Paciente: {
             /** Format: uuid */
@@ -2933,6 +3103,7 @@ export interface components {
             id?: string;
             nombre?: string;
             categoria?: components["schemas"]["CategoriaEjercicio"];
+            tipo?: components["schemas"]["TipoJuego"];
             nivel_dificultad?: number;
             instrucciones?: string;
             parametros?: {
@@ -2950,8 +3121,11 @@ export interface components {
             /** Format: uuid */
             paciente_id?: string;
             estado?: components["schemas"]["EstadoRuta"];
+            /** @enum {integer|null} */
+            duracion_dias?: 1 | 7 | 15 | 30 | null;
             /** Format: date-time */
             fecha_creacion?: string;
+            agenda?: components["schemas"]["AgendaRuta"];
             ejercicios?: components["schemas"]["RutaEjercicio"][];
         };
         RutaEjercicio: {
@@ -2962,7 +3136,10 @@ export interface components {
             /** Format: uuid */
             ejercicio_id?: string;
             orden?: number;
+            dia?: number;
             estado?: components["schemas"]["EstadoRutaEjercicio"];
+            /** Format: date-time */
+            fecha_completado?: string | null;
         };
         ResultadoEjercicio: {
             /** Format: uuid */
@@ -3049,16 +3226,7 @@ export interface components {
         };
     };
     responses: {
-        /** @description Recurso no encontrado */
-        NotFound: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["Error"];
-            };
-        };
-        /** @description Solicitud inválida */
+        /** @description Datos inválidos */
         BadRequest: {
             headers: {
                 [name: string]: unknown;
@@ -3067,7 +3235,7 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
-        /** @description Autenticación inválida */
+        /** @description No autenticado o credenciales inválidas */
         Unauthorized: {
             headers: {
                 [name: string]: unknown;
@@ -3076,8 +3244,17 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
-        /** @description Operación no autorizada */
+        /** @description Sin permiso para esta operación */
         Forbidden: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description Recurso no encontrado */
+        NotFound: {
             headers: {
                 [name: string]: unknown;
             };

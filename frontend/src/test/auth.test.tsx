@@ -191,7 +191,9 @@ describe('autenticación y cliente API', () => {
     const locations: string[] = []
     const fetcher = (input: RequestInfo | URL, init?: RequestInit) => {
       const url = new URL(routeFor(input))
-      if (url.pathname.endsWith('/usuarios')) return jsonResponse(200, { total: 0, page: 1, limit: 10, data: [] })
+      if (url.pathname.endsWith('/usuarios')) {
+        return jsonResponse(200, { total: 0, page: 1, limit: 10, data: [] })
+      }
       return applicationFetch(userData)(input, init)
     }
     renderApplication(path, fetcher, 'authenticated-token', locations)
@@ -287,6 +289,7 @@ describe('autenticación y cliente API', () => {
       const url = new URL(routeFor(input))
       if (url.pathname.endsWith('/auth/me')) return meResponse
       if (url.pathname.endsWith('/auth/logout')) return jsonResponse(204)
+      if (url.pathname.endsWith('/usuarios')) return jsonResponse(200, { total: 0, page: 1, limit: 10, data: [] })
       if (url.pathname.endsWith('/pacientes')) return jsonResponse(200, { total: 0, page: 1, limit: 12, data: [] })
       return jsonResponse(401, { statusCode: 401 })
     }

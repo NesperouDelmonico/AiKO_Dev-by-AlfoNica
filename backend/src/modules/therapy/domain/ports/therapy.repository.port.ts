@@ -38,7 +38,8 @@ export interface TherapyRepositoryPort {
   activeUsage(id: string): Promise<boolean>;
   createRoute(
     patientId: string,
-    items: { ejercicioId: string; orden: number }[],
+    items: { ejercicioId: string; orden: number; dia: number }[],
+    duracionDias?: number,
   ): Promise<TherapeuticRouteEntity>;
   activeRoute(patientId: string): Promise<TherapeuticRouteEntity | null>;
   progress(
@@ -48,6 +49,7 @@ export interface TherapyRepositoryPort {
     routeId: string,
     exerciseId: string,
     orden: number,
+    dia?: number,
   ): Promise<RouteExerciseEntity>;
   routeExercise(id: string): Promise<RouteExerciseEntity | null>;
   routeExerciseInRoute(

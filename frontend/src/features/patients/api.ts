@@ -42,7 +42,12 @@ export async function getPatients(filters: PatientFilters): Promise<PatientList>
         },
       },
     })
-    return requireResponse(result.data, result.response)
+    // El backend actual devuelve una lista; si algún día pagina, se usa tal cual.
+    const body: unknown = await requireResponse(result.data, result.response)
+    if (Array.isArray(body)) {
+      return { total: body.length, page: 1, limit: body.length, data: body as Patient[] }
+    }
+    return body as PatientList
   }
   const result = await apiClient.GET('/pacientes', {
     params: { query: { page: filters.page, limit: filters.limit, ...(filters.q ? { q: filters.q } : {}) } },
@@ -80,14 +85,23 @@ export async function getRouteHistory(id: string, page: number, limit: number, e
   return requireResponse(result.data, result.response)
 }
 
-export async function createRoute(id: string, exercises: Array<{ ejercicio_id: string; orden: number }>) {
-  const result = await apiClient.POST('/pacientes/{id}/rutas', { params: { path: { id } }, body: { ejercicios: exercises } })
+export type RoutePeriod = 1 | 7 | 15 | 30
+
+export async function createRoute(
+  id: string,
+  exercises: Array<{ ejercicio_id: string; orden: number; dia?: number }>,
+  duracionDias?: RoutePeriod,
+) {
+  const result = await apiClient.POST('/pacientes/{id}/rutas', {
+    params: { path: { id } },
+    body: { ejercicios: exercises, ...(duracionDias ? { duracion_dias: duracionDias } : {}) },
+  })
   return requireResponse(result.data, result.response)
 }
 
-export async function addRouteExercise(routeId: string, exerciseId: string, order: number) {
+export async function addRouteExercise(routeId: string, exerciseId: string, order: number, day?: number) {
   const result = await apiClient.POST('/rutas/{id}/ejercicios', {
-    params: { path: { id: routeId } }, body: { ejercicio_id: exerciseId, orden: order },
+    params: { path: { id: routeId } }, body: { ejercicio_id: exerciseId, orden: order, ...(day ? { dia: day } : {}) },
   })
   return requireResponse(result.data, result.response)
 }

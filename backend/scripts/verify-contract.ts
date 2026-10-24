@@ -137,22 +137,23 @@ function contractOperations(document: OpenApiDocument): ContractOperation[] {
   );
 }
 
-function main() {
-  const root = process.cwd();
-  const candidates = process.argv[2]
-    ? [path.resolve(root, process.argv[2])]
+export function verifyContract(root: string, contractPath?: string) {
+  const candidates = contractPath
+    ? [path.resolve(root, contractPath)]
     : [
         path.join(root, 'aiko-openapi__1_.yaml'),
         path.join(root, '..', 'aiko-openapi__1_.yaml'),
       ];
-  const contractPath = candidates.find((candidate) => fs.existsSync(candidate));
-  if (!contractPath) {
+  const resolvedContractPath = candidates.find((candidate) =>
+    fs.existsSync(candidate),
+  );
+  if (!resolvedContractPath) {
     throw new Error(
       `No se encontró aiko-openapi__1_.yaml. Rutas revisadas: ${candidates.join(', ')}`,
     );
   }
   const document = yaml.load(
-    fs.readFileSync(contractPath, 'utf8'),
+    fs.readFileSync(resolvedContractPath, 'utf8'),
   ) as OpenApiDocument;
   const contract = contractOperations(document);
   const implemented = loadControllerRoutes(root);
@@ -189,6 +190,13 @@ function main() {
       : [];
   });
 
+  return { contract, implemented, missing, undocumented, parameterMismatches };
+}
+
+function main() {
+  const root = process.cwd();
+  const result = verifyContract(root, process.argv[2]);
+  const { contract, missing, undocumented, parameterMismatches } = result;
   console.log(`Operaciones YAML: ${contract.length}`);
   console.log(`Rutas del YAML no implementadas (${missing.length}):`);
   missing.forEach((operation) =>
@@ -202,6 +210,9 @@ function main() {
     `Parámetros de ruta con nombres distintos (${parameterMismatches.length}):`,
   );
   parameterMismatches.forEach((mismatch) => console.log(`  ${mismatch}`));
+  if (missing.length || undocumented.length || parameterMismatches.length) {
+    process.exitCode = 1;
+  }
 }
 
-main();
+if (require.main === module) main();

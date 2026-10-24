@@ -72,6 +72,9 @@ export class PatientUseCase {
         text: `Tu especialista creó tu cuenta. Contraseña temporal: ${temporaryPassword}.`,
       });
     } catch (error) {
+      this.logger.error(
+        `No se pudo enviar las credenciales al paciente ${patient.usuario.id}: ${String(error)}`,
+      );
       await this.users.setState(patient.usuario.id, false);
       if (error instanceof ServiceUnavailableException) throw error;
       throw new ServiceUnavailableException(

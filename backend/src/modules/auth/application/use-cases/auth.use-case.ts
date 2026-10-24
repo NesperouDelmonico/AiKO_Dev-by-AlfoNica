@@ -10,7 +10,10 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { createHmac, randomInt, randomUUID } from 'node:crypto';
 import * as bcrypt from 'bcrypt';
-import { UserEntity } from '../../../users/domain/entities/user.entity';
+import {
+  UserEntity,
+  UserRole,
+} from '../../../users/domain/entities/user.entity';
 import { AUTH_REPOSITORY } from '../../domain/ports/auth.repository.port';
 import type { AuthRepositoryPort } from '../../domain/ports/auth.repository.port';
 import { EMAIL_PORT } from '../../../shared/application/ports/email.port';
@@ -60,7 +63,7 @@ export class AuthUseCase {
       { sub: user.id, rol: user.rol },
       { jwtid: tokenId },
     );
-    return { token, rol: user.rol, usuario: this.publicUser(user) };
+    return { token, rol: user.rol, usuario: await this.sessionUser(user) };
   }
 
   async executeLogout(tokenId: string, expiresAt: number) {
@@ -74,7 +77,7 @@ export class AuthUseCase {
     if (!user || !user.estado) {
       throw new UnauthorizedException('Usuario no autenticado');
     }
-    return this.publicUser(user);
+    return this.sessionUser(user);
   }
 
   async changePassword(
@@ -157,6 +160,19 @@ export class AuthUseCase {
         'La contraseña debe tener entre 8 y 72 caracteres e incluir minúscula, mayúscula y número',
       );
     }
+  }
+
+  /**
+   * Usuario público de la sesión. Para pacientes añade `paciente_id`: las rutas
+   * /pacientes/:id/... usan el id del perfil de paciente, no el del usuario.
+   */
+  private async sessionUser(user: UserEntity) {
+    const base = this.publicUser(user);
+    if (user.rol !== UserRole.PACIENTE) return base;
+    return {
+      ...base,
+      paciente_id: await this.repository.findPatientId(user.id),
+    };
   }
 
   private publicUser(user: UserEntity) {

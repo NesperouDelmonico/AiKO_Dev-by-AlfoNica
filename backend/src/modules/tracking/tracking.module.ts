@@ -37,6 +37,6 @@ import { PUSH_PORT } from './domain/ports/push.port';
     PostgresTrackingRepository,
     { provide: TRACKING_REPOSITORY, useExisting: PostgresTrackingRepository },
   ],
-  exports: [PUSH_PORT],
+  exports: [PUSH_PORT, TrackingScheduler],
 })
 export class TrackingModule {}

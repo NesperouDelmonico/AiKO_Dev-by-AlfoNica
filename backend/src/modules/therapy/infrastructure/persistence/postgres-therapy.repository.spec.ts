@@ -25,7 +25,9 @@ describe('PostgresTherapyRepository route ordering', () => {
     save: jest.fn(async (_entity: unknown, value: object) => value),
     update: jest.fn(),
   };
-  const routes = { manager: transactionManager } as unknown as Repository<TherapeuticRouteEntity>;
+  const routes = {
+    manager: transactionManager,
+  } as unknown as Repository<TherapeuticRouteEntity>;
   const items = {
     count: jest.fn(),
   };
@@ -103,6 +105,7 @@ describe('PostgresTherapyRepository route ordering', () => {
         id: 'route-id',
         estado: RouteStatus.ACTIVA,
       })
+      .mockResolvedValueOnce(oldItem)
       .mockResolvedValueOnce({ id: 'replacement-exercise' });
 
     const replacement = await repository.replaceRouteExercise(
@@ -174,5 +177,53 @@ describe('PostgresTherapyRepository route ordering', () => {
       'second',
       { orden: 2 },
     );
+  });
+
+  describe('removeRouteExercise', () => {
+    const route = { id: 'route-id', estado: RouteStatus.ACTIVA };
+    const pending = () =>
+      Object.assign(new RouteExerciseEntity(), {
+        id: 'item-id',
+        ruta: { id: 'route-id' },
+        orden: 1,
+        estado: RouteExerciseStatus.PENDIENTE,
+      });
+
+    beforeEach(() => {
+      transactionManager.findOne.mockResolvedValue(pending());
+      transactionManager.findOneOrFail
+        .mockResolvedValueOnce(route)
+        .mockResolvedValueOnce(pending());
+      transactionManager.find.mockResolvedValue([]);
+      Object.assign(transactionManager, { delete: jest.fn() });
+    });
+
+    it('no pide relaciones en las consultas con bloqueo', async () => {
+      transactionManager.count.mockResolvedValue(0);
+      await repository.removeRouteExercise('item-id');
+      for (const [, options] of transactionManager.findOneOrFail.mock.calls as [
+        unknown,
+        { lock?: unknown; relations?: unknown },
+      ][]) {
+        if (options.lock) expect(options.relations).toBeUndefined();
+      }
+      expect(
+        (transactionManager as unknown as { delete: jest.Mock }).delete,
+      ).toHaveBeenCalledWith(RouteExerciseEntity, { id: 'item-id' });
+    });
+
+    it('si ya tuvo intentos lo retira como Reemplazado en vez de borrarlo', async () => {
+      transactionManager.count.mockResolvedValue(2);
+      await repository.removeRouteExercise('item-id');
+      expect(
+        (transactionManager as unknown as { delete: jest.Mock }).delete,
+      ).not.toHaveBeenCalled();
+      expect(transactionManager.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'item-id',
+          estado: RouteExerciseStatus.REEMPLAZADO,
+        }),
+      );
+    });
   });
 });

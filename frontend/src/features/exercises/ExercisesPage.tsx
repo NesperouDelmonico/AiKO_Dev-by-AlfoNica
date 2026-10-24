@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { z } from 'zod'
 import { Plus } from 'lucide-react'
 import { apiClient, getErrorMessage, requireResponse } from '../../api/client'
 import { queryKeys } from '../../api/queryKeys'
@@ -14,12 +13,15 @@ import { Input } from '../../components/ui/Input'
 import { Select } from '../../components/ui/Select'
 import { Textarea } from '../../components/ui/Textarea'
 import type { components } from '../../api/schema'
+import { ParamsEditor } from './ParamsEditor'
+import {
+  DEFAULT_TYPE_BY_CATEGORY, formToParams, GAME_TYPES, gameTypeLabel, paramsToForm, type GameType,
+} from './exerciseTypes'
 
 type Exercise = components['schemas']['Ejercicio']
 type Category = components['schemas']['CategoriaEjercicio']
 type ExerciseState = components['schemas']['EstadoEjercicio']
 const categories: Category[] = ['Atención', 'Memoria', 'Velocidad']
-const paramsSchema = z.record(z.string(), z.unknown()).refine((obj) => Object.getPrototypeOf(obj) === Object.prototype, 'Debe ser un objeto JSON.')
 
 export function ExercisesPage() {
   const client = useQueryClient()
@@ -61,7 +63,7 @@ export function ExercisesPage() {
         {query.isSuccess && items.length === 0 && <EmptyState title="Sin ejercicios" description="Prueba con otros filtros o crea un ejercicio." />}
         <div className="space-y-3">{items.map((exercise, i) => (
           <div key={exercise.id ?? i} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--color-border)] p-4">
-            <div><h2 className="mb-1 text-base">{exercise.nombre || '—'}</h2><p className="mb-2 text-sm text-[var(--color-text-muted)]">{exercise.categoria || '—'} · Nivel {exercise.nivel_dificultad ?? '—'}</p><Badge variant={exercise.estado === 'Activo' ? 'success' : 'attention'}>{exercise.estado || 'Estado no disponible'}</Badge></div>
+            <div><h2 className="mb-1 text-base">{exercise.nombre || '—'}</h2><p className="mb-2 text-sm text-[var(--color-text-muted)]">{gameTypeLabel(exercise.tipo)} · {exercise.categoria || '—'} · Nivel {exercise.nivel_dificultad ?? '—'}</p><Badge variant={exercise.estado === 'Activo' ? 'success' : 'attention'}>{exercise.estado || 'Estado no disponible'}</Badge></div>
             <div className="flex gap-2"><Button size="sm" variant="secondary" onClick={() => { setFailure(''); setEditing(exercise) }}>Editar</Button>{exercise.id && <Button size="sm" variant="secondary" disabled={toggle.isPending} onClick={async () => { try { await toggle.mutateAsync({ id: exercise.id!, estado: exercise.estado === 'Activo' ? 'Desactivado' : 'Activo' }) } catch (error) { setFailure(getErrorMessage(error)) } }}>{exercise.estado === 'Activo' ? 'Desactivar' : 'Activar'}</Button>}</div>
           </div>
         ))}</div>
@@ -78,10 +80,11 @@ function ExerciseDialog({ exercise, onClose, onSaved }: {
   onSaved: () => Promise<void>
 }) {
   const [nombre, setNombre] = useState(exercise?.nombre ?? '')
-  const [categoria, setCategoria] = useState<Category>(exercise?.categoria ?? 'Atención')
+  const [categoria, setCategoria] = useState<Category>(exercise?.categoria ?? 'Velocidad')
+  const [tipo, setTipo] = useState<GameType>(exercise?.tipo ?? (exercise?.categoria ? DEFAULT_TYPE_BY_CATEGORY[exercise.categoria] : 'reaccion'))
   const [level, setLevel] = useState(String(exercise?.nivel_dificultad ?? 1))
   const [instructions, setInstructions] = useState(exercise?.instrucciones ?? '')
-  const [parameters, setParameters] = useState(JSON.stringify(exercise?.parametros ?? {}, null, 2))
+  const [paramsForm, setParamsForm] = useState(() => paramsToForm(tipo, exercise?.parametros))
   const [fieldError, setFieldError] = useState('')
   const [dialogError, setDialogError] = useState('')
   const [saving, setSaving] = useState(false)
@@ -90,13 +93,13 @@ function ExerciseDialog({ exercise, onClose, onSaved }: {
     event.preventDefault()
     setFieldError('')
     setDialogError('')
-    const parsed = paramsSchema.safeParse((() => { try { return JSON.parse(parameters) as unknown } catch { return null } })())
-    if (!parsed.success) { setFieldError('Ingresa un objeto JSON válido para los parámetros.'); return }
+    const parsed = formToParams(tipo, paramsForm)
+    if (!parsed.ok) { setFieldError(parsed.error); return }
     const numericLevel = Number(level)
     if (!Number.isInteger(numericLevel) || numericLevel <= 0) { setFieldError('El nivel de dificultad debe ser un entero mayor que 0.'); return }
     setSaving(true)
     try {
-      const body = { nombre: nombre.trim(), categoria, nivel_dificultad: numericLevel, instrucciones: instructions.trim(), parametros: parsed.data }
+      const body = { nombre: nombre.trim(), categoria, tipo, nivel_dificultad: numericLevel, instrucciones: instructions.trim(), parametros: parsed.params }
       const result = exercise?.id
         ? await apiClient.PUT('/ejercicios/{id}', { params: { path: { id: exercise.id } }, body })
         : await apiClient.POST('/ejercicios', { body })
@@ -111,24 +114,21 @@ function ExerciseDialog({ exercise, onClose, onSaved }: {
     } finally { setSaving(false) }
   }
 
-  function formatParameters() {
-    try {
-      setParameters(JSON.stringify(JSON.parse(parameters) as unknown, null, 2))
-    } catch {
-      return
-    }
-  }
-
   return <Dialog title={exercise ? 'Editar ejercicio' : 'Crear ejercicio'} onClose={onClose}>
     <form className="space-y-3" onSubmit={(event) => void submit(event)} noValidate>
       <label className="block text-sm font-semibold" htmlFor="exercise-name">Nombre<Input id="exercise-name" value={nombre} onChange={(e) => setNombre(e.target.value)} required className="mt-1" /></label>
-      <label className="block text-sm font-semibold" htmlFor="exercise-cat">Categoría<Select id="exercise-cat" value={categoria} onChange={(e) => setCategoria(e.target.value as Category)} className="mt-1">{categories.map((value) => <option key={value}>{value}</option>)}</Select></label>
+      <label className="block text-sm font-semibold" htmlFor="exercise-type">Tipo de juego<Select id="exercise-type" value={tipo} onChange={(e) => {
+        const next = e.target.value as GameType
+        setTipo(next)
+        setParamsForm(paramsToForm(next, undefined))
+        if (!exercise) setCategoria(GAME_TYPES.find((item) => item.value === next)?.category ?? categoria)
+      }} className="mt-1">{GAME_TYPES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</Select>
+        <span className="mt-1 block text-xs font-normal text-[var(--color-text-muted)]">{GAME_TYPES.find((item) => item.value === tipo)?.hint}</span>
+      </label>
+      <label className="block text-sm font-semibold" htmlFor="exercise-cat">Categoría cognitiva<Select id="exercise-cat" value={categoria} onChange={(e) => setCategoria(e.target.value as Category)} className="mt-1">{categories.map((value) => <option key={value}>{value}</option>)}</Select></label>
       <label className="block text-sm font-semibold" htmlFor="exercise-level">Nivel de dificultad<Input id="exercise-level" type="number" min="1" step="1" value={level} onChange={(e) => setLevel(e.target.value)} required className="mt-1" /></label>
       <label className="block text-sm font-semibold" htmlFor="exercise-instructions">Instrucciones<Textarea id="exercise-instructions" value={instructions} onChange={(e) => setInstructions(e.target.value)} required className="mt-1" /></label>
-      <label className="block text-sm font-semibold" htmlFor="exercise-params">Parámetros (JSON)<Textarea id="exercise-params" aria-describedby="exercise-params-help" value={parameters} onChange={(e) => setParameters(e.target.value)} rows={6} className="mt-1 font-mono text-xs" /></label>
-      <p id="exercise-params-help" className="text-xs text-[var(--color-text-muted)]">Configuración del juego en formato JSON. Las claves deben coincidir con las que lee la app móvil; consúltalas con el equipo antes de usar valores propios</p>
-      <p className="text-xs text-[var(--color-text-muted)]">Ejemplo: <code className="text-gray-500">{'{"tiempo_limite": 60}'}</code></p>
-      <Button type="button" variant="secondary" onClick={formatParameters}>Formatear JSON</Button>
+      <ParamsEditor type={tipo} form={paramsForm} onChange={setParamsForm} />
       {fieldError && <p role="alert" className="text-sm text-[var(--color-attention-text)]">{fieldError}</p>}
       {dialogError && <p role="alert" className="rounded-xl bg-[var(--color-attention-bg)] p-3 text-sm text-[var(--color-attention-text)]">{dialogError}</p>}
       <div className="flex justify-end gap-2"><Button type="button" variant="secondary" onClick={onClose}>Cancelar</Button><Button type="submit" disabled={saving}>{exercise ? 'Guardar cambios' : 'Crear ejercicio'}</Button></div>

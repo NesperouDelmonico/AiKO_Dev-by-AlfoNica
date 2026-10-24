@@ -89,10 +89,13 @@ export class TrackingUseCase {
       filters.especialistaId = query.especialista_id;
     }
     const alerts = await this.repository.alerts(patientId, filters);
-    return alerts.map(({ pacienteNombre, ...alert }) => ({
-      ...alert,
+    return alerts.map((alert) => ({
+      id: alert.id,
       paciente_id: alert.paciente.id,
-      paciente_nombre: pacienteNombre,
+      paciente_nombre: alert.pacienteNombre,
+      tipo: alert.tipo,
+      estado: alert.estado,
+      fecha_generada: alert.fechaGenerada,
     }));
   }
 

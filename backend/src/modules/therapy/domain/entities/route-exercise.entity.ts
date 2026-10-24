@@ -18,6 +18,7 @@ export enum RouteExerciseStatus {
 
 @Entity('ruta_ejercicio')
 @Check('CHK_58942faafae2e47edaa448b991', `"orden" > 0`)
+@Check('CHK_ruta_ejercicio_dia', `"dia" > 0`)
 @Index('UQ_ruta_orden_vigente', ['ruta', 'orden'], {
   unique: true,
   where: `"estado" <> 'Reemplazado'`,
@@ -43,6 +44,14 @@ export class RouteExerciseEntity {
   @Column({ type: 'int' })
   orden!: number;
 
+  /** Día del plan en el que el especialista ubica este ejercicio (1, 2, …). */
+  @Column({ type: 'int', default: 1 })
+  dia!: number;
+
   @Column({ type: 'enum', enum: RouteExerciseStatus })
   estado!: RouteExerciseStatus;
+
+  /** Cuándo se completó; con esto se habilita el día siguiente por fecha. */
+  @Column({ type: 'timestamp', name: 'fecha_completado', nullable: true })
+  fechaCompletado!: Date | null;
 }

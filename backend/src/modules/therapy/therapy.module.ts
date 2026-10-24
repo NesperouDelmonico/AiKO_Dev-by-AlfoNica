@@ -11,6 +11,11 @@ import { TherapyUseCase } from './application/use-cases/therapy.use-case';
 import { PostgresTherapyRepository } from './infrastructure/persistence/postgres-therapy.repository';
 import { THERAPY_REPOSITORY } from './domain/ports/therapy.repository.port';
 import { GamificationModule } from '../gamification/gamification.module';
+import { ImageEntity } from './domain/entities/image.entity';
+import { ImagesController } from './interfaces/http/images.controller';
+import { ImagesUseCase } from './application/use-cases/images.use-case';
+import { PostgresImageStorage } from './infrastructure/persistence/postgres-image.storage';
+import { IMAGE_STORAGE } from './domain/ports/image-storage.port';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -20,14 +25,18 @@ import { GamificationModule } from '../gamification/gamification.module';
       ExerciseResultEntity,
       PatientEntity,
       SpecialistEntity,
+      ImageEntity,
     ]),
     GamificationModule,
   ],
-  controllers: [TherapyController],
+  controllers: [TherapyController, ImagesController],
   providers: [
     TherapyUseCase,
     PostgresTherapyRepository,
     { provide: THERAPY_REPOSITORY, useExisting: PostgresTherapyRepository },
+    ImagesUseCase,
+    PostgresImageStorage,
+    { provide: IMAGE_STORAGE, useExisting: PostgresImageStorage },
   ],
 })
 export class TherapyModule {}

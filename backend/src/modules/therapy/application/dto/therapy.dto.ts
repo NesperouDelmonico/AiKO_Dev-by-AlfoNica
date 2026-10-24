@@ -1,7 +1,9 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
   IsArray,
+  IsIn,
   IsEnum,
   IsInt,
   IsNotEmpty,
@@ -18,6 +20,7 @@ import {
 import {
   CognitiveCategory,
   ExerciseStatus,
+  GameType,
 } from '../../domain/entities/exercise.entity';
 import { RouteStatus } from '../../domain/entities/therapeutic-route.entity';
 export class CreateExerciseDto {
@@ -30,6 +33,13 @@ export class CreateExerciseDto {
   @ApiProperty({ enum: CognitiveCategory })
   @IsEnum(CognitiveCategory)
   categoria!: CognitiveCategory;
+  @ApiPropertyOptional({
+    enum: GameType,
+    description: 'Mini-juego; por defecto se deduce de la categoría',
+  })
+  @IsOptional()
+  @IsEnum(GameType)
+  tipo?: GameType;
   @ApiProperty() @IsInt() @Min(1) nivel_dificultad!: number;
   @ApiProperty() @IsString() @IsNotEmpty() instrucciones!: string;
   @ApiProperty() @IsObject() parametros!: Record<string, unknown>;
@@ -45,6 +55,10 @@ export class UpdateExerciseDto {
   @IsOptional()
   @IsEnum(CognitiveCategory)
   categoria?: CognitiveCategory;
+  @ApiPropertyOptional({ enum: GameType })
+  @IsOptional()
+  @IsEnum(GameType)
+  tipo?: GameType;
   @ApiPropertyOptional()
   @IsOptional()
   @IsInt()
@@ -64,13 +78,42 @@ export class ExerciseStatusDto {
 export class RouteItemDto {
   @ApiProperty() @IsUUID() ejercicio_id!: string;
   @ApiProperty() @IsInt() @Min(1) orden!: number;
+  @ApiPropertyOptional({
+    minimum: 1,
+    description:
+      'Día del plan. En una ruta nueva empieza en 1 y crece de a uno; al agregar, por defecto es el último día.',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  dia?: number;
 }
+export const ROUTE_PERIODS = [1, 7, 15, 30] as const;
 export class CreateRouteDto {
   @ApiProperty({ type: [RouteItemDto] })
   @IsArray()
+  @ArrayMaxSize(300)
   @ValidateNested({ each: true })
   @Type(() => RouteItemDto)
   ejercicios!: RouteItemDto[];
+  @ApiPropertyOptional({
+    enum: ROUTE_PERIODS,
+    description:
+      'Periodo del plan en días (día, semana, quincena o mes); cada día debe tener ejercicios. Por defecto, el último día usado.',
+  })
+  @IsOptional()
+  @IsIn(ROUTE_PERIODS)
+  duracion_dias?: number;
+}
+export class UploadImageDto {
+  @ApiProperty({ enum: ['image/png', 'image/jpeg'] })
+  @IsIn(['image/png', 'image/jpeg'])
+  tipo_mime!: string;
+  @ApiProperty({ description: 'Contenido en base64 (máx. 1,5 MB)' })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(2_100_000)
+  datos!: string;
 }
 export class AddRouteExerciseDto extends RouteItemDto {}
 export class ReplaceRouteExerciseDto {

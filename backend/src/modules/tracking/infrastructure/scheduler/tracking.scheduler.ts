@@ -68,7 +68,7 @@ export class TrackingScheduler {
   }
 
   @Cron(CronExpression.EVERY_MINUTE)
-  async sendConfiguredReminders() {
+  async sendConfiguredReminders(windowMinutes = 1) {
     const now = new Date();
     const localParts = new Intl.DateTimeFormat('en-US', {
       timeZone: REMINDER_TIME_ZONE,
@@ -80,11 +80,15 @@ export class TrackingScheduler {
     const local = Object.fromEntries(
       localParts.map((part) => [part.type, part.value]),
     );
-    const hhmm = `${local.hour ?? '00'}:${local.minute ?? '00'}`;
+    const nowMinutes = Number(local.hour ?? 0) * 60 + Number(local.minute ?? 0);
     const preferences = await this.repository.preferences();
     for (const preference of preferences) {
-      const scheduled = preference.horarioRecordatorio.slice(0, 5);
-      if (scheduled !== hhmm) continue;
+      // Con windowMinutes=1 equivale a la coincidencia exacta de hh:mm de
+      // antes; una ventana mayor tolera disparadores externos menos frecuentes.
+      const [hours, minutes] = preference.horarioRecordatorio.split(':');
+      const scheduledMinutes = Number(hours) * 60 + Number(minutes);
+      const elapsed = (nowMinutes - scheduledMinutes + 1440) % 1440;
+      if (!Number.isFinite(elapsed) || elapsed >= windowMinutes) continue;
       if (preference.frecuencia === ReminderFrequency.NINGUNA) continue;
       if (
         preference.frecuencia === ReminderFrequency.SEMANAL &&

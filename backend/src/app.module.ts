@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { SnakeCaseAliasInterceptor } from './common/snake-case-alias.interceptor';
 import { ScheduleModule } from '@nestjs/schedule';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { entities } from './entities';
@@ -13,11 +14,22 @@ import { UsersModule } from './modules/users/users.module';
 import { AppController } from './app.controller';
 import { SharedModule } from './modules/shared/shared.module';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import {
+  postgresConnection,
+  shouldRunMigrations,
+  shouldSynchronize,
+} from './database/connection';
+import { CronModule } from './cron/cron.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    ScheduleModule.forRoot(),
+    // En serverless (Vercel) no hay proceso permanente: los @Cron no corren.
+    // SCHEDULER_ENABLED=false los desactiva y las tareas se disparan por HTTP
+    // desde CronModule (Vercel Cron o un pinger externo).
+    ...(process.env.SCHEDULER_ENABLED === 'false'
+      ? []
+      : [ScheduleModule.forRoot()]),
     ThrottlerModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -32,16 +44,16 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
     SharedModule,
     TypeOrmModule.forRoot({
       type: 'postgres',
-      host: process.env.DB_HOST ?? 'localhost',
-      port: Number(process.env.DB_PORT ?? 5432),
-      username: process.env.DB_USER ?? 'postgres',
-      password: process.env.DB_PASSWORD ?? 'postgres',
-      database: process.env.DB_NAME ?? 'aiko',
+      ...postgresConnection(),
       entities,
       autoLoadEntities: true,
-      synchronize: process.env.NODE_ENV !== 'production',
-      migrationsRun: process.env.NODE_ENV === 'production',
+      synchronize: shouldSynchronize(),
+      migrationsRun: shouldRunMigrations(),
       migrations: ['dist/database/migrations/*{.ts,.js}'],
+      // En Vercel conviene fallar rápido y dejar el error en los logs en vez
+      // de reintentar 10 veces con 3 s de espera hasta que la función muera.
+      retryAttempts: process.env.VERCEL ? 1 : 10,
+      retryDelay: process.env.VERCEL ? 500 : 3000,
     }),
     TherapyModule,
     GamificationModule,
@@ -49,8 +61,12 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
     IncidentsModule,
     AuthModule,
     UsersModule,
+    CronModule,
   ],
   controllers: [AppController],
-  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
+  providers: [
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_INTERCEPTOR, useClass: SnakeCaseAliasInterceptor },
+  ],
 })
 export class AppModule {}
