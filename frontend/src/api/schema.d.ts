@@ -3014,6 +3014,38 @@ export interface components {
             completada?: boolean;
             duracion_dias?: number | null;
         };
+        ProgresoRuta: {
+            /** Format: float */
+            porcentaje?: number;
+            completados?: number;
+            pendientes?: number;
+        };
+        ParametrosEjercicio: {
+            duracion_segundos?: number;
+            intervalo_ms?: number;
+            longitud_inicial?: number;
+            longitud_maxima?: number;
+            tiempo_visualizacion_ms?: number;
+            intentos?: number;
+            tiempo_limite_ms?: number;
+            frase?: string;
+            /** Format: uuid */
+            imagen_id?: string | null;
+            letras_ocultas?: number;
+            tiempo_visualizacion_segundos?: number;
+            imagenes?: {
+                /** Format: uuid */
+                imagen_id?: string;
+                respuestas?: string[];
+            }[];
+            preguntas?: {
+                enunciado?: string;
+                /** Format: uuid */
+                imagen_id?: string | null;
+                opciones?: string[];
+                correcta?: number;
+            }[];
+        };
         Imagen: {
             /** Format: uuid */
             id?: string;
@@ -3106,9 +3138,7 @@ export interface components {
             tipo?: components["schemas"]["TipoJuego"];
             nivel_dificultad?: number;
             instrucciones?: string;
-            parametros?: {
-                [key: string]: unknown;
-            };
+            parametros?: components["schemas"]["ParametrosEjercicio"];
             estado?: components["schemas"]["EstadoEjercicio"];
             /** Format: uuid */
             especialista_id?: string;
@@ -3127,6 +3157,7 @@ export interface components {
             fecha_creacion?: string;
             agenda?: components["schemas"]["AgendaRuta"];
             ejercicios?: components["schemas"]["RutaEjercicio"][];
+            progreso?: components["schemas"]["ProgresoRuta"];
         };
         RutaEjercicio: {
             /** Format: uuid */
@@ -3140,6 +3171,7 @@ export interface components {
             estado?: components["schemas"]["EstadoRutaEjercicio"];
             /** Format: date-time */
             fecha_completado?: string | null;
+            ejercicio?: components["schemas"]["Ejercicio"];
         };
         ResultadoEjercicio: {
             /** Format: uuid */
@@ -3156,6 +3188,8 @@ export interface components {
             fecha?: string;
             ejercicio_nombre?: string;
             categoria?: components["schemas"]["CategoriaEjercicio"];
+            retroalimentacion?: string;
+            insignias_obtenidas?: components["schemas"]["Insignia"][];
         };
         Insignia: {
             /** Format: uuid */

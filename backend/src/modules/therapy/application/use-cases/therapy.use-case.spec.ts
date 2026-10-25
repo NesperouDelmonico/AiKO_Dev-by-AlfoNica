@@ -86,6 +86,13 @@ describe('TherapyUseCase.result', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    repository.saveExercise.mockImplementation(async (data) =>
+      Object.assign(new ExerciseEntity(), data, {
+        id: 'exercise-id',
+        fechaCreacion: new Date(),
+        especialista: { id: 'specialist-id' },
+      }),
+    );
     repository.patientForUser.mockResolvedValue(patient);
     repository.routeExerciseInRoute.mockResolvedValue(item);
     repository.saveResult.mockResolvedValue(savedResult as never);

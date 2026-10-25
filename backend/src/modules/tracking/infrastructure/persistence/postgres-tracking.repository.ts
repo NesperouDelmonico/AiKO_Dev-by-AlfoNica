@@ -80,6 +80,7 @@ export class PostgresTrackingRepository implements TrackingRepositoryPort {
   async observations(id: string, page: number, limit: number) {
     const [data, total] = await this.obs.findAndCount({
       where: { paciente: { id } },
+      relations: { paciente: true, especialista: true },
       order: { fecha: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,
@@ -99,12 +100,12 @@ export class PostgresTrackingRepository implements TrackingRepositoryPort {
   }
   async updateObservation(id: string, texto: string) {
     await this.obs.update(id, { texto });
-    return this.obs.findOneBy({ id });
+    return this.obs.findOne({
+      where: { id },
+      relations: { paciente: true, especialista: true },
+    });
   }
-  async alerts(
-    id?: string,
-    filters?: any,
-  ): Promise<AlertWithPatientName[]> {
+  async alerts(id?: string, filters?: any): Promise<AlertWithPatientName[]> {
     const query = this.alert
       .createQueryBuilder('alert')
       .leftJoinAndSelect('alert.paciente', 'paciente')
@@ -137,6 +138,7 @@ export class PostgresTrackingRepository implements TrackingRepositoryPort {
   ) {
     const [data, total] = await this.note.findAndCount({
       where: { paciente: { id }, ...(leida === undefined ? {} : { leida }) },
+      relations: { paciente: true },
       order: { fechaEnvio: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,
@@ -145,7 +147,10 @@ export class PostgresTrackingRepository implements TrackingRepositoryPort {
   }
   async markRead(id: string) {
     await this.note.update(id, { leida: true });
-    return this.note.findOneBy({ id });
+    return this.note.findOne({
+      where: { id },
+      relations: { paciente: true },
+    });
   }
   preference(id: string) {
     return this.pref.findOneBy({ pacienteId: id });

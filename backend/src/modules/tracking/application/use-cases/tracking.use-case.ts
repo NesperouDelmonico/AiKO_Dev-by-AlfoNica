@@ -31,7 +31,13 @@ export class TrackingUseCase {
     actor: Actor,
   ) {
     await this.assertPatientAccess(patientId, actor);
-    return this.repository.observations(patientId, page, limit);
+    const result = await this.repository.observations(patientId, page, limit);
+    return {
+      ...result,
+      data: result.data.map((observation) =>
+        this.observationResponse(observation),
+      ),
+    };
   }
 
   async createObservation(
@@ -45,11 +51,12 @@ export class TrackingUseCase {
     );
     if (!assigned)
       throw new ForbiddenException('Paciente no asignado al especialista');
-    return this.repository.createObservation(
+    const observation = await this.repository.createObservation(
       patientId,
       specialistUserId,
       data.texto,
     );
+    return this.observationResponse(observation);
   }
 
   async updateObservation(id: string, data: ObservationDto, actor: Actor) {
@@ -62,7 +69,7 @@ export class TrackingUseCase {
     }
     const observation = await this.repository.updateObservation(id, data.texto);
     if (!observation) throw new NotFoundException('Observación no encontrada');
-    return observation;
+    return this.observationResponse(observation);
   }
 
   async alerts(
@@ -105,12 +112,23 @@ export class TrackingUseCase {
     actor: Actor,
   ) {
     await this.assertPatientAccess(patientId, actor);
-    return this.repository.notifications(
+    const result = await this.repository.notifications(
       patientId,
       query.leida,
       query.page,
       query.limit,
     );
+    return {
+      ...result,
+      data: result.data.map((notification) => ({
+        id: notification.id,
+        paciente_id: notification.paciente.id,
+        tipo: notification.tipo,
+        mensaje: notification.mensaje,
+        leida: notification.leida,
+        fecha_envio: notification.fechaEnvio,
+      })),
+    };
   }
 
   async markRead(id: string, actor: Actor) {
@@ -120,7 +138,14 @@ export class TrackingUseCase {
     const notification = await this.repository.markRead(id);
     if (!notification)
       throw new NotFoundException('Notificación no encontrada');
-    return notification;
+    return {
+      id: notification.id,
+      paciente_id: notification.paciente.id,
+      tipo: notification.tipo,
+      mensaje: notification.mensaje,
+      leida: notification.leida,
+      fecha_envio: notification.fechaEnvio,
+    };
   }
 
   async preference(patientId: string, actor: Actor) {
@@ -128,7 +153,11 @@ export class TrackingUseCase {
     const preference = await this.repository.preference(patientId);
     if (!preference)
       throw new NotFoundException('Preferencia de notificación no encontrada');
-    return preference;
+    return {
+      paciente_id: preference.pacienteId,
+      frecuencia: preference.frecuencia,
+      horario_recordatorio: preference.horarioRecordatorio,
+    };
   }
 
   async savePreference(patientId: string, data: PreferenceDto, actor: Actor) {
@@ -138,10 +167,15 @@ export class TrackingUseCase {
         ? `${data.horario_recordatorio}:00`
         : data.horario_recordatorio
       : data.horario_recordatorio;
-    return this.repository.savePreference(patientId, {
+    const preference = await this.repository.savePreference(patientId, {
       frecuencia: data.frecuencia,
       horarioRecordatorio: normalizedTime,
     });
+    return {
+      paciente_id: preference.pacienteId,
+      frecuencia: preference.frecuencia,
+      horario_recordatorio: preference.horarioRecordatorio,
+    };
   }
 
   async registerDevice(
@@ -167,5 +201,21 @@ export class TrackingUseCase {
           : false;
     if (!allowed)
       throw new ForbiddenException('No tienes acceso a este paciente');
+  }
+
+  private observationResponse(observation: {
+    id: string;
+    paciente: { id: string };
+    especialista: { id: string };
+    texto: string;
+    fecha: Date;
+  }) {
+    return {
+      id: observation.id,
+      paciente_id: observation.paciente.id,
+      especialista_id: observation.especialista.id,
+      texto: observation.texto,
+      fecha: observation.fecha,
+    };
   }
 }

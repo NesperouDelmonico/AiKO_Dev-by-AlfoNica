@@ -43,11 +43,15 @@ export class PostgresTherapyRepository implements TherapyRepositoryPort {
   exercises(filters: Partial<ExerciseEntity>) {
     return this.ex.find({
       where: filters,
+      relations: { especialista: true },
       order: { fechaCreacion: 'DESC' },
     });
   }
   exercise(id: string) {
-    return this.ex.findOne({ where: { id } });
+    return this.ex.findOne({
+      where: { id },
+      relations: { especialista: true },
+    });
   }
   async specialistIdForUser(userId: string) {
     const specialist = await this.specialists.findOne({
@@ -163,7 +167,6 @@ export class PostgresTherapyRepository implements TherapyRepositoryPort {
         id: In(uniqueIds),
         estado: 'Activo' as ExerciseEntity['estado'],
       });
-      // Un ejercicio puede repetirse: se comparan ids distintos.
       if (exercises.length !== uniqueIds.length) {
         throw new Error('ROUTE_EXERCISE_NOT_AVAILABLE');
       }
@@ -192,14 +195,20 @@ export class PostgresTherapyRepository implements TherapyRepositoryPort {
       );
       return manager.findOneOrFail(TherapeuticRouteEntity, {
         where: { id: route.id },
-        relations: { ejercicios: { ejercicio: true } },
+        relations: {
+          paciente: true,
+          ejercicios: { ejercicio: { especialista: true } },
+        },
       });
     });
   }
   activeRoute(patientId: string) {
     return this.routes.findOne({
       where: { paciente: { id: patientId }, estado: RouteStatus.ACTIVA },
-      relations: { ejercicios: { ejercicio: true } },
+      relations: {
+        paciente: true,
+        ejercicios: { ejercicio: { especialista: true } },
+      },
     });
   }
   async progress(id: string) {
@@ -324,9 +333,7 @@ export class PostgresTherapyRepository implements TherapyRepositoryPort {
       if (item.estado === RouteExerciseStatus.COMPLETADO) {
         throw new Error('ROUTE_EXERCISE_ALREADY_COMPLETED');
       }
-      // Si ya tuvo intentos (puntaje bajo el mínimo), sus resultados lo
-      // referencian: se retira de la ruta sin borrarlo para conservar el
-      // historial que ve el especialista.
+
       const attempts = await manager.count(ExerciseResultEntity, {
         where: { rutaEjercicio: { id } },
       });
@@ -492,16 +499,7 @@ export class PostgresTherapyRepository implements TherapyRepositoryPort {
       skip: (page - 1) * limit,
       take: limit,
     });
-    return {
-      total,
-      page,
-      limit,
-      data: data.map((result) => ({
-        ...result,
-        ejercicio_nombre: result.rutaEjercicio?.ejercicio?.nombre ?? null,
-        categoria: result.rutaEjercicio?.ejercicio?.categoria ?? null,
-      })),
-    };
+    return { total, page, limit, data };
   }
   async routesHistory(
     patientId: string,
@@ -514,7 +512,10 @@ export class PostgresTherapyRepository implements TherapyRepositoryPort {
         paciente: { id: patientId },
         ...(estado ? { estado } : {}),
       },
-      relations: { ejercicios: { ejercicio: true } },
+      relations: {
+        paciente: true,
+        ejercicios: { ejercicio: { especialista: true } },
+      },
       order: { fechaCreacion: 'DESC', id: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,

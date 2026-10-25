@@ -24,28 +24,59 @@ export class GamificationUseCase {
   ) {}
 
   badges() {
-    return this.repository.badges();
+    return this.repository
+      .badges()
+      .then((badges) => badges.map((badge) => this.badgeResponse(badge)));
   }
 
   async profile(patientId: string, actor: Actor) {
     const exists = await this.repository.patientExists(patientId);
     if (!exists) throw new NotFoundException('Paciente no encontrado');
     await this.assertPatientAccess(patientId, actor);
-    return this.repository.profile(patientId);
+    const profile = await this.repository.profile(patientId);
+    return {
+      nivel_actual: profile.nivel_actual,
+      xp_total: profile.xp_total,
+      insignias: profile.insignias.map(
+        (badge: {
+          id: string;
+          nombre: string;
+          descripcion: string;
+          condicion: string;
+        }) => this.badgeResponse(badge),
+      ),
+    };
   }
 
   async patientBadges(patientId: string, actor: Actor) {
     const exists = await this.repository.patientExists(patientId);
     if (!exists) throw new NotFoundException('Paciente no encontrado');
     await this.assertPatientAccess(patientId, actor);
-    return this.repository.patientBadges(patientId);
+    const badges = await this.repository.patientBadges(patientId);
+    return badges.map((badge) => ({
+      paciente_id: badge.pacienteId,
+      insignia_id: badge.insigniaId,
+      fecha_obtenida: badge.fechaObtenida,
+    }));
   }
 
   async unlocked(patientId: string, actor: Actor) {
     const exists = await this.repository.patientExists(patientId);
     if (!exists) throw new NotFoundException('Paciente no encontrado');
     await this.assertPatientAccess(patientId, actor);
-    return this.repository.unlocked(patientId);
+    const exercises = await this.repository.unlocked(patientId);
+    return exercises.map((exercise) => ({
+      id: exercise.id,
+      nombre: exercise.nombre,
+      categoria: exercise.categoria,
+      tipo: exercise.tipo,
+      nivel_dificultad: exercise.nivelDificultad,
+      instrucciones: exercise.instrucciones,
+      parametros: exercise.parametros,
+      estado: exercise.estado,
+      especialista_id: exercise.especialista?.id,
+      fecha_creacion: exercise.fechaCreacion,
+    }));
   }
 
   async onExerciseCompleted(
@@ -128,5 +159,19 @@ export class GamificationUseCase {
       default:
         return false;
     }
+  }
+
+  private badgeResponse(badge: {
+    id: string;
+    nombre: string;
+    descripcion: string;
+    condicion: string;
+  }) {
+    return {
+      id: badge.id,
+      nombre: badge.nombre,
+      descripcion: badge.descripcion,
+      condicion: badge.condicion,
+    };
   }
 }

@@ -1662,6 +1662,51 @@ components:
         completada: { type: boolean }
         duracion_dias: { type: integer, nullable: true }
 
+    ProgresoRuta:
+      type: object
+      properties:
+        porcentaje: { type: number, format: float }
+        completados: { type: integer }
+        pendientes: { type: integer }
+
+    ParametrosEjercicio:
+      type: object
+      additionalProperties: false
+      properties:
+        duracion_segundos: { type: integer }
+        intervalo_ms: { type: integer }
+        longitud_inicial: { type: integer }
+        longitud_maxima: { type: integer }
+        tiempo_visualizacion_ms: { type: integer }
+        intentos: { type: integer }
+        tiempo_limite_ms: { type: integer }
+        frase: { type: string }
+        imagen_id: { type: string, format: uuid, nullable: true }
+        letras_ocultas: { type: integer }
+        tiempo_visualizacion_segundos: { type: integer }
+        imagenes:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              imagen_id: { type: string, format: uuid }
+              respuestas:
+                type: array
+                items: { type: string }
+        preguntas:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              enunciado: { type: string }
+              imagen_id: { type: string, format: uuid, nullable: true }
+              opciones:
+                type: array
+                items: { type: string }
+              correcta: { type: integer }
+
     Imagen:
       type: object
       properties:
@@ -1760,7 +1805,7 @@ components:
         tipo: { $ref: "#/components/schemas/TipoJuego" }
         nivel_dificultad: { type: integer, minimum: 1 }
         instrucciones: { type: string }
-        parametros: { type: object, additionalProperties: true }
+        parametros: { $ref: "#/components/schemas/ParametrosEjercicio" }
         estado: { $ref: "#/components/schemas/EstadoEjercicio" }
         especialista_id: { type: string, format: uuid }
         fecha_creacion: { type: string, format: date-time }
@@ -1777,6 +1822,7 @@ components:
         ejercicios:
           type: array
           items: { $ref: "#/components/schemas/RutaEjercicio" }
+        progreso: { $ref: "#/components/schemas/ProgresoRuta" }
 
     RutaEjercicio:
       type: object
@@ -1788,6 +1834,7 @@ components:
         dia: { type: integer, minimum: 1 }
         estado: { $ref: "#/components/schemas/EstadoRutaEjercicio" }
         fecha_completado: { type: string, format: date-time, nullable: true }
+        ejercicio: { $ref: "#/components/schemas/Ejercicio" }
 
     ResultadoEjercicio:
       type: object
@@ -1802,6 +1849,10 @@ components:
         fecha: { type: string, format: date-time }
         ejercicio_nombre: { type: string }
         categoria: { $ref: "#/components/schemas/CategoriaEjercicio" }
+        retroalimentacion: { type: string }
+        insignias_obtenidas:
+          type: array
+          items: { $ref: "#/components/schemas/Insignia" }
 
     Insignia:
       type: object
