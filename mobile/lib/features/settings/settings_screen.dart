@@ -306,7 +306,10 @@ class _ReminderCardState extends State<_ReminderCard> {
       }
     } on ApiException catch (e) {
       if (!mounted) return;
-      setState(() => (_frequency, _time) = previous);
+      setState(() {
+        _frequency = previous.$1;
+        _time = previous.$2;
+      });
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
     } finally {
       if (mounted) setState(() => _saving = false);
