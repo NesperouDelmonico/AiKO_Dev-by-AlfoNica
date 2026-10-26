@@ -46,6 +46,10 @@ class ApiClient {
         expireSessionOn401,
       );
 
+  Future<dynamic> put(String path, Map<String, dynamic> body) => _send(
+        () => _client.put(_uri(path), headers: _headers, body: jsonEncode(body)),
+      );
+
   Future<dynamic> patch(
     String path,
     Map<String, dynamic> body, {

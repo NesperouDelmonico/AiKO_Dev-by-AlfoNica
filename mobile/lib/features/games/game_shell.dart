@@ -32,6 +32,7 @@ class GameShell extends StatelessWidget {
             child: const Text('Seguir'),
           ),
           FilledButton(
+            style: dialogButtonStyle,
             onPressed: () => Navigator.of(context).pop(true),
             child: const Text('Salir'),
           ),

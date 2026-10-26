@@ -53,6 +53,12 @@ jobs:
 
       - run: flutter pub get
 
+      - name: Ícono y pantalla de arranque
+        # Desde assets/brand/ (configuración en pubspec.yaml).
+        run: |
+          dart run flutter_launcher_icons
+          dart run flutter_native_splash:create
+
       - name: Analizar
         # Cada problema se publica como anotación (visible en la ejecución).
         run: |
