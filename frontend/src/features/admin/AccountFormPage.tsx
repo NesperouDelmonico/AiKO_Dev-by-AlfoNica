@@ -105,7 +105,7 @@ export function EditUserPage() {
   }
   return (
     <div className="mx-auto max-w-2xl space-y-5">
-      <Link to="/admin/usuarios">← Volver a usuarios</Link><div><h1 className="mb-1 text-3xl">Editar usuario</h1><p className="mb-0 text-sm text-[var(--color-text-muted)]">Actualiza los datos y el estado de esta cuenta.</p></div>
+      <div><h1 className="mb-1 text-3xl">Editar usuario</h1><p className="mb-0 text-sm text-[var(--color-text-muted)]">Actualiza los datos y el estado de esta cuenta.</p></div>
       <Card>
         {failure && <p role="alert" className="mb-3 rounded-xl bg-[var(--color-attention-bg)] p-3 text-sm text-[var(--color-attention-text)]">{failure}</p>}
         <form className="space-y-3" onSubmit={form.handleSubmit(async (values) => { try { await update.mutateAsync(values) } catch (error) { setFailure(getErrorMessage(error)) } })} noValidate>

@@ -114,6 +114,7 @@ export function PatientsListPage() {
   }
 
   const patients = patientsQuery.data.data ?? []
+  const userName = user?.nombre?.trim()
   const total = patientsQuery.data.total ?? patients.length
   const attention = patients.filter((patient) => (patient.alertas_activas ?? 0) > 0).length
   const hasAlertCounts = patients.every((patient) => typeof patient.alertas_activas === 'number')
@@ -123,13 +124,11 @@ export function PatientsListPage() {
   const patientCountLabel = hasFilters
     ? `${total} ${total === 1 ? 'paciente encontrado' : 'pacientes encontrados'}`
     : `${total} ${total === 1 ? 'paciente asignado' : 'pacientes asignados'}`
-  const userName = user?.nombre?.trim()
-
   return (
     <div className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="greeting-enter mb-1 text-sm font-semibold text-brand-primary">{userName ? `Hola, ${userName}` : 'Hola'}</p>
+          <p className="greeting-enter mb-1 text-lg font-semibold text-brand-primary">{userName ? `Hola, ${userName}` : 'Hola'}</p>
           <h1 className="mb-2 text-3xl">Mis pacientes</h1>
           <p className="mb-2 text-sm text-[var(--color-text-muted)]">Tus pacientes y su progreso reciente.</p>
           <p className="mb-0 text-sm text-[var(--color-text-muted)]">

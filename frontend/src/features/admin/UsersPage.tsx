@@ -40,7 +40,7 @@ export function UsersPage() {
   return (
     <div className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
-        <div><p className="greeting-enter mb-1 text-sm font-semibold text-brand-primary">{userName ? `Hola, ${userName}` : 'Hola'}</p><h1 className="mb-1 text-3xl">Usuarios</h1><p className="mb-0 text-sm text-[var(--color-text-muted)]">Consulta y administra las cuentas de la plataforma.</p></div>
+        <div><p className="greeting-enter mb-1 text-lg font-semibold text-brand-primary">{userName ? `Hola, ${userName}` : 'Hola'}</p><h1 className="mb-1 text-3xl">Usuarios</h1><p className="mb-0 text-sm text-[var(--color-text-muted)]">Consulta y administra las cuentas de la plataforma.</p></div>
         <div className="relative">
           <Button aria-expanded={newAccountOpen} aria-haspopup="menu" onClick={() => setNewAccountOpen((open) => !open)}>
             <Plus aria-hidden="true" className="size-4" strokeWidth={1.75} /> Nueva cuenta

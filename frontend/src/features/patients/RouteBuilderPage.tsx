@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowDown, ArrowUp, CalendarDays, Copy, Route as RouteIcon } from 'lucide-react'
 import { getErrorMessage } from '../../api/client'
@@ -104,7 +104,6 @@ export function RouteBuilderPage() {
 
   return (
     <div className="space-y-6">
-      <Link to={`/especialista/pacientes/${id}`}>← Volver al paciente</Link>
       <header><h1 className="mb-1 text-3xl">Ruta de {patientQuery.data.nombre}</h1><p className="mb-0 text-sm text-[var(--color-text-muted)]">Organiza los ejercicios de la ruta de {patientQuery.data.nombre}.</p></header>
       {failure && <p role="alert" className="rounded-xl bg-[var(--color-attention-bg)] p-3 text-sm text-[var(--color-attention-text)]">{failure}</p>}
       <Card className="border-l-4 border-l-brand-primary">

@@ -206,6 +206,7 @@ describe('autenticación y cliente API', () => {
   it('mantiene Usuarios e Indicadores en el menú admin y muestra pacientes solo como cuentas', async () => {
     const admin = { ...specialist, rol: 'Administrador' as const }
     const calls: string[] = []
+    const user = userEvent.setup()
     const fetcher = (input: RequestInfo | URL, init?: RequestInit) => {
       const url = new URL(routeFor(input))
       calls.push(`${init?.method ?? 'GET'} ${url.pathname}`)
@@ -221,10 +222,10 @@ describe('autenticación y cliente API', () => {
     renderApplication('/admin/usuarios', fetcher, 'admin-token')
 
     expect(await screen.findByText('Paciente Uno')).toBeInTheDocument()
-    const navigation = screen.getAllByRole('navigation', { name: 'Navegación principal' })
-    for (const nav of navigation) {
-      expect(within(nav).getAllByRole('link').map((link) => link.textContent)).toEqual(['Usuarios', 'Indicadores'])
-    }
+    expect(screen.queryByRole('navigation', { name: 'Navegación principal' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Abrir menú' }))
+    const navigation = within(screen.getByRole('dialog')).getByRole('navigation', { name: 'Navegación principal' })
+    expect(within(navigation).getAllByRole('link').map((link) => link.textContent)).toEqual(['Usuarios', 'Indicadores'])
     expect(screen.queryByRole('link', { name: /pacientes|historial|ruta clínica/i })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Editar' })).toBeInTheDocument()
     expect(calls.some((call) => call.includes('/pacientes'))).toBe(false)
