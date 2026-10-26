@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Activity, Bell, ChevronDown, KeyRound, LogOut, Users, Dumbbell } from 'lucide-react'
+import { Activity, Bell, ChevronDown, KeyRound, LogOut, PanelLeftClose, PanelLeftOpen, Users, Dumbbell } from 'lucide-react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../auth/AuthContext'
 import { getErrorMessage } from '../../api/client'
@@ -26,9 +26,9 @@ function PanelLayoutBase({ role }: { role: PanelRole }) {
   const { user, signOut } = useAuth()
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(true)
   const [logoutError, setLogoutError] = useState('')
   const firstName = user?.nombre?.trim().split(/\s+/)[0]
-  const sessionRole = user?.rol === 'Administrador' || user?.rol === 'Especialista' ? user.rol : null
 
   async function handleLogout() {
     setLogoutError('')
@@ -41,7 +41,10 @@ function PanelLayoutBase({ role }: { role: PanelRole }) {
 
   return (
     <div className="min-h-screen">
-      <aside className="fixed inset-y-0 left-0 z-20 hidden w-64 flex-col overflow-y-auto border-r border-white/70 bg-white/85 px-5 py-7 shadow-sm backdrop-blur lg:flex">
+      <aside className={cn(
+        'fixed inset-y-0 left-0 z-20 hidden w-64 flex-col overflow-y-auto border-r border-white/70 bg-white/85 px-5 py-7 shadow-sm backdrop-blur transition-transform duration-300 motion-reduce:transition-none lg:flex',
+        sidebarOpen ? 'translate-x-0' : '-translate-x-full',
+      )}>
         <Logo className="mb-14 h-auto w-40" />
         <nav aria-label="Navegación principal" className="space-y-2">
           {navigation[role].map(({ to, label, icon: Icon }) => (
@@ -66,37 +69,41 @@ function PanelLayoutBase({ role }: { role: PanelRole }) {
         </div>
       </aside>
 
-      <div className="pb-24 lg:pl-64 lg:pb-20">
+      <div className={cn('pb-24 transition-[padding] duration-300 motion-reduce:transition-none lg:pb-20', sidebarOpen && 'lg:pl-64')}>
         <header className="sticky top-0 z-10 flex min-h-[96px] items-center justify-between border-b border-white/70 bg-white/80 px-4 backdrop-blur sm:px-8">
           <div className="flex items-center gap-3 lg:hidden">
             <Logo className="h-auto w-32" />
           </div>
-          <span className="hidden text-sm font-medium text-[var(--color-text-muted)] lg:block">
+          <p className="greeting-enter absolute left-1/2 top-1/2 m-0 max-w-[calc(100%-12rem)] -translate-x-1/2 -translate-y-1/2 truncate text-center text-lg font-bold text-brand-heading sm:text-2xl">
             {firstName ? `Hola, ${firstName}` : 'Hola'}
-          </span>
-          <div className="relative ml-auto">
+          </p>
+          <div className="relative ml-auto flex items-center gap-2">
+            <button
+              type="button"
+              className="hidden min-h-11 items-center justify-center rounded-xl px-3 text-sm font-medium text-brand-heading hover:bg-purple-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary lg:inline-flex"
+              aria-label={sidebarOpen ? 'Ocultar barra lateral' : 'Mostrar barra lateral'}
+              aria-pressed={!sidebarOpen}
+              onClick={() => setSidebarOpen((open) => !open)}
+            >
+              {sidebarOpen
+                ? <PanelLeftClose aria-hidden="true" className="size-5" strokeWidth={1.75} />
+                : <PanelLeftOpen aria-hidden="true" className="size-5" strokeWidth={1.75} />}
+            </button>
             <button
               type="button"
               className="flex min-h-11 items-center gap-2 rounded-xl px-2 text-left text-sm text-brand-heading hover:bg-purple-50"
               aria-haspopup="menu"
               aria-expanded={menuOpen}
+              aria-label="Abrir menú de usuario"
               onClick={() => setMenuOpen((open) => !open)}
             >
               <span className="grid size-9 place-items-center rounded-full bg-purple-100 font-semibold text-brand-heading">
                 {user?.nombre?.slice(0, 1).toUpperCase() || 'U'}
               </span>
-              <span className="hidden max-w-48 flex-col truncate text-left sm:flex">
-                <span className="truncate">{user?.nombre?.trim() || 'Usuario'}</span>
-                {sessionRole && <span className="text-xs font-normal text-[var(--color-text-muted)]">{sessionRole}</span>}
-              </span>
               <ChevronDown aria-hidden="true" className="size-4" strokeWidth={1.75} />
             </button>
             {menuOpen && (
               <div role="menu" className="absolute right-0 mt-2 w-56 rounded-xl border border-[var(--color-border)] bg-white p-2 shadow-brand-card">
-                <div role="presentation" className="border-b border-[var(--color-border)] px-3 py-2 sm:hidden">
-                  <p className="mb-0 truncate text-sm font-semibold text-brand-heading">{user?.nombre?.trim() || 'Usuario'}</p>
-                  {sessionRole && <p className="mb-0 text-xs text-[var(--color-text-muted)]">{sessionRole}</p>}
-                </div>
                 <button
                   type="button"
                   role="menuitem"
@@ -151,7 +158,7 @@ function PanelLayoutBase({ role }: { role: PanelRole }) {
         </main>
       </div>
 
-      <footer className="fixed inset-x-0 bottom-0 z-30 border-t border-purple-200 bg-white/95 px-4 py-3 text-center text-xs leading-5 text-[var(--color-text-muted)] backdrop-blur lg:left-64">
+      <footer className={cn('fixed inset-x-0 bottom-0 z-30 border-t border-purple-200 bg-white/95 px-4 py-3 text-center text-xs leading-5 text-[var(--color-text-muted)] backdrop-blur', sidebarOpen && 'lg:left-64')}>
         AiKO complementa el tratamiento y no reemplaza la historia clínica ni realiza diagnósticos.
       </footer>
     </div>

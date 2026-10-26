@@ -13,7 +13,6 @@ import { Select } from '../../components/ui/Select'
 import { getPatients, isApiStatus, type Patient } from './api'
 import { PatientListSkeleton, QueryError } from './PatientStates'
 import { useDebouncedValue } from './useDebouncedValue'
-import { useAuth } from '../../auth/AuthContext'
 
 const PAGE_SIZE = 12
 
@@ -84,7 +83,6 @@ function PatientCard({ patient }: { patient: Patient }) {
 }
 
 export function PatientsListPage() {
-  const { user } = useAuth()
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
   const [page, setPage] = useState(1)
@@ -123,13 +121,10 @@ export function PatientsListPage() {
   const patientCountLabel = hasFilters
     ? `${total} ${total === 1 ? 'paciente encontrado' : 'pacientes encontrados'}`
     : `${total} ${total === 1 ? 'paciente asignado' : 'pacientes asignados'}`
-  const userName = user?.nombre?.trim()
-
   return (
     <div className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="greeting-enter mb-1 text-sm font-semibold text-brand-primary">{userName ? `Hola, ${userName}` : 'Hola'}</p>
           <h1 className="mb-2 text-3xl">Mis pacientes</h1>
           <p className="mb-2 text-sm text-[var(--color-text-muted)]">Tus pacientes y su progreso reciente.</p>
           <p className="mb-0 text-sm text-[var(--color-text-muted)]">
