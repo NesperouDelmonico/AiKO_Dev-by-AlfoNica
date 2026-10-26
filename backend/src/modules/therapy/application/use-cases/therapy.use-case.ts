@@ -12,6 +12,7 @@ import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'node:crypto';
 import {
   DEFAULT_GAME_TYPE,
+  ExerciseEntity,
   ExerciseStatus,
   GameType,
 } from '../../domain/entities/exercise.entity';
@@ -20,6 +21,9 @@ import type { ImageStoragePort } from '../../domain/ports/image-storage.port';
 import { routeSchedule } from '../../domain/services/route-schedule';
 import { normalizeExerciseParameters } from '../../domain/services/exercise-parameters';
 import { RouteExerciseStatus } from '../../domain/entities/route-exercise.entity';
+import { RouteExerciseEntity } from '../../domain/entities/route-exercise.entity';
+import { ExerciseResultEntity } from '../../domain/entities/exercise-result.entity';
+import { TherapeuticRouteEntity } from '../../domain/entities/therapeutic-route.entity';
 import { RouteStatus } from '../../domain/entities/therapeutic-route.entity';
 import { THERAPY_REPOSITORY } from '../../domain/ports/therapy.repository.port';
 import type { TherapyRepositoryPort } from '../../domain/ports/therapy.repository.port';
@@ -59,7 +63,9 @@ export class TherapyUseCase {
       estado: query.estado,
     };
     if (actor.rol !== UserRole.PACIENTE) {
-      return this.repository.exercises(filters);
+      return (await this.repository.exercises(filters)).map((exercise) =>
+        this.exerciseResponse(exercise),
+      );
     }
     const patient = await this.repository.patientForUser(actor.sub);
     if (!patient)
@@ -73,7 +79,9 @@ export class TherapyUseCase {
         this.repository.exerciseAvailableForPatient(patient.id, exercise.id),
       ),
     );
-    return exercises.filter((_, index) => available[index]);
+    return exercises
+      .filter((_, index) => available[index])
+      .map((exercise) => this.exerciseResponse(exercise));
   }
 
   /** Valida los parámetros del tipo de juego y que sus imágenes existan. */
@@ -94,7 +102,7 @@ export class TherapyUseCase {
 
   async create(data: CreateExerciseDto, specialistUserId: string) {
     const tipo = data.tipo ?? DEFAULT_GAME_TYPE[data.categoria];
-    return this.repository.saveExercise(
+    const exercise = await this.repository.saveExercise(
       {
         nombre: data.nombre,
         categoria: data.categoria,
@@ -106,12 +114,13 @@ export class TherapyUseCase {
       },
       specialistUserId,
     );
+    return this.exerciseResponse(exercise);
   }
 
   async get(id: string) {
     const exercise = await this.repository.exercise(id);
     if (!exercise) throw new NotFoundException('Ejercicio no encontrado');
-    return exercise;
+    return this.exerciseResponse(exercise);
   }
 
   async update(id: string, data: UpdateExerciseDto, actor: Actor) {
@@ -138,7 +147,7 @@ export class TherapyUseCase {
       ...(parametros === undefined ? {} : { parametros }),
     });
     if (!updated) throw new NotFoundException('Ejercicio no encontrado');
-    return updated;
+    return this.exerciseResponse(updated);
   }
 
   async status(id: string, data: ExerciseStatusDto, actor: Actor) {
@@ -148,7 +157,7 @@ export class TherapyUseCase {
       estado: data.estado,
     });
     if (!updated) throw new NotFoundException('Ejercicio no encontrado');
-    return updated;
+    return this.exerciseResponse(updated);
   }
 
   async execute(id: string, patientUserId: string) {
@@ -165,7 +174,10 @@ export class TherapyUseCase {
     if (exercise.estado !== ExerciseStatus.ACTIVO) {
       throw new ForbiddenException('Ejercicio desactivado');
     }
-    return { sesion_id: randomUUID(), ejercicio: exercise };
+    return {
+      sesion_id: randomUUID(),
+      ejercicio: exercise,
+    };
   }
 
   async route(
@@ -225,11 +237,12 @@ export class TherapyUseCase {
       }
     }
     try {
-      return await this.repository.createRoute(
+      const route = await this.repository.createRoute(
         patientId,
         items.map((item, index) => ({ ...item, dia: days[index] })),
         duracionDias ?? lastDay,
       );
+      return this.routeResponse(route);
     } catch (error) {
       if (error instanceof Error && error.message === 'ACTIVE_ROUTE_CONFLICT') {
         throw new ConflictException('Ya existe una ruta activa');
@@ -252,16 +265,12 @@ export class TherapyUseCase {
     if (!route) throw new NotFoundException('Sin ruta activa');
     const progress = await this.repository.progress(route.id);
     const schedule = routeSchedule(route.ejercicios ?? []);
-    // El contrato (RutaEjercicio) expone ejercicio_id y ruta_id; la web los
-    // usa y la app móvil lee el objeto `ejercicio` anidado.
     return {
-      ...route,
+      ...this.routeResponse(route),
       agenda: { ...schedule, duracion_dias: route.duracionDias ?? null },
-      ejercicios: (route.ejercicios ?? []).map((item) => ({
-        ...item,
-        ruta_id: route.id,
-        ejercicio_id: item.ejercicio?.id ?? null,
-      })),
+      ejercicios: (route.ejercicios ?? []).map((item) =>
+        this.routeExerciseResponse(item, route.id),
+      ),
       progreso: progress,
     };
   }
@@ -293,12 +302,13 @@ export class TherapyUseCase {
       throw new ForbiddenException('Ejercicio bloqueado por nivel');
     }
     try {
-      return await this.repository.addRouteExercise(
+      const item = await this.repository.addRouteExercise(
         routeId,
         data.ejercicio_id,
         data.orden,
         data.dia,
       );
+      return this.routeExerciseResponse(item, routeId);
     } catch (error) {
       if (error instanceof Error && error.message === 'ROUTE_ORDER_INVALID') {
         throw new BadRequestException(
@@ -392,7 +402,7 @@ export class TherapyUseCase {
     }
     if (!updated)
       throw new NotFoundException('Ejercicio de ruta no encontrado');
-    return updated;
+    return this.routeExerciseResponse(updated, routeId);
   }
 
   async result(
@@ -500,15 +510,21 @@ export class TherapyUseCase {
         ? 'Excelente sesión. Continúa con tu ruta terapéutica.'
         : 'Sesión registrada. Sigue practicando para fortalecer tu progreso.';
     return {
-      ...result,
+      ...this.resultResponse(result, patient.id, item),
       retroalimentacion: feedback,
-      insignias_obtenidas: insigniasObtenidas.map((badge) => badge.insignia),
+      insignias_obtenidas: insigniasObtenidas.map((badge) =>
+        this.badgeResponse(badge.insignia),
+      ),
     };
   }
 
   async results(patientId: string, page: number, limit: number, actor: Actor) {
     await this.assertPatientAccess(patientId, actor);
-    return this.repository.resultsPage(patientId, page, limit);
+    const result = await this.repository.resultsPage(patientId, page, limit);
+    return {
+      ...result,
+      data: result.data.map((item) => this.resultResponse(item, patientId)),
+    };
   }
 
   async routeHistory(
@@ -519,7 +535,16 @@ export class TherapyUseCase {
     estado?: RouteStatus,
   ) {
     await this.assertPatientAccess(patientId, actor);
-    return this.repository.routesHistory(patientId, page, limit, estado);
+    const result = await this.repository.routesHistory(
+      patientId,
+      page,
+      limit,
+      estado,
+    );
+    return {
+      ...result,
+      data: result.data.map((route) => this.routeResponse(route)),
+    };
   }
 
   async domainProgress(
@@ -553,6 +578,95 @@ export class TherapyUseCase {
       throw new Error(`${key} debe ser un número válido`);
     }
     return parsed;
+  }
+
+  private exerciseResponse(exercise: ExerciseEntity) {
+    return {
+      id: exercise.id,
+      nombre: exercise.nombre,
+      categoria: exercise.categoria,
+      tipo: exercise.tipo,
+      nivel_dificultad: exercise.nivelDificultad,
+      nivelDificultad: exercise.nivelDificultad,
+      instrucciones: exercise.instrucciones,
+      parametros: exercise.parametros,
+      estado: exercise.estado,
+      especialista_id: exercise.especialista?.id,
+      especialistaId: exercise.especialista?.id,
+      fecha_creacion: exercise.fechaCreacion,
+      fechaCreacion: exercise.fechaCreacion,
+    };
+  }
+
+  private routeExerciseResponse(item: RouteExerciseEntity, routeId: string) {
+    return {
+      id: item.id,
+      ruta_id: routeId,
+      rutaId: routeId,
+      ejercicio_id: item.ejercicio.id,
+      ejercicioId: item.ejercicio.id,
+      orden: item.orden,
+      dia: item.dia,
+      estado: item.estado,
+      fecha_completado: item.fechaCompletado,
+      fechaCompletado: item.fechaCompletado,
+      ejercicio: this.exerciseResponse(item.ejercicio),
+    };
+  }
+
+  private routeResponse(route: TherapeuticRouteEntity) {
+    return {
+      id: route.id,
+      paciente_id: route.paciente?.id,
+      pacienteId: route.paciente?.id,
+      estado: route.estado,
+      duracion_dias: route.duracionDias,
+      duracionDias: route.duracionDias,
+      fecha_creacion: route.fechaCreacion,
+      fechaCreacion: route.fechaCreacion,
+      ejercicios: (route.ejercicios ?? []).map((item) =>
+        this.routeExerciseResponse(item, route.id),
+      ),
+    };
+  }
+
+  private resultResponse(
+    result: ExerciseResultEntity,
+    patientId: string,
+    routeExercise = result.rutaEjercicio,
+  ) {
+    const exercise = routeExercise?.ejercicio;
+    return {
+      id: result.id,
+      paciente_id: patientId,
+      pacienteId: patientId,
+      ruta_ejercicio_id: routeExercise?.id,
+      rutaEjercicioId: routeExercise?.id,
+      puntaje: result.puntaje,
+      tiempo_reaccion_ms: result.tiempoReaccionMs,
+      tiempoReaccionMs: result.tiempoReaccionMs,
+      aciertos: result.aciertos,
+      xp_ganado: result.xpGanado,
+      xpGanado: result.xpGanado,
+      fecha: result.fecha,
+      ejercicio_nombre: exercise?.nombre ?? null,
+      ejercicioNombre: exercise?.nombre ?? null,
+      categoria: exercise?.categoria ?? null,
+    };
+  }
+
+  private badgeResponse(badge: {
+    id: string;
+    nombre: string;
+    descripcion: string;
+    condicion: string;
+  }) {
+    return {
+      id: badge.id,
+      nombre: badge.nombre,
+      descripcion: badge.descripcion,
+      condicion: badge.condicion,
+    };
   }
 
   private async assertExerciseOwner(exerciseId: string, actor: Actor) {

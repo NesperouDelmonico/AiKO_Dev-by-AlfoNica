@@ -47,13 +47,3 @@ export async function getTrends(period: 'semanal' | 'mensual') {
   const result = await apiClient.GET('/admin/tendencias', { params: { query: { periodo: period } } })
   return requireResponse(result.data, result.response)
 }
-
-export async function getSpecialists(): Promise<User[]> {
-  const result = await apiClient.GET('/usuarios', { params: { query: { page: 1, limit: 100, rol: 'Especialista', estado: true } } })
-  return (await requireResponse(result.data, result.response)).data ?? []
-}
-
-export async function reassignPatient(patientId: string, specialistId: string): Promise<components['schemas']['Paciente']> {
-  const result = await apiClient.PATCH('/pacientes/{id}/asignacion', { params: { path: { id: patientId } }, body: { especialista_id: specialistId } })
-  return requireResponse(result.data, result.response)
-}

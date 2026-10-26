@@ -34,9 +34,18 @@ producción; en producción solo se habilita con `SWAGGER_ENABLED=true`.
   no tengan fecha de nacimiento.
 - `GET /v1/pacientes` incluye `alertas_activas` y `progreso_ruta`; este último
   es `null` cuando no existe una ruta activa. Sus totales excluyen ejercicios
-  `Reemplazado`.
+  `Reemplazado`. Las respuestas de paciente incluyen `especialista_nombre`;
+  las dos rutas de alertas también incluyen `paciente_nombre` junto a
+  `paciente_id`.
 - `GET /v1/usuarios` acepta `q` para buscar por nombre o correo sin distinguir
-  mayúsculas ni tildes, además de rol, estado y paginación.
+  mayúsculas ni tildes, además de rol, estado y paginación. Cada usuario incluye
+  `especialista_id`: el identificador de la tabla especialista, o `null` si no
+  tiene ese rol. `GET /v1/usuarios/{id}` y la creación de especialistas
+  devuelven el mismo campo, sin reemplazar el `id` de usuario.
+- `PATCH /v1/pacientes/{id}/asignacion` recibe en `especialista_id` el valor
+  `especialista_id` de un usuario devuelto por `GET /v1/usuarios` (no su `id`).
+  Responde `404` si no existe el paciente o especialista y `409` si el
+  especialista está inactivo.
 - Resultados e historial muestran el nombre y categoría del ejercicio. El
   progreso por dominio también incluye el desglose por ejercicio, calculado
   agregadamente en PostgreSQL e incluyendo todos los intentos guardados.
@@ -71,12 +80,28 @@ producción; en producción solo se habilita con `SWAGGER_ENABLED=true`.
 npm test -- --runInBand
 npm run typecheck
 npm run build
-npm run test:e2e -- --runInBand
+npm run test:e2e
 npm run verify:contract
 ```
 
-Las pruebas e2e requieren una base PostgreSQL descartable llamada `aiko_test`.
-El test valida este nombre antes de conectarse.
+`npm run test:e2e` exige que `DB_NAME=aiko_test` esté definido explícitamente en
+el entorno. El ejecutor comprueba además que el host sea `localhost` o
+`127.0.0.1` y valida `current_database()` antes de reiniciar el esquema
+descartable. No acepta argumentos adicionales (por ejemplo,
+`npm run test:e2e -- --runInBand` aborta).
+
+PowerShell:
+
+```powershell
+$env:DB_NAME = "aiko_test"
+npm run test:e2e
+```
+
+Git Bash:
+
+```bash
+DB_NAME=aiko_test npm run test:e2e
+```
 
 ## Endpoints de autenticación y rutas
 

@@ -6,12 +6,17 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  MinLength,
   Max,
   Min,
 } from 'class-validator';
 import { IncidentStatus } from '../../domain/entities/incident.entity';
 export class CreateIncidentDto {
-  @ApiProperty() @IsString() @IsNotEmpty() descripcion!: string;
+  @ApiProperty({ minLength: 10 })
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(10)
+  descripcion!: string;
 }
 export class IncidentQueryDto {
   @ApiPropertyOptional({ minimum: 1, default: 1 })

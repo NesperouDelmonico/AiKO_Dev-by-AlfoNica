@@ -55,18 +55,8 @@ paths:
                   format: password
                   maxLength: 72
       responses:
-        BadRequest:
+        "400":
           description: Solicitud inválida o política de contraseña incumplida
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Error" }
-        Unauthorized:
-          description: Credenciales o autenticación inválidas
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Error" }
-        Forbidden:
-          description: Operación no autorizada para esta cuenta
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
@@ -335,6 +325,16 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Usuario" }
+        "409":
+          description: El correo o la cédula ya existen
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "503":
+          description: No se pudo entregar las credenciales; la cuenta quedó inactiva
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
 
   /usuarios/especialistas:
     post:
@@ -357,6 +357,16 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Usuario" }
+        "409":
+          description: El correo o la cédula ya existen
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "503":
+          description: No se pudo entregar las credenciales; la cuenta quedó inactiva
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
 
   /usuarios/{id}/restablecer-contrasena:
     parameters:
@@ -397,6 +407,16 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Paciente" }
+        "409":
+          description: El correo o la cédula ya existen
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "503":
+          description: No se pudo entregar el correo; la cuenta quedó inactiva
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
     get:
       tags: [Pacientes]
       summary: Listar pacientes asignados al especialista (RF-025)
@@ -425,6 +445,8 @@ paths:
       tags: [Pacientes]
       summary: Buscar/filtrar pacientes (RF-029)
       parameters:
+        - { $ref: "#/components/parameters/page" }
+        - { $ref: "#/components/parameters/limit" }
         - name: q
           in: query
           schema: { type: string }
@@ -433,15 +455,20 @@ paths:
           schema: { type: string }
         - name: nivel
           in: query
-          schema: { type: integer }
+          schema: { type: integer, minimum: 1 }
       responses:
         "200":
-          description: Lista filtrada de pacientes
+          description: Lista paginada de pacientes filtrados
           content:
             application/json:
               schema:
-                type: array
-                items: { $ref: "#/components/schemas/Paciente" }
+                allOf:
+                  - $ref: "#/components/schemas/PaginatedMeta"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/PacienteListado" }
 
   /pacientes/{id}:
     parameters:
@@ -480,6 +507,7 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Paciente" }
+        "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
 
   /pacientes/{id}/asignacion:
@@ -488,6 +516,7 @@ paths:
     patch:
       tags: [Pacientes]
       summary: Asignar paciente a un especialista, notifica a ambas partes (RF-063)
+      description: especialista_id es el identificador de la tabla especialista expuesto por GET /usuarios en especialista_id; no es el id del usuario.
       requestBody:
         required: true
         content:
@@ -503,6 +532,12 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Paciente" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: El especialista está inactivo
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
 
   /pacientes/{id}/umbrales:
     parameters:
@@ -542,7 +577,7 @@ paths:
               type: object
               required: [descripcion]
               properties:
-                descripcion: { type: string }
+                descripcion: { type: string, minLength: 10 }
       responses:
         "201":
           description: Incidencia creada
@@ -1278,7 +1313,7 @@ paths:
               type: object
               required: [texto]
               properties:
-                texto: { type: string }
+                texto: { type: string, minLength: 5 }
       responses:
         "201":
           description: Observación creada
@@ -1319,7 +1354,7 @@ paths:
               type: object
               required: [texto]
               properties:
-                texto: { type: string }
+                texto: { type: string, minLength: 5 }
       responses:
         "200":
           description: Observación actualizada
@@ -1627,6 +1662,51 @@ components:
         completada: { type: boolean }
         duracion_dias: { type: integer, nullable: true }
 
+    ProgresoRuta:
+      type: object
+      properties:
+        porcentaje: { type: number, format: float }
+        completados: { type: integer }
+        pendientes: { type: integer }
+
+    ParametrosEjercicio:
+      type: object
+      additionalProperties: false
+      properties:
+        duracion_segundos: { type: integer }
+        intervalo_ms: { type: integer }
+        longitud_inicial: { type: integer }
+        longitud_maxima: { type: integer }
+        tiempo_visualizacion_ms: { type: integer }
+        intentos: { type: integer }
+        tiempo_limite_ms: { type: integer }
+        frase: { type: string }
+        imagen_id: { type: string, format: uuid, nullable: true }
+        letras_ocultas: { type: integer }
+        tiempo_visualizacion_segundos: { type: integer }
+        imagenes:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              imagen_id: { type: string, format: uuid }
+              respuestas:
+                type: array
+                items: { type: string }
+        preguntas:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              enunciado: { type: string }
+              imagen_id: { type: string, format: uuid, nullable: true }
+              opciones:
+                type: array
+                items: { type: string }
+              correcta: { type: integer }
+
     Imagen:
       type: object
       properties:
@@ -1663,6 +1743,7 @@ components:
       type: object
       properties:
         id: { type: string, format: uuid }
+        especialista_id: { type: string, format: uuid, nullable: true, description: Identificador del registro especialista; null si el usuario no tiene ese rol }
         nombre: { type: string, maxLength: 150 }
         cedula: { type: string, maxLength: 20 }
         correo: { type: string, format: email, maxLength: 150 }
@@ -1680,6 +1761,7 @@ components:
 
     Paciente:
       type: object
+      required: [id, usuario_id, especialista_id, xp_total, nivel_actual, umbral_bajo_rendimiento, umbral_dias_inactividad, fecha_asignacion, nombre, correo, cedula, estado, fecha_nacimiento, edad]
       properties:
         id: { type: string, format: uuid }
         usuario_id: { type: string, format: uuid }
@@ -1695,11 +1777,13 @@ components:
         estado: { type: boolean, description: Estado de la cuenta del paciente }
         fecha_nacimiento: { type: string, format: date, nullable: true }
         edad: { type: integer, minimum: 0, maximum: 120, nullable: true }
+        especialista_nombre: { type: string, description: Nombre del especialista asignado }
 
     PacienteListado:
       allOf:
         - $ref: "#/components/schemas/Paciente"
         - type: object
+          required: [alertas_activas, progreso_ruta]
           properties:
             alertas_activas: { type: integer, minimum: 0 }
             progreso_ruta:
@@ -1721,7 +1805,7 @@ components:
         tipo: { $ref: "#/components/schemas/TipoJuego" }
         nivel_dificultad: { type: integer, minimum: 1 }
         instrucciones: { type: string }
-        parametros: { type: object, additionalProperties: true }
+        parametros: { $ref: "#/components/schemas/ParametrosEjercicio" }
         estado: { $ref: "#/components/schemas/EstadoEjercicio" }
         especialista_id: { type: string, format: uuid }
         fecha_creacion: { type: string, format: date-time }
@@ -1738,6 +1822,7 @@ components:
         ejercicios:
           type: array
           items: { $ref: "#/components/schemas/RutaEjercicio" }
+        progreso: { $ref: "#/components/schemas/ProgresoRuta" }
 
     RutaEjercicio:
       type: object
@@ -1749,6 +1834,7 @@ components:
         dia: { type: integer, minimum: 1 }
         estado: { $ref: "#/components/schemas/EstadoRutaEjercicio" }
         fecha_completado: { type: string, format: date-time, nullable: true }
+        ejercicio: { $ref: "#/components/schemas/Ejercicio" }
 
     ResultadoEjercicio:
       type: object
@@ -1763,6 +1849,10 @@ components:
         fecha: { type: string, format: date-time }
         ejercicio_nombre: { type: string }
         categoria: { $ref: "#/components/schemas/CategoriaEjercicio" }
+        retroalimentacion: { type: string }
+        insignias_obtenidas:
+          type: array
+          items: { $ref: "#/components/schemas/Insignia" }
 
     Insignia:
       type: object
@@ -1785,7 +1875,7 @@ components:
         id: { type: string, format: uuid }
         paciente_id: { type: string, format: uuid }
         especialista_id: { type: string, format: uuid }
-        texto: { type: string }
+        texto: { type: string, minLength: 5 }
         fecha: { type: string, format: date-time }
 
     PreferenciaNotificacion:
@@ -1810,6 +1900,7 @@ components:
       properties:
         id: { type: string, format: uuid }
         paciente_id: { type: string, format: uuid }
+        paciente_nombre: { type: string }
         tipo: { $ref: "#/components/schemas/TipoAlerta" }
         estado: { $ref: "#/components/schemas/EstadoAlerta" }
         fecha_generada: { type: string, format: date-time }
@@ -1819,6 +1910,6 @@ components:
       properties:
         id: { type: string, format: uuid }
         usuario_id: { type: string, format: uuid }
-        descripcion: { type: string }
+        descripcion: { type: string, minLength: 10 }
         estado: { $ref: "#/components/schemas/EstadoIncidencia" }
         fecha: { type: string, format: date-time }

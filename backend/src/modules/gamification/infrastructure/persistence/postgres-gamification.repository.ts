@@ -74,6 +74,7 @@ export class PostgresGamificationRepository implements GamificationRepositoryPor
         nivelDificultad: LessThanOrEqual(p.nivelActual),
         estado: ExerciseStatus.ACTIVO,
       },
+      relations: { especialista: true },
     });
   }
   async metrics(id: string) {

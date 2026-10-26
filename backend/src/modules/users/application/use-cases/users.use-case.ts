@@ -14,7 +14,10 @@ import { mapUserUniqueViolation } from '../../../shared/infrastructure/persisten
 import { EMAIL_PORT } from '../../../shared/application/ports/email.port';
 import type { EmailPort } from '../../../shared/application/ports/email.port';
 import { USERS_REPOSITORY } from '../../domain/ports/users.repository.port';
-import type { UsersRepositoryPort } from '../../domain/ports/users.repository.port';
+import type {
+  UserWithSpecialistId,
+  UsersRepositoryPort,
+} from '../../domain/ports/users.repository.port';
 import { UserEntity, UserRole } from '../../domain/entities/user.entity';
 import type {
   AccountDto,
@@ -235,9 +238,10 @@ export class UsersUseCase {
     if (identityUser) throw new ConflictException('Cédula duplicada');
   }
 
-  private publicUser(user: UserEntity) {
+  private publicUser(user: UserWithSpecialistId) {
     return {
       id: user.id,
+      especialista_id: user.especialistaId ?? null,
       nombre: user.nombre,
       cedula: user.cedula,
       correo: user.correo,

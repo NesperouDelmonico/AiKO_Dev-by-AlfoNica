@@ -51,7 +51,7 @@ export class PostgresPatientRepository implements PatientRepositoryPort {
       const specialist = await manager.findOneByOrFail(SpecialistEntity, {
         id: specialistId,
       });
-      return manager.save(
+      const patient = await manager.save(
         PatientEntity,
         manager.create(PatientEntity, {
           usuario: savedUser,
@@ -62,6 +62,10 @@ export class PostgresPatientRepository implements PatientRepositoryPort {
           fechaAsignacion: new Date(),
         }),
       );
+      return manager.findOneOrFail(PatientEntity, {
+        where: { id: patient.id },
+        relations: { usuario: true, especialista: { usuario: true } },
+      });
     });
   }
 
@@ -75,6 +79,7 @@ export class PostgresPatientRepository implements PatientRepositoryPort {
       .createQueryBuilder('patient')
       .leftJoinAndSelect('patient.usuario', 'user')
       .innerJoinAndSelect('patient.especialista', 'specialist')
+      .leftJoinAndSelect('specialist.usuario', 'specialistUser')
       .where('specialist.id = :specialistId', { specialistId });
 
     if (query) {
@@ -90,9 +95,13 @@ export class PostgresPatientRepository implements PatientRepositoryPort {
       .take(limit)
       .getManyAndCount();
 
-    const patientIds = data.map((patient) => patient.id);
-    if (patientIds.length === 0) return { total, page, limit, data: [] };
+    const listedData = await this.addListMetrics(data);
+    return { total, page, limit, data: listedData };
+  }
 
+  private async addListMetrics(data: PatientEntity[]): Promise<ListedPatient[]> {
+    const patientIds = data.map((patient) => patient.id);
+    if (patientIds.length === 0) return [];
     const [alertRows, routeRows] = await Promise.all([
       this.alerts
         .createQueryBuilder('alert')
@@ -146,23 +155,29 @@ export class PostgresPatientRepository implements PatientRepositoryPort {
         ];
       }),
     );
-    const listedData: ListedPatient[] = data.map((patient) =>
+    return data.map((patient) =>
       Object.assign(patient, {
         alertasActivas: alertsByPatient.get(patient.id) ?? 0,
         progresoRuta: routesByPatient.get(patient.id) ?? null,
       }),
     );
-    return { total, page, limit, data: listedData };
   }
 
   async search(
-    filters: { query?: string; estado?: string; nivel?: number },
+    filters: {
+      query?: string;
+      estado?: string;
+      nivel?: number;
+      page: number;
+      limit: number;
+    },
     specialistId?: string,
   ) {
     const builder = this.patients
       .createQueryBuilder('patient')
       .leftJoinAndSelect('patient.usuario', 'user')
-      .leftJoinAndSelect('patient.especialista', 'specialist');
+      .leftJoinAndSelect('patient.especialista', 'specialist')
+      .leftJoinAndSelect('specialist.usuario', 'specialistUser');
 
     if (specialistId) {
       builder.andWhere('specialist.id = :specialistId', { specialistId });
@@ -185,7 +200,17 @@ export class PostgresPatientRepository implements PatientRepositoryPort {
       });
     }
 
-    return builder.orderBy('user.nombre', 'ASC').getMany();
+    const [data, total] = await builder
+      .orderBy('user.nombre', 'ASC')
+      .skip((filters.page - 1) * filters.limit)
+      .take(filters.limit)
+      .getManyAndCount();
+    return {
+      total,
+      page: filters.page,
+      limit: filters.limit,
+      data: await this.addListMetrics(data),
+    };
   }
 
   findById(id: string) {

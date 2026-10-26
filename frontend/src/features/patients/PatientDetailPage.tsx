@@ -18,7 +18,6 @@ import { QueryError, SectionSkeleton } from './PatientStates'
 import type { PatientAlert } from './api'
 import type { TemporalChartPoint } from './TemporalProgressChart'
 import { PatientSettingsDialog } from './PatientSettingsDialog'
-import { ReassignPatientDialog } from './ReassignPatientDialog'
 
 const TemporalProgressChart = lazy(() => import('./TemporalProgressChart').then((module) => ({
   default: module.TemporalProgressChart,
@@ -104,7 +103,6 @@ export function PatientDetailPage() {
   const location = useLocation()
   const [observationOpen, setObservationOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [reassignOpen, setReassignOpen] = useState(false)
   const [routeTab, setRouteTab] = useState<'activa' | 'historial'>('activa')
   const [routesPage, setRoutesPage] = useState(1)
   const [routeFilter, setRouteFilter] = useState<'Activa' | 'Histórica' | ''>('')
@@ -203,7 +201,6 @@ export function PatientDetailPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="secondary" onClick={() => setSettingsOpen(true)}>Editar información</Button>
-          <Button variant="secondary" onClick={() => setReassignOpen(true)}>Reasignar especialista</Button>
           <Button onClick={() => setObservationOpen(true)}>
             <Plus aria-hidden="true" className="size-4" strokeWidth={1.75} />
             Nueva observación
@@ -463,7 +460,6 @@ export function PatientDetailPage() {
 
       {observationOpen && <ObservationDialog patientId={id} onClose={closeObservation} />}
       {settingsOpen && <PatientSettingsDialog patient={patient} patientId={id} onClose={() => setSettingsOpen(false)} />}
-      {reassignOpen && <ReassignPatientDialog patientId={id} currentSpecialistId={patient.especialista_id ?? ''} onClose={() => setReassignOpen(false)} />}
     </div>
   )
 }

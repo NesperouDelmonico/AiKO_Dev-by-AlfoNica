@@ -96,6 +96,13 @@ describe('Complete patient therapy workflow (PostgreSQL e2e)', () => {
         correo: `specialist-${suffix}@example.com`,
       })
       .expect(201);
+    expect(specialistResponse.body).toMatchObject({
+      id: expect.any(String),
+      especialista_id: expect.any(String),
+    });
+    expect(specialistResponse.body.especialista_id).not.toBe(
+      specialistResponse.body.id,
+    );
     const specialistToken = await jwt.signAsync(
       { sub: specialistResponse.body.id, rol: UserRole.ESPECIALISTA },
       { jwtid: randomUUID() },
@@ -107,6 +114,14 @@ describe('Complete patient therapy workflow (PostgreSQL e2e)', () => {
     const specialistEntity = await dataSource
       .getRepository(SpecialistEntity)
       .findOneByOrFail({ usuario: { id: specialistResponse.body.id } });
+    expect(specialistResponse.body.especialista_id).toBe(specialistEntity.id);
+    await request(app.getHttpServer())
+      .get(`/v1/usuarios/${specialistResponse.body.id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.especialista_id).toBe(specialistEntity.id);
+      });
     await dataSource.getRepository(UserEntity).update(specialistResponse.body.id, {
       estado: false,
       intentosFallidos: 5,
@@ -195,6 +210,18 @@ describe('Complete patient therapy workflow (PostgreSQL e2e)', () => {
       estado: true,
       edad: expect.any(Number),
     });
+    const secondPatientResponse = await request(app.getHttpServer())
+      .post('/v1/pacientes')
+      .set('Authorization', `Bearer ${specialistToken}`)
+      .send({
+        nombre: `José Patient ${suffix} Z`,
+        cedula: `${Date.now()}05`,
+        correo: `patient-page-${suffix}@example.com`,
+        fecha_nacimiento: '1992-06-15',
+        umbral_bajo_rendimiento: 60,
+        umbral_dias_inactividad: 7,
+      })
+      .expect(201);
     const patient = await dataSource
       .getRepository(PatientEntity)
       .findOneOrFail({
@@ -212,11 +239,15 @@ describe('Complete patient therapy workflow (PostgreSQL e2e)', () => {
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(200)
       .expect(({ body }) => {
+        const listedPatientUser = body.data.find(
+          (user: { id: string }) => user.id === patient.usuario.id,
+        );
         expect(
           body.data.some(
             (user: { id: string }) => user.id === patient.usuario.id,
           ),
         ).toBe(true);
+        expect(listedPatientUser.especialista_id).toBeNull();
       });
     await request(app.getHttpServer())
       .get(
@@ -232,23 +263,31 @@ describe('Complete patient therapy workflow (PostgreSQL e2e)', () => {
         ).toBe(true);
       });
     await request(app.getHttpServer())
-      .get('/v1/pacientes/buscar?q=José')
+      .get(`/v1/pacientes/buscar?q=${encodeURIComponent(`Patient ${suffix}`)}&page=1&limit=1`)
       .set('Authorization', `Bearer ${specialistToken}`)
       .expect(200)
       .expect(({ body }) => {
-        expect(
-          body.some((item: { id: string }) => item.id === patient.id),
-        ).toBe(true);
-        expect(
-          body.find((item: { id: string }) => item.id === patient.id),
-        ).toMatchObject({
+        expect(body).toMatchObject({ total: 2, page: 1, limit: 1 });
+        expect(body.data).toHaveLength(1);
+        expect(body.data[0]).toMatchObject({
+          id: patient.id,
           nombre: `José Patient ${suffix}`,
           correo: `patient-${suffix}@example.com`,
           cedula: patient.usuario.cedula,
           estado: true,
           fecha_nacimiento: '1990-06-15',
           edad: expect.any(Number),
+          especialista_nombre: `Specialist ${suffix}`,
         });
+      });
+    await request(app.getHttpServer())
+      .get(`/v1/pacientes/buscar?q=${encodeURIComponent(`Patient ${suffix}`)}&page=2&limit=1`)
+      .set('Authorization', `Bearer ${specialistToken}`)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({ total: 2, page: 2, limit: 1 });
+        expect(body.data).toHaveLength(1);
+        expect(body.data[0].id).toBe(secondPatientResponse.body.id);
       });
     await request(app.getHttpServer())
       .get(`/v1/pacientes/${patient.id}`)
@@ -262,6 +301,7 @@ describe('Complete patient therapy workflow (PostgreSQL e2e)', () => {
           estado: true,
           fecha_nacimiento: '1990-06-15',
           edad: expect.any(Number),
+          especialista_nombre: `Specialist ${suffix}`,
         });
       });
 
@@ -274,10 +314,29 @@ describe('Complete patient therapy workflow (PostgreSQL e2e)', () => {
         correo: `other-specialist-${suffix}@example.com`,
       })
       .expect(201);
+    expect(otherSpecialistResponse.body.especialista_id).toEqual(
+      expect.any(String),
+    );
+    const listedOtherSpecialist = await request(app.getHttpServer())
+      .get(
+        `/v1/usuarios?q=${encodeURIComponent(`Other specialist ${suffix}`)}&rol=Especialista`,
+      )
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    const otherSpecialistFromList = listedOtherSpecialist.body.data.find(
+      (user: { id: string }) => user.id === otherSpecialistResponse.body.id,
+    );
+    expect(otherSpecialistFromList.especialista_id).toBe(
+      otherSpecialistResponse.body.especialista_id,
+    );
     const otherSpecialistToken = await jwt.signAsync(
       { sub: otherSpecialistResponse.body.id, rol: UserRole.ESPECIALISTA },
       { jwtid: randomUUID() },
     );
+    await request(app.getHttpServer())
+      .get(`/v1/pacientes/${patient.id}`)
+      .set('Authorization', `Bearer ${otherSpecialistToken}`)
+      .expect(403);
     await request(app.getHttpServer())
       .patch(`/v1/pacientes/${patient.id}`)
       .set('Authorization', `Bearer ${otherSpecialistToken}`)
@@ -312,17 +371,47 @@ describe('Complete patient therapy workflow (PostgreSQL e2e)', () => {
       .send({ fecha_nacimiento: '1991-06-15' })
       .expect(404);
     await request(app.getHttpServer())
+      .patch(`/v1/usuarios/${otherSpecialistResponse.body.id}/estado`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ estado: false })
+      .expect(200);
+    await request(app.getHttpServer())
       .patch(`/v1/pacientes/${patient.id}/asignacion`)
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ especialista_id: specialistEntity.id })
+      .send({
+        especialista_id: otherSpecialistFromList.especialista_id,
+      })
+      .expect(409);
+    await request(app.getHttpServer())
+      .patch(`/v1/pacientes/${patient.id}/asignacion`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ especialista_id: '00000000-0000-4000-8000-000000000000' })
+      .expect(404);
+    await request(app.getHttpServer())
+      .patch(`/v1/usuarios/${otherSpecialistResponse.body.id}/estado`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ estado: true })
+      .expect(200);
+    await request(app.getHttpServer())
+      .patch(`/v1/pacientes/${patient.id}/asignacion`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        especialista_id: otherSpecialistFromList.especialista_id,
+      })
       .expect(200)
       .expect(({ body }) => {
         expect(body).toMatchObject({
           nombre: `José Patient ${suffix}`,
           estado: true,
           fecha_nacimiento: '1991-06-15',
+          especialista_nombre: `Other specialist ${suffix}`,
         });
       });
+    await request(app.getHttpServer())
+      .patch(`/v1/pacientes/${patient.id}/asignacion`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ especialista_id: specialistEntity.id })
+      .expect(200);
     await request(app.getHttpServer())
       .put(`/v1/pacientes/${patient.id}/umbrales`)
       .set('Authorization', `Bearer ${adminToken}`)
@@ -430,6 +519,50 @@ describe('Complete patient therapy workflow (PostgreSQL e2e)', () => {
           estado: true,
           fecha_nacimiento: '1991-06-15',
           edad: expect.any(Number),
+          especialista_nombre: `Specialist ${suffix}`,
+          alertas_activas: 1,
+          progreso_ruta: {
+            ruta_id: route.id,
+            total: 2,
+            completados: 0,
+            porcentaje: 0,
+          },
+        });
+      });
+    await request(app.getHttpServer())
+      .get('/v1/alertas')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toContainEqual(
+          expect.objectContaining({
+            paciente_id: patient.id,
+            paciente_nombre: `José Patient ${suffix}`,
+          }),
+        );
+      });
+    await request(app.getHttpServer())
+      .get(`/v1/pacientes/${patient.id}/alertas`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toContainEqual(
+          expect.objectContaining({
+            paciente_id: patient.id,
+            paciente_nombre: `José Patient ${suffix}`,
+          }),
+        );
+      });
+    await request(app.getHttpServer())
+      .get(`/v1/pacientes/buscar?q=${encodeURIComponent(`Patient ${suffix}`)}&page=1&limit=1`)
+      .set('Authorization', `Bearer ${specialistToken}`)
+      .expect(200)
+      .expect(({ body }) => {
+        const listedPatient = body.data.find(
+          (item: { id: string }) => item.id === patient.id,
+        );
+        expect(listedPatient).toMatchObject({
+          especialista_nombre: `Specialist ${suffix}`,
           alertas_activas: 1,
           progreso_ruta: {
             ruta_id: route.id,

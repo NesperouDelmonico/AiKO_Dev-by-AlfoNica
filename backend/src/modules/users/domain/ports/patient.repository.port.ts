@@ -42,9 +42,16 @@ export interface PatientRepositoryPort {
       query?: string;
       estado?: string;
       nivel?: number;
+      page: number;
+      limit: number;
     },
     specialistId?: string,
-  ): Promise<PatientEntity[]>;
+  ): Promise<{
+    total: number;
+    page: number;
+    limit: number;
+    data: ListedPatient[];
+  }>;
   findById(id: string): Promise<PatientEntity | null>;
   assign(
     patientId: string,

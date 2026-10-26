@@ -6,6 +6,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
 import * as bcrypt from 'bcrypt';
@@ -75,7 +76,10 @@ export class PatientUseCase {
         `No se pudo enviar las credenciales al paciente ${patient.usuario.id}: ${String(error)}`,
       );
       await this.users.setState(patient.usuario.id, false);
-      throw error;
+      if (error instanceof ServiceUnavailableException) throw error;
+      throw new ServiceUnavailableException(
+        'No se pudo entregar el correo; la cuenta quedó inactiva',
+      );
     }
     return this.publicPatient(patient);
   }
@@ -114,11 +118,32 @@ export class PatientUseCase {
       actor.rol === UserRole.ESPECIALISTA
         ? await this.requireSpecialist(actor.sub)
         : undefined;
-    const results = await this.patients.search(
-      { query: query.q, estado: query.estado, nivel: query.nivel },
+    const result = await this.patients.search(
+      {
+        query: query.q,
+        estado: query.estado,
+        nivel: query.nivel,
+        page: query.page,
+        limit: query.limit,
+      },
       specialistId,
     );
-    return results.map((patient) => this.publicPatient(patient));
+    return {
+      ...result,
+      data: result.data.map((patient) =>
+        this.publicPatient(patient, {
+          alertas_activas: patient.alertasActivas,
+          progreso_ruta: patient.progresoRuta
+            ? {
+                ruta_id: patient.progresoRuta.rutaId,
+                total: patient.progresoRuta.total,
+                completados: patient.progresoRuta.completados,
+                porcentaje: patient.progresoRuta.porcentaje,
+              }
+            : null,
+        }),
+      ),
+    };
   }
 
   async get(id: string, actor: { sub: string; rol: UserRole }) {
@@ -255,6 +280,9 @@ export class PatientUseCase {
       estado: patient.usuario.estado,
       fecha_nacimiento: patient.fechaNacimiento,
       edad: ageInBogota(patient.fechaNacimiento),
+      ...(patient.especialista?.usuario
+        ? { especialista_nombre: patient.especialista.usuario.nombre }
+        : {}),
       ...extras,
     };
   }

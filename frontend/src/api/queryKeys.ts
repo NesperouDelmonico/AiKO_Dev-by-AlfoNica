@@ -3,7 +3,6 @@ export const queryKeys = {
     all: ['usuarios'] as const,
     list: (filters: Record<string, string | number | boolean | undefined>) => ['usuarios', 'lista', filters] as const,
     detail: (id: string) => ['usuarios', id] as const,
-    specialists: ['usuarios', 'especialistas'] as const,
   },
   patients: {
     all: ['pacientes'] as const,

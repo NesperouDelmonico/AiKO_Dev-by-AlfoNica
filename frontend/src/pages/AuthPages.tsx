@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm, type FieldPath, type FieldValues, type UseFormRegister } from 'react-hook-form'
-import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { changePassword, requestPasswordReset, resetPassword } from '../api/auth'
 import { ApiError, getErrorMessage } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
@@ -43,12 +43,18 @@ type ForgotValues = z.infer<typeof forgotSchema>
 type ResetValues = z.infer<typeof resetSchema>
 type ChangeValues = z.infer<typeof changeSchema>
 
+function navigationStateString(state: unknown, key: string): string | undefined {
+  if (typeof state !== 'object' || state === null) return undefined
+  const value = (state as Record<string, unknown>)[key]
+  return typeof value === 'string' ? value : undefined
+}
+
 function AuthShell({ children, subtitle }: { children: ReactNode; subtitle: string }) {
   return (
     <main className="flex min-h-screen items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
         <div className="mb-7 flex justify-center">
-          <Logo className="h-auto w-36" />
+          <Logo className="h-auto w-36 max-h-28" />
         </div>
         <Card className="border-white/80 p-6 sm:p-8">
           <p className="mb-6 text-center text-sm text-[var(--color-text-muted)]">{subtitle}</p>
@@ -101,9 +107,11 @@ function FieldError({ message }: { message?: string }) {
 export function LoginPage() {
   const { signIn, rejectPatient, patientRejected, sessionError, clearPatientNotice, user } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const [serverError, setServerError] = useState('')
   const [patientMessage, setPatientMessage] = useState('')
   const form = useForm<LoginValues>({ resolver: zodResolver(loginSchema), defaultValues: { correo: '', contraseña: '' } })
+  const notice = navigationStateString(location.state, 'notice')
   if (user) return <Navigate to={homeForRole(user.rol) || '/login'} replace />
 
   async function submit(values: LoginValues) {
@@ -137,6 +145,7 @@ export function LoginPage() {
 
   return (
     <AuthShell subtitle="Inicia sesión en tu panel de AiKO">
+      {notice && <p role="status" className="mb-4 rounded-xl bg-purple-50 p-3 text-sm text-brand-heading">{notice}</p>}
       {(patientRejected || patientMessage) && (
         <div role="status" className="mb-4 rounded-xl bg-purple-50 p-3 text-sm text-brand-heading">
           {patientMessage || 'Las cuentas de paciente deben usar la aplicación móvil.'}
@@ -153,19 +162,26 @@ export function LoginPage() {
         </Button>
       </form>
       <div className="mt-5 text-center text-sm">
-        <Link className="font-semibold" to="/olvide-contrasena">Olvidé mi contraseña</Link>
+        <Link className="font-semibold" to="/olvide-contrasena">¿Olvidaste tu contraseña?</Link>
       </div>
     </AuthShell>
   )
 }
 
 export function ForgotPasswordPage() {
+  const location = useLocation()
+  const navigate = useNavigate()
   const [message, setMessage] = useState('')
   const [failure, setFailure] = useState('')
-  const form = useForm<ForgotValues>({ resolver: zodResolver(forgotSchema), defaultValues: { correo: '' } })
+  const [requestedEmail, setRequestedEmail] = useState('')
+  const form = useForm<ForgotValues>({
+    resolver: zodResolver(forgotSchema),
+    defaultValues: { correo: navigationStateString(location.state, 'correo') ?? '' },
+  })
   async function submit(values: ForgotValues) {
     setFailure('')
     setMessage('')
+    setRequestedEmail(values.correo)
     try {
       await requestPasswordReset(values.correo)
       setMessage('Si el correo está registrado, recibirás instrucciones para restablecer tu contraseña.')
@@ -189,6 +205,16 @@ export function ForgotPasswordPage() {
           Enviar instrucciones
         </Button>
       </form>
+      {requestedEmail && (
+        <Button
+          type="button"
+          variant="secondary"
+          className="mt-3 w-full"
+          onClick={() => navigate('/restablecer-contrasena', { state: { correo: requestedEmail } })}
+        >
+          Ya tengo mi código
+        </Button>
+      )}
       <p className="mt-5 text-center text-sm"><Link className="font-semibold" to="/login">Volver al inicio de sesión</Link></p>
     </AuthShell>
   )
@@ -196,38 +222,42 @@ export function ForgotPasswordPage() {
 
 export function ResetPasswordPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [serverError, setServerError] = useState('')
-  const [complete, setComplete] = useState(false)
-  const form = useForm<ResetValues>({ resolver: zodResolver(resetSchema), defaultValues: { correo: '', codigo: '', nueva_contraseña: '' } })
+  const form = useForm<ResetValues>({
+    resolver: zodResolver(resetSchema),
+    defaultValues: {
+      correo: navigationStateString(location.state, 'correo') ?? '',
+      codigo: '',
+      nueva_contraseña: '',
+    },
+  })
   async function submit(values: ResetValues) {
     setServerError('')
     try {
       await resetPassword(values.correo, values.codigo, values.nueva_contraseña)
-      setComplete(true)
+      navigate('/login', { replace: true, state: { notice: 'Contraseña actualizada' } })
     } catch (error) {
       setServerError(getErrorMessage(error))
     }
   }
   return (
     <AuthShell subtitle="Restablece tu contraseña">
-      {complete ? (
-        <div className="space-y-4 text-center">
-          <p role="status" className="text-sm text-[var(--color-text-muted)]">Tu contraseña se actualizó correctamente.</p>
-          <Button className="w-full" onClick={() => navigate('/login')}>Ir a iniciar sesión</Button>
-        </div>
-      ) : (
-        <form className="space-y-4" onSubmit={form.handleSubmit(submit)} noValidate>
-          <Field label="Correo electrónico" name="correo" type="email" autoComplete="email" register={form.register} error={form.formState.errors.correo?.message} />
-          <Field label="Código de 6 dígitos" name="codigo" inputMode="numeric" autoComplete="one-time-code" register={form.register} error={form.formState.errors.codigo?.message} />
-          <Field label="Nueva contraseña" name="nueva_contraseña" type="password" autoComplete="new-password" register={form.register} error={form.formState.errors.nueva_contraseña?.message} />
-          <p className="text-xs text-[var(--color-text-muted)]">Usa entre 8 y 72 caracteres, con al menos una minúscula, una mayúscula y un número.</p>
-          <FieldError message={serverError} />
-          <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
-            {form.formState.isSubmitting && <Spinner className="size-4 text-white" />}
-            Restablecer contraseña
-          </Button>
-        </form>
-      )}
+      <form className="space-y-4" onSubmit={form.handleSubmit(submit)} noValidate>
+        <Field label="Correo electrónico" name="correo" type="email" autoComplete="email" register={form.register} error={form.formState.errors.correo?.message} />
+        <Field label="Código de 6 dígitos" name="codigo" inputMode="numeric" autoComplete="one-time-code" register={form.register} error={form.formState.errors.codigo?.message} />
+        <Field label="Nueva contraseña" name="nueva_contraseña" type="password" autoComplete="new-password" register={form.register} error={form.formState.errors.nueva_contraseña?.message} />
+        <p className="text-xs text-[var(--color-text-muted)]">El código tiene 6 dígitos, vence en 15 minutos y permite 5 intentos</p>
+        <p className="text-xs text-[var(--color-text-muted)]">Usa entre 8 y 72 caracteres, con al menos una minúscula, una mayúscula y un número.</p>
+        <FieldError message={serverError} />
+        <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
+          {form.formState.isSubmitting && <Spinner className="size-4 text-white" />}
+          Restablecer contraseña
+        </Button>
+      </form>
+      <p className="mt-5 text-center text-sm">
+        <Link className="font-semibold" to="/olvide-contrasena" state={{ correo: form.getValues('correo') }}>Pedir un código nuevo</Link>
+      </p>
       <p className="mt-5 text-center text-sm"><Link className="font-semibold" to="/login">Volver al inicio de sesión</Link></p>
     </AuthShell>
   )

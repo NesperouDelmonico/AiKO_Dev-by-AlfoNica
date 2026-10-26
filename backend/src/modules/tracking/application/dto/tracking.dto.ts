@@ -7,6 +7,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  MinLength,
   IsUUID,
   Matches,
   Max,
@@ -15,7 +16,11 @@ import {
 import { AlertStatus, AlertType } from '../../domain/entities/alert.entity';
 import { ReminderFrequency } from '../../domain/entities/notification-preference.entity';
 export class ObservationDto {
-  @ApiProperty() @IsString() @IsNotEmpty() texto!: string;
+  @ApiProperty({ minLength: 5 })
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(5)
+  texto!: string;
 }
 export class AlertQueryDto {
   @ApiPropertyOptional({ enum: AlertStatus })

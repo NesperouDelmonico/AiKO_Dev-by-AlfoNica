@@ -2,6 +2,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Check,
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
@@ -14,6 +15,7 @@ import { UserEntity } from '../../../users/domain/entities/user.entity';
  * Se guarda en Postgres; ImageStoragePort permite moverla a un bucket.
  */
 @Entity('imagen')
+@Check('CHK_imagen_tipo_mime', `"tipo_mime" IN ('image/png', 'image/jpeg')`)
 export class ImageEntity {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
@@ -27,8 +29,15 @@ export class ImageEntity {
   @Column({ type: 'int' })
   tamano!: number;
 
-  @ManyToOne(() => UserEntity, { onDelete: 'RESTRICT', onUpdate: 'CASCADE' })
-  @JoinColumn({ name: 'usuario_id' })
+  @ManyToOne(() => UserEntity, {
+    nullable: false,
+    onDelete: 'RESTRICT',
+    onUpdate: 'CASCADE',
+  })
+  @JoinColumn({
+    name: 'usuario_id',
+    foreignKeyConstraintName: 'FK_imagen_usuario',
+  })
   usuario!: UserEntity;
 
   @CreateDateColumn({ type: 'timestamp', name: 'fecha_creacion' })

@@ -3,6 +3,8 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   Patch,
   Post,
@@ -118,6 +120,7 @@ export class TherapyController {
     return this.use.add(id, d, user);
   }
   @Delete('rutas/:id/ejercicios/:rutaEjercicioId')
+  @HttpCode(HttpStatus.NO_CONTENT)
   @Roles(UserRole.ESPECIALISTA, UserRole.ADMINISTRADOR)
   remove(
     @Param('id') routeId: string,

@@ -70,11 +70,29 @@ export class UsersController {
   }
   @Post('administradores')
   @Roles(UserRole.ADMINISTRADOR)
+  @ApiResponse({ status: 201, description: 'Administrador creado' })
+  @ApiResponse({
+    status: 409,
+    description: 'El correo o la cédula ya existen',
+  })
+  @ApiResponse({
+    status: 503,
+    description: 'No se pudo entregar las credenciales; la cuenta quedó inactiva',
+  })
   administrator(@Body() dto: AccountDto) {
     return this.useCase.executeAdministrator(dto);
   }
   @Post('especialistas')
   @Roles(UserRole.ADMINISTRADOR)
+  @ApiResponse({ status: 201, description: 'Especialista creado' })
+  @ApiResponse({
+    status: 409,
+    description: 'El correo o la cédula ya existen',
+  })
+  @ApiResponse({
+    status: 503,
+    description: 'No se pudo entregar las credenciales; la cuenta quedó inactiva',
+  })
   specialist(@Body() dto: AccountDto) {
     return this.useCase.executeSpecialist(dto);
   }

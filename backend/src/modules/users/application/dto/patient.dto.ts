@@ -94,6 +94,8 @@ export class PatientResponseDto {
   @ApiProperty() umbral_dias_inactividad!: number;
   @ApiProperty({ type: 'string', format: 'date' })
   fecha_asignacion!: Date;
+  @ApiPropertyOptional()
+  especialista_nombre?: string;
 }
 
 export class PatientRouteProgressResponseDto {
@@ -131,12 +133,7 @@ export class PatientsQueryDto {
   q?: string;
 }
 
-export class SearchPatientsQueryDto {
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  q?: string;
-
+export class SearchPatientsQueryDto extends PatientsQueryDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()

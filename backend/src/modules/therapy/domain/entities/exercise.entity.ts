@@ -52,7 +52,6 @@ export class ExerciseEntity {
   @Column({
     type: 'enum',
     enum: GameType,
-    enumName: 'ejercicio_tipo_enum',
   })
   tipo!: GameType;
 

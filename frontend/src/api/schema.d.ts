@@ -45,6 +45,15 @@ export interface paths {
                         };
                     };
                 };
+                /** @description Solicitud inválida o política de contraseña incumplida */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
                 /** @description Credenciales inválidas (RF-002) */
                 401: {
                     headers: {
@@ -69,33 +78,6 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content?: never;
-                };
-                /** @description Solicitud inválida o política de contraseña incumplida */
-                BadRequest: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Credenciales o autenticación inválidas */
-                Unauthorized: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description Operación no autorizada para esta cuenta */
-                Forbidden: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
                 };
             };
         };
@@ -601,6 +583,24 @@ export interface paths {
                         "application/json": components["schemas"]["Usuario"];
                     };
                 };
+                /** @description El correo o la cédula ya existen */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description No se pudo entregar las credenciales; la cuenta quedó inactiva */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
             };
         };
         delete?: never;
@@ -644,6 +644,24 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["Usuario"];
+                    };
+                };
+                /** @description El correo o la cédula ya existen */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description No se pudo entregar las credenciales; la cuenta quedó inactiva */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
                     };
                 };
             };
@@ -778,6 +796,24 @@ export interface paths {
                         "application/json": components["schemas"]["Paciente"];
                     };
                 };
+                /** @description El correo o la cédula ya existen */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description No se pudo entregar el correo; la cuenta quedó inactiva */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
             };
         };
         delete?: never;
@@ -797,6 +833,8 @@ export interface paths {
         get: {
             parameters: {
                 query?: {
+                    page?: components["parameters"]["page"];
+                    limit?: components["parameters"]["limit"];
                     q?: string;
                     estado?: string;
                     nivel?: number;
@@ -807,13 +845,15 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description Lista filtrada de pacientes */
+                /** @description Lista paginada de pacientes filtrados */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["Paciente"][];
+                        "application/json": components["schemas"]["PaginatedMeta"] & {
+                            data?: components["schemas"]["PacienteListado"][];
+                        };
                     };
                 };
             };
@@ -856,6 +896,7 @@ export interface paths {
                         "application/json": components["schemas"]["Paciente"];
                     };
                 };
+                403: components["responses"]["Forbidden"];
                 404: components["responses"]["NotFound"];
             };
         };
@@ -917,7 +958,10 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Asignar paciente a un especialista, notifica a ambas partes (RF-063) */
+        /**
+         * Asignar paciente a un especialista, notifica a ambas partes (RF-063)
+         * @description especialista_id es el identificador de la tabla especialista expuesto por GET /usuarios en especialista_id; no es el id del usuario.
+         */
         patch: {
             parameters: {
                 query?: never;
@@ -943,6 +987,16 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["Paciente"];
+                    };
+                };
+                404: components["responses"]["NotFound"];
+                /** @description El especialista está inactivo */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
                     };
                 };
             };
@@ -2960,6 +3014,38 @@ export interface components {
             completada?: boolean;
             duracion_dias?: number | null;
         };
+        ProgresoRuta: {
+            /** Format: float */
+            porcentaje?: number;
+            completados?: number;
+            pendientes?: number;
+        };
+        ParametrosEjercicio: {
+            duracion_segundos?: number;
+            intervalo_ms?: number;
+            longitud_inicial?: number;
+            longitud_maxima?: number;
+            tiempo_visualizacion_ms?: number;
+            intentos?: number;
+            tiempo_limite_ms?: number;
+            frase?: string;
+            /** Format: uuid */
+            imagen_id?: string | null;
+            letras_ocultas?: number;
+            tiempo_visualizacion_segundos?: number;
+            imagenes?: {
+                /** Format: uuid */
+                imagen_id?: string;
+                respuestas?: string[];
+            }[];
+            preguntas?: {
+                enunciado?: string;
+                /** Format: uuid */
+                imagen_id?: string | null;
+                opciones?: string[];
+                correcta?: number;
+            }[];
+        };
         Imagen: {
             /** Format: uuid */
             id?: string;
@@ -2984,6 +3070,11 @@ export interface components {
         Usuario: {
             /** Format: uuid */
             id?: string;
+            /**
+             * Format: uuid
+             * @description Identificador del registro especialista; null si el usuario no tiene ese rol
+             */
+            especialista_id?: string | null;
             nombre?: string;
             cedula?: string;
             /** Format: email */
@@ -3003,33 +3094,35 @@ export interface components {
         };
         Paciente: {
             /** Format: uuid */
-            id?: string;
+            id: string;
             /** Format: uuid */
-            usuario_id?: string;
+            usuario_id: string;
             /** Format: uuid */
-            especialista_id?: string;
+            especialista_id: string;
             /** @default 0 */
             xp_total: number;
             /** @default 1 */
             nivel_actual: number;
             /** Format: float */
-            umbral_bajo_rendimiento?: number;
-            umbral_dias_inactividad?: number;
+            umbral_bajo_rendimiento: number;
+            umbral_dias_inactividad: number;
             /** Format: date */
-            fecha_asignacion?: string;
-            nombre?: string;
+            fecha_asignacion: string;
+            nombre: string;
             /** Format: email */
-            correo?: string;
-            cedula?: string;
+            correo: string;
+            cedula: string;
             /** @description Estado de la cuenta del paciente */
-            estado?: boolean;
+            estado: boolean;
             /** Format: date */
-            fecha_nacimiento?: string | null;
-            edad?: number | null;
+            fecha_nacimiento: string | null;
+            edad: number | null;
+            /** @description Nombre del especialista asignado */
+            especialista_nombre?: string;
         };
         PacienteListado: components["schemas"]["Paciente"] & {
-            alertas_activas?: number;
-            progreso_ruta?: {
+            alertas_activas: number;
+            progreso_ruta: {
                 /** Format: uuid */
                 ruta_id: string;
                 total: number;
@@ -3045,9 +3138,7 @@ export interface components {
             tipo?: components["schemas"]["TipoJuego"];
             nivel_dificultad?: number;
             instrucciones?: string;
-            parametros?: {
-                [key: string]: unknown;
-            };
+            parametros?: components["schemas"]["ParametrosEjercicio"];
             estado?: components["schemas"]["EstadoEjercicio"];
             /** Format: uuid */
             especialista_id?: string;
@@ -3066,6 +3157,7 @@ export interface components {
             fecha_creacion?: string;
             agenda?: components["schemas"]["AgendaRuta"];
             ejercicios?: components["schemas"]["RutaEjercicio"][];
+            progreso?: components["schemas"]["ProgresoRuta"];
         };
         RutaEjercicio: {
             /** Format: uuid */
@@ -3079,6 +3171,7 @@ export interface components {
             estado?: components["schemas"]["EstadoRutaEjercicio"];
             /** Format: date-time */
             fecha_completado?: string | null;
+            ejercicio?: components["schemas"]["Ejercicio"];
         };
         ResultadoEjercicio: {
             /** Format: uuid */
@@ -3095,6 +3188,8 @@ export interface components {
             fecha?: string;
             ejercicio_nombre?: string;
             categoria?: components["schemas"]["CategoriaEjercicio"];
+            retroalimentacion?: string;
+            insignias_obtenidas?: components["schemas"]["Insignia"][];
         };
         Insignia: {
             /** Format: uuid */
@@ -3147,6 +3242,7 @@ export interface components {
             id?: string;
             /** Format: uuid */
             paciente_id?: string;
+            paciente_nombre?: string;
             tipo?: components["schemas"]["TipoAlerta"];
             estado?: components["schemas"]["EstadoAlerta"];
             /** Format: date-time */

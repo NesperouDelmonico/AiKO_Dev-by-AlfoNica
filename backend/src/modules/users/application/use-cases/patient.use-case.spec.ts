@@ -54,7 +54,11 @@ describe('PatientUseCase', () => {
     usuario: patientUser,
     especialista: {
       id: 'specialist-id',
-      usuario: { id: 'specialist-user', correo: 'specialist@example.com' },
+      usuario: {
+        id: 'specialist-user',
+        nombre: 'Especialista',
+        correo: 'specialist@example.com',
+      },
     },
     nivelActual: 1,
     xpTotal: 0,
@@ -84,7 +88,10 @@ describe('PatientUseCase', () => {
         },
         'specialist-user',
       ),
-    ).rejects.toThrow('SMTP unavailable');
+    ).rejects.toMatchObject({
+      status: 503,
+      message: 'No se pudo entregar el correo; la cuenta quedó inactiva',
+    });
 
     expect(patients.create).toHaveBeenCalledTimes(1);
     expect(users.setState).toHaveBeenCalledWith(patientUser.id, false);
@@ -164,6 +171,24 @@ describe('PatientUseCase', () => {
     ).rejects.toMatchObject({ status: 403 });
   });
 
+  it('responde 403 si un especialista no asignado consulta el paciente y 404 si no existe', async () => {
+    patients.findById.mockResolvedValue(patient);
+    await expect(
+      useCase.get(patient.id, {
+        sub: 'other-specialist',
+        rol: UserRole.ESPECIALISTA,
+      }),
+    ).rejects.toMatchObject({ status: 403 });
+
+    patients.findById.mockResolvedValue(null);
+    await expect(
+      useCase.get(patient.id, {
+        sub: 'specialist-user',
+        rol: UserRole.ESPECIALISTA,
+      }),
+    ).rejects.toMatchObject({ status: 404 });
+  });
+
   it('devuelve los campos personales al actualizar la fecha de nacimiento', async () => {
     const updatedPatient = Object.assign(new PatientEntity(), {
       ...patient,
@@ -186,5 +211,63 @@ describe('PatientUseCase', () => {
       fecha_nacimiento: '1991-06-15',
       edad: expect.any(Number),
     });
+  });
+
+  it('busca con filtros y pagina antes de serializar los agregados del paciente', async () => {
+    const listedPatient = Object.assign(new PatientEntity(), patient, {
+      alertasActivas: 2,
+      progresoRuta: {
+        rutaId: 'active-route',
+        total: 3,
+        completados: 1,
+        porcentaje: 100 / 3,
+      },
+    });
+    patients.specialistIdForUser.mockResolvedValue('specialist-id');
+    patients.search.mockResolvedValue({
+      total: 25,
+      page: 2,
+      limit: 10,
+      data: [listedPatient],
+    });
+
+    await expect(
+      useCase.search(
+        {
+          q: 'Ana',
+          estado: 'true',
+          nivel: 2,
+          page: 2,
+          limit: 10,
+        },
+        { sub: 'specialist-user', rol: UserRole.ESPECIALISTA },
+      ),
+    ).resolves.toMatchObject({
+      total: 25,
+      page: 2,
+      limit: 10,
+      data: [
+        {
+          nombre: 'Paciente',
+          correo: 'patient@example.com',
+          cedula: '12345678',
+          estado: true,
+          fecha_nacimiento: '1990-06-15',
+          edad: expect.any(Number),
+          especialista_nombre: 'Especialista',
+          alertas_activas: 2,
+          progreso_ruta: {
+            ruta_id: 'active-route',
+            total: 3,
+            completados: 1,
+            porcentaje: 100 / 3,
+          },
+        },
+      ],
+    });
+    expect(patients.search).toHaveBeenCalledWith(
+      { query: 'Ana', estado: 'true', nivel: 2, page: 2, limit: 10 },
+      'specialist-id',
+    );
   });
 });
