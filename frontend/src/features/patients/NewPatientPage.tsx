@@ -47,7 +47,7 @@ function mapCreateError(error: unknown): string {
     return 'El correo o la cédula ya existen. Verifica ambos datos.'
   }
   if (error instanceof ApiError && error.status === 503) {
-    return 'No se pudo enviar el correo; la cuenta quedó inactiva. Pide al administrador que restablezca la contraseña'
+    return 'No pudimos enviar el correo y la cuenta quedó inactiva. Pídele al administrador que vuelva a enviar la contraseña.'
   }
   return getErrorMessage(error)
 }
@@ -72,7 +72,7 @@ export function NewPatientPage() {
     onSuccess: async (patient) => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.patients.all })
       if (!patient.id) {
-        setError('El servidor no devolvió el identificador del paciente creado. Actualiza la lista e inténtalo de nuevo.')
+        setError('No pudimos confirmar la creación del perfil. Actualiza la lista e inténtalo de nuevo.')
         return
       }
       navigate(`/especialista/pacientes/${patient.id}`, {
@@ -97,8 +97,8 @@ export function NewPatientPage() {
     <div className="mx-auto max-w-3xl space-y-5">
       <Link to="/especialista/pacientes" className="inline-flex min-h-11 items-center text-sm font-semibold no-underline">← Volver a mis pacientes</Link>
       <div>
-        <p className="mb-1 text-sm font-semibold text-brand-primary">AiKO · Especialista</p>
-        <h1 className="mb-0 text-3xl">Nuevo paciente</h1>
+        <h1 className="mb-1 text-3xl">Nuevo paciente</h1>
+        <p className="mb-0 text-sm text-[var(--color-text-muted)]">Crea un perfil para iniciar el seguimiento de tu paciente.</p>
       </div>
       <Card>
         <form className="space-y-5" onSubmit={form.handleSubmit(onSubmit)} noValidate>

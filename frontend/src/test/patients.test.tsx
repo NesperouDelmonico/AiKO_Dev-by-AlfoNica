@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { NewPatientPage } from '../features/patients/NewPatientPage'
 import { PatientDetailPage } from '../features/patients/PatientDetailPage'
 import { PatientsListPage } from '../features/patients/PatientsListPage'
+import { AuthContext, type AuthContextValue } from '../auth/AuthContext'
 
 function response(status: number, body?: unknown): Response {
   return new Response(body === undefined ? null : JSON.stringify(body), {
@@ -24,15 +25,28 @@ function renderPage(path: string, element: ReactElement) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
+  const auth: AuthContextValue = {
+    user: null,
+    loading: false,
+    patientRejected: false,
+    sessionError: null,
+    signIn: async () => { throw new Error('No se usa en este test.') },
+    signOut: async () => {},
+    rejectPatient: async () => {},
+    rejectUnsupportedRole: async () => {},
+    clearPatientNotice: () => {},
+  }
   return render(
     <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={[path]}>
-        <Routes>
-          <Route path="/especialista/pacientes" element={<PatientsListPage />} />
-          <Route path="/especialista/pacientes/nuevo" element={<NewPatientPage />} />
-          <Route path="/especialista/pacientes/:id" element={element} />
-        </Routes>
-      </MemoryRouter>
+      <AuthContext.Provider value={auth}>
+        <MemoryRouter initialEntries={[path]}>
+          <Routes>
+            <Route path="/especialista/pacientes" element={<PatientsListPage />} />
+            <Route path="/especialista/pacientes/nuevo" element={<NewPatientPage />} />
+            <Route path="/especialista/pacientes/:id" element={element} />
+          </Routes>
+        </MemoryRouter>
+      </AuthContext.Provider>
     </QueryClientProvider>,
   )
 }
@@ -83,7 +97,7 @@ describe('pantallas de pacientes', () => {
     vi.stubGlobal('fetch', fetchMock)
     const user = userEvent.setup()
     renderPage('/especialista/pacientes', <PatientsListPage />)
-    await screen.findByText('Aún no tienes pacientes asignados')
+    await screen.findByText('Todavía no tienes pacientes asignados.')
     const callsBeforeTyping = fetchMock.mock.calls.length
 
     await user.type(screen.getByRole('textbox', { name: 'Buscar paciente por nombre' }), 'Ana')
@@ -97,8 +111,10 @@ describe('pantallas de pacientes', () => {
     vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(response(200, { total: 0, page: 1, limit: 12, data: [] }))))
     renderPage('/especialista/pacientes', <PatientsListPage />)
 
-    expect(await screen.findByText('Aún no tienes pacientes asignados')).toBeInTheDocument()
-    expect(screen.getAllByRole('link', { name: 'Nuevo paciente' })).toHaveLength(2)
+    expect(await screen.findByText('Todavía no tienes pacientes asignados.')).toBeInTheDocument()
+    const newPatientLinks = screen.getAllByRole('link', { name: 'Nuevo paciente' })
+    expect(newPatientLinks).toHaveLength(2)
+    for (const link of newPatientLinks) expect(link).toHaveClass('text-white')
   })
 
   it('usa la respuesta paginada con métricas de alertas y ruta al filtrar por estado', async () => {
@@ -130,14 +146,14 @@ describe('pantallas de pacientes', () => {
     vi.stubGlobal('fetch', fetchMock)
     const user = userEvent.setup()
     renderPage('/especialista/pacientes', <PatientsListPage />)
-    await screen.findByText('Aún no tienes pacientes asignados')
+    await screen.findByText('Todavía no tienes pacientes asignados.')
     await user.selectOptions(screen.getByRole('combobox', { name: 'Filtrar por estado de cuenta' }), 'false')
 
     expect(await screen.findByRole('link', { name: 'Ver detalle de Camila Pérez' })).toBeInTheDocument()
     expect(screen.getByText('Requiere atención')).toBeInTheDocument()
     const patientCard = screen.getByRole('link', { name: 'Ver detalle de Camila Pérez' })
     expect(within(patientCard).getByText('Cuenta inactiva')).toBeInTheDocument()
-    expect(within(patientCard).getByText('Sin ruta activa')).toBeInTheDocument()
+    expect(within(patientCard).getByText('No tiene una ruta activa.')).toBeInTheDocument()
     const searchUrl = fetchMock.mock.calls
       .map(([input]) => new URL(input instanceof Request ? input.url : String(input)))
       .find((url) => url.pathname.endsWith('/pacientes/buscar'))
@@ -178,7 +194,7 @@ describe('pantallas de pacientes', () => {
 
   it.each([
     [409, 'El correo o la cédula ya existen. Verifica ambos datos.'],
-    [503, 'No se pudo enviar el correo; la cuenta quedó inactiva. Pide al administrador que restablezca la contraseña'],
+    [503, 'No pudimos enviar el correo y la cuenta quedó inactiva. Pídele al administrador que vuelva a enviar la contraseña.'],
   ])('presenta mensaje específico al crear paciente en HTTP %i', async (status, expectedMessage) => {
     vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(response(status, { statusCode: status, message: 'conflicto de datos' }))))
     const user = userEvent.setup()
@@ -190,8 +206,8 @@ describe('pantallas de pacientes', () => {
   })
 
   it.each([
-    [403, 'No tienes acceso a este paciente'],
-    [404, 'No encontramos este paciente'],
+    [403, 'No puedes ver este paciente con esta cuenta.'],
+    [404, 'No encontramos este perfil.'],
   ])('muestra un estado explícito si el detalle responde HTTP %i', async (status, title) => {
     vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(response(status, { statusCode: status, message: 'error' }))))
     renderPage('/especialista/pacientes/patient-1', <PatientDetailPage />)
@@ -261,7 +277,7 @@ describe('pantallas de pacientes', () => {
     const textarea = within(dialog).getByLabelText('Observación')
     await user.type(textarea, 'No')
     await user.click(within(dialog).getByRole('button', { name: 'Guardar' }))
-    expect(within(dialog).getByRole('alert')).toHaveTextContent('La observación debe tener al menos 5 caracteres.')
+    expect(within(dialog).getByRole('alert')).toHaveTextContent('Escribe una observación de al menos 5 caracteres.')
 
     await user.clear(textarea)
     await user.type(textarea, 'Seguimiento realizado')

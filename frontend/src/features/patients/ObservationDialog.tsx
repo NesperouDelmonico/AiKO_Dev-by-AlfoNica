@@ -67,7 +67,7 @@ export function ObservationDialog({ patientId, onClose }: { patientId: string; o
     event.preventDefault()
     const normalized = text.trim()
     if (normalized.length < 5) {
-      setError('La observación debe tener al menos 5 caracteres.')
+      setError('Escribe una observación de al menos 5 caracteres.')
       return
     }
     setError('')
@@ -75,7 +75,7 @@ export function ObservationDialog({ patientId, onClose }: { patientId: string; o
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 p-4" onMouseDown={(event) => {
+    <div className="observation-backdrop-enter fixed inset-0 z-50 grid place-items-center bg-slate-950/40 p-4" onMouseDown={(event) => {
       if (event.target === event.currentTarget) onClose()
     }}>
       <div
@@ -84,7 +84,7 @@ export function ObservationDialog({ patientId, onClose }: { patientId: string; o
         aria-modal="true"
         aria-labelledby="observation-title"
         aria-describedby="observation-help"
-        className="w-full max-w-xl rounded-card bg-white p-6 shadow-2xl sm:p-8"
+        className="observation-dialog-enter w-full max-w-xl rounded-card bg-white p-6 shadow-2xl sm:p-8"
       >
         <h2 id="observation-title" className="mb-2 text-2xl">Nueva observación</h2>
         <p id="observation-help" className="mb-4 text-sm text-[var(--color-text-muted)]">Se registra con fecha y hora automáticas.</p>

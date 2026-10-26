@@ -13,10 +13,12 @@ import { Select } from '../../components/ui/Select'
 import { initials, display } from '../../lib/text'
 import { useDebouncedValue } from '../patients/useDebouncedValue'
 import { getUsers, type UserFilters } from './api'
+import { useAuth } from '../../auth/AuthContext'
 
 const PAGE_SIZE = 10
 
 export function UsersPage() {
+  const { user } = useAuth()
   const navigate = useNavigate()
   const [text, setText] = useState('')
   const [role, setRole] = useState('')
@@ -33,11 +35,12 @@ export function UsersPage() {
   const query = useQuery({ queryKey: queryKeys.users.list(filters), queryFn: () => getUsers(filters) })
   const users = query.data?.data ?? []
   const pages = Math.max(1, Math.ceil((query.data?.total ?? users.length) / PAGE_SIZE))
+  const userName = user?.nombre?.trim()
 
   return (
     <div className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
-        <div><p className="mb-1 text-sm font-semibold text-brand-primary">AiKO · Administración</p><h1 className="mb-0 text-3xl">Usuarios</h1></div>
+        <div><p className="greeting-enter mb-1 text-sm font-semibold text-brand-primary">{userName ? `Hola, ${userName}` : 'Hola'}</p><h1 className="mb-1 text-3xl">Usuarios</h1><p className="mb-0 text-sm text-[var(--color-text-muted)]">Consulta y administra las cuentas de la plataforma.</p></div>
         <div className="relative">
           <Button aria-expanded={newAccountOpen} aria-haspopup="menu" onClick={() => setNewAccountOpen((open) => !open)}>
             <Plus aria-hidden="true" className="size-4" strokeWidth={1.75} /> Nueva cuenta
@@ -66,17 +69,17 @@ export function UsersPage() {
             </Select>
           </label>
         </div>
-        {query.isPending && <div className="mt-5 grid gap-3" aria-label="Cargando usuarios" aria-busy="true">{Array.from({ length: 5 }, (_, i) => <div className="h-16 animate-pulse rounded-xl bg-purple-50" key={i} />)}</div>}
-        {query.isError && <div className="mt-5"><ErrorState message={query.error.message} action={<Button variant="secondary" onClick={() => void query.refetch()}>Reintentar</Button>} /></div>}
-        {query.isSuccess && users.length === 0 && <EmptyState title="No hay usuarios" description={q ? 'No encontramos coincidencias con esos filtros.' : 'Crea una cuenta para comenzar.'} />}
+        {query.isPending && <div className="mt-5 grid gap-3" aria-label="Cargando usuarios" aria-busy="true">{Array.from({ length: 5 }, (_, i) => <div className="skeleton-shimmer h-16 animate-pulse rounded-xl bg-purple-50" key={i} />)}</div>}
+        {query.isError && <div className="mt-5"><ErrorState title="No pudimos cargar las cuentas" message={query.error.message} action={<Button variant="secondary" onClick={() => void query.refetch()}>Intentar de nuevo</Button>} /></div>}
+        {query.isSuccess && users.length === 0 && <EmptyState title={q || role || state ? 'Todavía no hay usuarios que coincidan' : 'No hay cuentas creadas todavía'} description={q || role || state ? 'Prueba con otros filtros.' : 'Puedes crear la primera.'} />}
         {users.length > 0 && (
           <div className="mt-5 overflow-x-auto">
             <table className="w-full min-w-[620px] text-left text-sm">
-              <thead><tr className="border-b border-[var(--color-border)] text-xs text-[var(--color-text-muted)]"><th className="p-3">Usuario</th><th className="p-3">Correo</th><th className="p-3">Rol</th><th className="p-3">Estado</th><th className="p-3">Acción</th></tr></thead>
+              <thead><tr className="border-b border-[var(--color-border)] text-xs tracking-wide text-[var(--color-text-muted)]"><th className="p-3">Usuario</th><th className="p-3">Correo</th><th className="p-3">Rol</th><th className="p-3">Estado</th><th className="p-3">Acción</th></tr></thead>
               <tbody>{users.map((user, index) => (
                 <tr key={user.id ?? `${user.correo}-${index}`} className="border-b border-purple-100 last:border-0">
-                  <td className="p-3"><span className="mr-2 inline-grid size-9 place-items-center rounded-full bg-purple-100 font-semibold text-brand-heading">{initials(user.nombre)}</span>{display(user.nombre)}</td>
-                  <td className="p-3">{display(user.correo)}</td>
+                  <td className="p-3 text-[var(--color-text)]"><span className="mr-2 inline-grid size-9 place-items-center rounded-full bg-purple-100 font-semibold text-brand-heading">{initials(user.nombre)}</span><span className="font-medium">{display(user.nombre)}</span></td>
+                  <td className="p-3 text-[var(--color-text-muted)]">{display(user.correo)}</td>
                   <td className="p-3"><Badge>{display(user.rol)}</Badge></td>
                   <td className="p-3"><Badge variant={user.estado ? 'success' : 'attention'}>{user.estado ? 'Activo' : 'Inactivo'}</Badge></td>
                   <td className="p-3">{user.id ? <Button size="sm" variant="secondary" onClick={() => navigate(`/admin/usuarios/${user.id}`)}>Editar</Button> : '—'}</td>

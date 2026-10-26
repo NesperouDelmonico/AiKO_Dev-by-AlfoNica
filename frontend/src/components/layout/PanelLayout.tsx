@@ -27,6 +27,8 @@ function PanelLayoutBase({ role }: { role: PanelRole }) {
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
   const [logoutError, setLogoutError] = useState('')
+  const firstName = user?.nombre?.trim().split(/\s+/)[0]
+  const sessionRole = user?.rol === 'Administrador' || user?.rol === 'Especialista' ? user.rol : null
 
   async function handleLogout() {
     setLogoutError('')
@@ -38,9 +40,9 @@ function PanelLayoutBase({ role }: { role: PanelRole }) {
   }
 
   return (
-    <div className="min-h-screen pb-24 lg:pb-20">
-      <aside className="fixed inset-y-0 left-0 z-20 hidden w-64 flex-col border-r border-white/70 bg-white/85 px-5 py-7 shadow-sm backdrop-blur lg:flex">
-        <Logo className="mb-10 h-auto w-32" />
+    <div className="min-h-screen">
+      <aside className="fixed inset-y-0 left-0 z-20 hidden w-64 flex-col overflow-y-auto border-r border-white/70 bg-white/85 px-5 py-7 shadow-sm backdrop-blur lg:flex">
+        <Logo className="mb-14 h-auto w-40" />
         <nav aria-label="Navegación principal" className="space-y-2">
           {navigation[role].map(({ to, label, icon: Icon }) => (
             <NavLink
@@ -64,13 +66,13 @@ function PanelLayoutBase({ role }: { role: PanelRole }) {
         </div>
       </aside>
 
-      <div className="lg:pl-64">
-        <header className="sticky top-0 z-10 flex min-h-[76px] items-center justify-between border-b border-white/70 bg-white/80 px-4 backdrop-blur sm:px-8">
+      <div className="pb-24 lg:pl-64 lg:pb-20">
+        <header className="sticky top-0 z-10 flex min-h-[96px] items-center justify-between border-b border-white/70 bg-white/80 px-4 backdrop-blur sm:px-8">
           <div className="flex items-center gap-3 lg:hidden">
-            <Logo className="h-auto w-24" />
+            <Logo className="h-auto w-32" />
           </div>
           <span className="hidden text-sm font-medium text-[var(--color-text-muted)] lg:block">
-            {role === 'admin' ? 'Panel de administración' : 'Panel del especialista'}
+            {firstName ? `Hola, ${firstName}` : 'Hola'}
           </span>
           <div className="relative ml-auto">
             <button
@@ -83,11 +85,18 @@ function PanelLayoutBase({ role }: { role: PanelRole }) {
               <span className="grid size-9 place-items-center rounded-full bg-purple-100 font-semibold text-brand-heading">
                 {user?.nombre?.slice(0, 1).toUpperCase() || 'U'}
               </span>
-              <span className="hidden max-w-48 truncate sm:inline">{user?.nombre || 'Usuario'}</span>
+              <span className="hidden max-w-48 flex-col truncate text-left sm:flex">
+                <span className="truncate">{user?.nombre?.trim() || 'Usuario'}</span>
+                {sessionRole && <span className="text-xs font-normal text-[var(--color-text-muted)]">{sessionRole}</span>}
+              </span>
               <ChevronDown aria-hidden="true" className="size-4" strokeWidth={1.75} />
             </button>
             {menuOpen && (
               <div role="menu" className="absolute right-0 mt-2 w-56 rounded-xl border border-[var(--color-border)] bg-white p-2 shadow-brand-card">
+                <div role="presentation" className="border-b border-[var(--color-border)] px-3 py-2 sm:hidden">
+                  <p className="mb-0 truncate text-sm font-semibold text-brand-heading">{user?.nombre?.trim() || 'Usuario'}</p>
+                  {sessionRole && <p className="mb-0 text-xs text-[var(--color-text-muted)]">{sessionRole}</p>}
+                </div>
                 <button
                   type="button"
                   role="menuitem"
@@ -142,7 +151,7 @@ function PanelLayoutBase({ role }: { role: PanelRole }) {
         </main>
       </div>
 
-      <footer className="fixed inset-x-0 bottom-0 z-30 border-t border-purple-200 bg-white/95 px-4 py-3 text-center text-xs leading-5 text-[var(--color-text-muted)] backdrop-blur lg:pl-64">
+      <footer className="fixed inset-x-0 bottom-0 z-30 border-t border-purple-200 bg-white/95 px-4 py-3 text-center text-xs leading-5 text-[var(--color-text-muted)] backdrop-blur lg:left-64">
         AiKO complementa el tratamiento y no reemplaza la historia clínica ni realiza diagnósticos.
       </footer>
     </div>

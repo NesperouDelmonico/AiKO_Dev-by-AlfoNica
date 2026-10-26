@@ -39,12 +39,12 @@ function ErrorForPatient({ error, retry }: { error: unknown; retry: () => void }
     </div>
   )
   if (isApiStatus(error, 403)) {
-    return <ErrorState title="No tienes acceso a este paciente" message="Solo puedes ver pacientes asignados a tu cuenta." action={action} />
+    return <ErrorState title="No puedes ver este paciente con esta cuenta." action={action} />
   }
   if (isApiStatus(error, 404)) {
-    return <ErrorState title="No encontramos este paciente" message="Puede que ya no exista o que el enlace no sea válido." action={action} />
+    return <ErrorState title="No encontramos este perfil." message="Revisa el enlace o vuelve a la lista." action={action} />
   }
-  return <QueryError title="No pudimos cargar el paciente" error={error} retry={retry} />
+  return <QueryError title="No pudimos cargar la información. Inténtalo de nuevo." error={error} retry={retry} />
 }
 
 function SectionError({ error, retry }: { error: unknown; retry: () => void }) {
@@ -196,8 +196,8 @@ export function PatientDetailPage() {
             <ArrowLeft aria-hidden="true" className="size-4" strokeWidth={1.75} />
             Volver
           </Link>
-          <p className="mb-1 text-sm font-semibold text-brand-primary">AiKO · Especialista</p>
           <h1 className="mb-0 text-3xl">{patient.nombre || 'Paciente'}</h1>
+          <p className="mb-0 mt-1 text-sm text-[var(--color-text-muted)]">Consulta el progreso y seguimiento de {patient.nombre || 'tu paciente'}.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="secondary" onClick={() => setSettingsOpen(true)}>Editar información</Button>
@@ -220,7 +220,7 @@ export function PatientDetailPage() {
           {routeQuery.isError && <SectionError error={routeQuery.error} retry={() => void routeQuery.refetch()} />}
           {routeQuery.isSuccess && !routeQuery.data && (
             <EmptyState
-              title="Sin ruta activa"
+              title="Todavía no tiene una ruta activa"
               description="Todavía no hay una ruta terapéutica activa para este paciente."
               action={<Link className="inline-flex min-h-11 items-center justify-center rounded-xl border border-[var(--color-border)] bg-white px-4 py-2 text-sm font-semibold text-brand-heading hover:bg-purple-50 focus-visible:outline focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-brand-primary" to={`/especialista/pacientes/${id}/ruta`}>Crear ruta</Link>}
             />
@@ -275,7 +275,7 @@ export function PatientDetailPage() {
             </label>
             {routesQuery.isPending && <SectionSkeleton title="historial de rutas" />}
             {routesQuery.isError && <SectionError error={routesQuery.error} retry={() => void routesQuery.refetch()} />}
-            {routesQuery.isSuccess && (routesQuery.data.data ?? []).length === 0 && <EmptyState title="Sin rutas registradas" />}
+            {routesQuery.isSuccess && (routesQuery.data.data ?? []).length === 0 && <EmptyState title="Aún no hay rutas anteriores" />}
             <ol className="space-y-3 pl-6">{(routesQuery.data?.data ?? []).map((route, index) => (
               <li key={route.id ?? index} className="rounded-xl border border-[var(--color-border)] p-3">
                 <div className="flex flex-wrap items-center justify-between gap-3"><span>{route.fecha_creacion ? formatDate(route.fecha_creacion, { dateStyle: 'medium', timeStyle: 'short' }) : 'Fecha no disponible'}</span><Badge variant={route.estado === 'Activa' ? 'success' : 'neutral'}>{route.estado ?? 'Estado no disponible'}</Badge></div>
@@ -305,7 +305,7 @@ export function PatientDetailPage() {
           </div>
           {domainQuery.isPending && <SectionSkeleton title="puntajes por dominio" />}
           {domainQuery.isError && <SectionError error={domainQuery.error} retry={() => void domainQuery.refetch()} />}
-          {domainQuery.isSuccess && domainQuery.data.length === 0 && <EmptyState title="Aún no hay puntajes" description="Los puntajes aparecerán cuando el paciente complete ejercicios." />}
+          {domainQuery.isSuccess && domainQuery.data.length === 0 && <EmptyState title="Los puntajes aparecerán cuando complete ejercicios." />}
           {domainQuery.data && domainQuery.data.length > 0 && (
             <div className="space-y-5">
               {domainQuery.data.map((category) => (
@@ -358,7 +358,7 @@ export function PatientDetailPage() {
                 <Suspense fallback={<SectionSkeleton title="gráfica de evolución" />}>
                   <TemporalProgressChart data={chartData} />
                 </Suspense>
-              ) : <EmptyState title="Aún no hay evolución para mostrar" description="Selecciona otro rango o espera a que el paciente complete sesiones." />}
+              ) : <EmptyState title="Aún no hay progreso para mostrar" description="Selecciona otro rango o espera a que complete sesiones." />}
             </>
           )}
         </Card>
@@ -369,7 +369,7 @@ export function PatientDetailPage() {
           <h2 id="history-title" className="mb-4 text-xl">Historial de intentos</h2>
           {historyQuery.isPending && <SectionSkeleton title="historial" />}
           {historyQuery.isError && <SectionError error={historyQuery.error} retry={() => void historyQuery.refetch()} />}
-          {historyQuery.isSuccess && history.length === 0 && <EmptyState title="Sin intentos registrados" />}
+          {historyQuery.isSuccess && history.length === 0 && <EmptyState title="Todavía no hay intentos registrados" />}
           {history.length > 0 && (
             <>
               <div className="overflow-x-auto">
@@ -402,7 +402,7 @@ export function PatientDetailPage() {
             <h2 id="alerts-title" className="mb-4 text-xl">Alertas</h2>
             {alertsQuery.isPending && <SectionSkeleton title="alertas" />}
             {alertsQuery.isError && <SectionError error={alertsQuery.error} retry={() => void alertsQuery.refetch()} />}
-            {alertsQuery.data && alertsQuery.data.length === 0 && <EmptyState title="Sin alertas" description="No hay alertas asociadas a este paciente." />}
+            {alertsQuery.data && alertsQuery.data.length === 0 && <EmptyState title="No hay alertas asociadas a este paciente." />}
             {alertsQuery.data && alertsQuery.data.length > 0 && (
               <ul className="space-y-3 pl-0">
                 {alertsQuery.data.map((alert) => (
@@ -443,7 +443,7 @@ export function PatientDetailPage() {
           </div>
           {observationsQuery.isPending && <SectionSkeleton title="observaciones" />}
           {observationsQuery.isError && <SectionError error={observationsQuery.error} retry={() => void observationsQuery.refetch()} />}
-          {observationsQuery.isSuccess && observations.length === 0 && <EmptyState title="Sin observaciones" description="Registra una observación para documentar el seguimiento." />}
+          {observationsQuery.isSuccess && observations.length === 0 && <EmptyState title="Todavía no hay observaciones." description="Puedes registrar una para documentar el seguimiento." />}
           {observations.length > 0 && (
             <>
               <ol className="space-y-3 pl-0">{observations.map((observation) => (

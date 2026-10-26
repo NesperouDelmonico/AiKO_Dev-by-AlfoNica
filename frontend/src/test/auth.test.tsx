@@ -136,10 +136,10 @@ describe('autenticación y cliente API', () => {
 
     const forgotLink = await screen.findByRole('link', { name: '¿Olvidaste tu contraseña?' })
     await user.click(forgotLink)
-    expect(await screen.findByText('Te ayudamos a recuperar el acceso a tu cuenta')).toBeInTheDocument()
+    expect(await screen.findByText('Recupera el acceso a tu cuenta.')).toBeInTheDocument()
     await user.type(screen.getByLabelText('Correo electrónico'), 'persona@example.com')
     await user.click(screen.getByRole('button', { name: 'Enviar instrucciones' }))
-    expect(await screen.findByText('Si el correo está registrado, recibirás instrucciones para restablecer tu contraseña.')).toBeInTheDocument()
+    expect(await screen.findByText('Si encontramos una cuenta con ese correo, te enviaremos instrucciones para recuperar el acceso.')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Ya tengo mi código' }))
     expect(await screen.findByLabelText('Correo electrónico')).toHaveValue('persona@example.com')
@@ -157,7 +157,7 @@ describe('autenticación y cliente API', () => {
     const locations: string[] = []
     renderApplication('/restablecer-contrasena', () => jsonResponse(404), undefined, locations)
 
-    expect(await screen.findByText('El código tiene 6 dígitos, vence en 15 minutos y permite 5 intentos')).toBeInTheDocument()
+    expect(await screen.findByText('Tu código tiene 6 dígitos, dura 15 minutos y puedes intentar hasta 5 veces.')).toBeInTheDocument()
     await userEvent.setup().click(screen.getByRole('link', { name: 'Volver al inicio de sesión' }))
     expect(await screen.findByRole('button', { name: 'Iniciar sesión' })).toBeInTheDocument()
     expect(locations.at(-1)).toBe('/login')
@@ -177,7 +177,7 @@ describe('autenticación y cliente API', () => {
     await user.type(screen.getByLabelText('Nueva contraseña'), 'NuevaClave1')
     await user.click(screen.getByRole('button', { name: 'Restablecer contraseña' }))
 
-    expect(await screen.findByRole('status')).toHaveTextContent('Contraseña actualizada')
+    expect(await screen.findByRole('status')).toHaveTextContent('Tu contraseña quedó actualizada.')
     expect(screen.getByRole('button', { name: 'Iniciar sesión' })).toBeInTheDocument()
     expect(locations.at(-1)).toBe('/login')
   })
@@ -249,7 +249,7 @@ describe('autenticación y cliente API', () => {
     tokenStorage.set('expired-session')
     renderAuth('/admin/usuarios', () => jsonResponse(401, { statusCode: 401, message: 'No autorizado' }))
 
-    expect(await screen.findByText('Inicia sesión en tu panel de AiKO')).toBeInTheDocument()
+    expect(await screen.findByText('Ingresa a tu cuenta de AiKO.')).toBeInTheDocument()
     expect(tokenStorage.get()).toBeNull()
   })
 
@@ -296,7 +296,7 @@ describe('autenticación y cliente API', () => {
     renderApplication(initialPath, fetcher, token, paths)
 
     if (token) expect(await screen.findByRole('heading', { name: 'Usuarios' })).toBeInTheDocument()
-    else expect(await screen.findByText('Inicia sesión en tu panel de AiKO')).toBeInTheDocument()
+    else expect(await screen.findByText('Ingresa a tu cuenta de AiKO.')).toBeInTheDocument()
     await waitFor(() => expect(paths.length).toBeGreaterThan(0))
     expect(paths.length - 1).toBeLessThanOrEqual(2)
     expect(userData.rol).toBe('Administrador')
@@ -330,7 +330,7 @@ describe('autenticación y cliente API', () => {
 
     await waitFor(() => expect(resolveCurrentUser).toBeTypeOf('function'))
     expect(screen.getAllByRole('status').some((status) => status.textContent?.includes('Restaurando sesión'))).toBe(true)
-    expect(screen.queryByText('Inicia sesión en tu panel de AiKO')).not.toBeInTheDocument()
+    expect(screen.queryByText('Ingresa a tu cuenta de AiKO.')).not.toBeInTheDocument()
     expect(paths).toEqual(['/login'])
     resolveCurrentUser(jsonResponse(200, { ...specialist, rol: 'Administrador' }))
     expect(await screen.findByRole('heading', { name: 'Usuarios' })).toBeInTheDocument()
@@ -360,7 +360,7 @@ describe('autenticación y cliente API', () => {
     tokenStorage.set('patient-session')
     renderAuth('/login', () => jsonResponse(200, patient))
 
-    expect(await screen.findByText('Las cuentas de paciente deben usar la aplicación móvil.')).toBeInTheDocument()
+    expect(await screen.findByText('Esta cuenta es de paciente. Para ingresar a AiKO, usa la aplicación móvil.')).toBeInTheDocument()
     expect(tokenStorage.get()).toBeNull()
   })
 
@@ -376,11 +376,11 @@ describe('autenticación y cliente API', () => {
     await user.type(screen.getByLabelText('Nueva contraseña'), 'lowercase1')
     await user.click(screen.getByRole('button', { name: 'Restablecer contraseña' }))
 
-    expect(await screen.findByText('Agrega al menos una mayúscula.')).toBeInTheDocument()
+    expect(await screen.findByText('Incluye al menos una letra mayúscula.')).toBeInTheDocument()
   })
 
   it.each([
-    [423, 'Cuenta bloqueada: usa Olvidé mi contraseña o contacta al administrador'],
+    [423, 'No puedes ingresar por ahora. Restablece tu contraseña o comunícate con el administrador.'],
     [429, 'Demasiados intentos, espera un minuto'],
   ])('muestra el mensaje de login esperado para HTTP %i', async (status, expectedMessage) => {
     const user = userEvent.setup()

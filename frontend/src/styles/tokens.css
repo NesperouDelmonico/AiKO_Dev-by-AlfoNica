@@ -4,10 +4,11 @@
 @import '@fontsource/plus-jakarta-sans/500.css';
 
 :root {
-  --gradient-app: linear-gradient(135deg, #f3e8ff 0%, #faf5ff 50%, #fef9c3 100%);
+  --gradient-app: linear-gradient(135deg, #e9d5ff 0%, #f5e9ff 50%, #fff1b8 100%);
   --color-surface: #ffffff;
   --radius-card: 16px;
-  --shadow-card: 0 10px 30px -5px rgba(0, 0, 0, 0.05);
+  --color-card-border: rgba(76, 29, 149, 0.1);
+  --shadow-card: 0 10px 30px -5px rgba(76, 29, 149, 0.08);
   --color-primary: #6d28d9;
   --color-primary-hover: #5b21b6;
   --color-accent: #8b5cff;

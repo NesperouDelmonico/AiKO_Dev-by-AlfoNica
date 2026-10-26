@@ -13,6 +13,7 @@ import { Select } from '../../components/ui/Select'
 import { getPatients, isApiStatus, type Patient } from './api'
 import { PatientListSkeleton, QueryError } from './PatientStates'
 import { useDebouncedValue } from './useDebouncedValue'
+import { useAuth } from '../../auth/AuthContext'
 
 const PAGE_SIZE = 12
 
@@ -69,7 +70,7 @@ function PatientCard({ patient }: { patient: Patient }) {
         ) : patient.progreso_ruta === null ? (
           <p className="mb-0 flex items-center gap-2 text-xs text-[var(--color-text-muted)]">
             <UserRound aria-hidden="true" className="size-4" strokeWidth={1.75} />
-            Sin ruta activa
+            No tiene una ruta activa.
           </p>
         ) : (
           <p className="mb-0 flex items-center gap-2 text-xs text-[var(--color-text-muted)]">
@@ -83,6 +84,7 @@ function PatientCard({ patient }: { patient: Patient }) {
 }
 
 export function PatientsListPage() {
+  const { user } = useAuth()
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
   const [page, setPage] = useState(1)
@@ -121,13 +123,15 @@ export function PatientsListPage() {
   const patientCountLabel = hasFilters
     ? `${total} ${total === 1 ? 'paciente encontrado' : 'pacientes encontrados'}`
     : `${total} ${total === 1 ? 'paciente asignado' : 'pacientes asignados'}`
+  const userName = user?.nombre?.trim()
 
   return (
     <div className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="mb-1 text-sm font-semibold text-brand-primary">AiKO · Especialista</p>
+          <p className="greeting-enter mb-1 text-sm font-semibold text-brand-primary">{userName ? `Hola, ${userName}` : 'Hola'}</p>
           <h1 className="mb-2 text-3xl">Mis pacientes</h1>
+          <p className="mb-2 text-sm text-[var(--color-text-muted)]">Tus pacientes y su progreso reciente.</p>
           <p className="mb-0 text-sm text-[var(--color-text-muted)]">
             {patientCountLabel} · {hasAlertCounts ? `${attention} ${attention === 1 ? 'requiere' : 'requieren'} atención` : 'alertas no disponibles para este filtro'}
             {attentionIsPageOnly && hasAlertCounts ? ' en esta página' : ''}
@@ -168,8 +172,8 @@ export function PatientsListPage() {
       {patients.length === 0 ? (
         <Card>
           <EmptyState
-            title={search || status ? 'No hay pacientes con estos filtros' : 'Aún no tienes pacientes asignados'}
-            description={search || status ? 'Prueba con otros términos o cambia el estado seleccionado.' : 'Crea un paciente para iniciar su seguimiento.'}
+            title={search || status ? 'No encontramos pacientes con esos filtros.' : 'Todavía no tienes pacientes asignados.'}
+            description={search || status ? 'Prueba con otra búsqueda o estado.' : 'Crea un perfil para iniciar su seguimiento.'}
             action={
               <Link to="/especialista/pacientes/nuevo" className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-brand-primary px-4 text-sm font-semibold text-white no-underline hover:bg-[var(--color-primary-hover)]">
                 <Plus aria-hidden="true" className="size-4" strokeWidth={1.75} />
@@ -179,7 +183,7 @@ export function PatientsListPage() {
           />
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="list-stagger grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {patients.map((patient) => <PatientCard key={patient.id} patient={patient} />)}
         </div>
       )}

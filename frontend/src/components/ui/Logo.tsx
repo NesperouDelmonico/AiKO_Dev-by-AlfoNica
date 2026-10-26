@@ -1,5 +1,6 @@
 import { cn } from '../../lib/utils'
-import aikoIcon from '../../assets/brand/aiko-icon.svg'
+import aikoBear from '../../assets/brand/aiko-bear.svg'
+import aikoLogoColor from '../../assets/brand/aiko-logo-color.svg'
 
 type LogoProps = {
   className?: string
@@ -9,11 +10,11 @@ type LogoProps = {
 export function Logo({ className, compact = false }: LogoProps) {
   return (
     <img
-      className={cn('aiko-logo', compact && 'aiko-logo--compact', 'max-h-12 max-w-full object-contain', className)}
-      src={aikoIcon}
+      className={cn('aiko-logo', compact && 'aiko-logo--compact', compact ? 'max-h-16 max-w-full' : 'max-h-36 max-w-full', 'h-auto object-contain', className)}
+      src={compact ? aikoBear : aikoLogoColor}
       alt="AiKO"
-      width="220"
-      height="172"
+      width={compact ? 68 : 220}
+      height={compact ? 82 : 172}
     />
   )
 }

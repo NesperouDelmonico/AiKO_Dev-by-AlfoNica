@@ -48,7 +48,7 @@ export function ExercisesPage() {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-end justify-between gap-3"><div><p className="mb-1 text-sm font-semibold text-brand-primary">AiKO · Especialista</p><h1 className="mb-0 text-3xl">Ejercicios</h1></div><Button onClick={() => { setFailure(''); setEditing('new') }}><Plus aria-hidden="true" className="size-4" />Crear ejercicio</Button></header>
+      <header className="flex flex-wrap items-end justify-between gap-3"><div><h1 className="mb-1 text-3xl">Ejercicios</h1><p className="mb-0 text-sm text-[var(--color-text-muted)]">Consulta y organiza los ejercicios disponibles para tus pacientes.</p></div><Button onClick={() => { setFailure(''); setEditing('new') }}><Plus aria-hidden="true" className="size-4" />Crear ejercicio</Button></header>
       <Card>
         <div className="mb-5 grid gap-3 sm:grid-cols-2">
           <label htmlFor="exercise-category" className="text-sm font-semibold">Categoría
@@ -58,10 +58,10 @@ export function ExercisesPage() {
             <Select id="exercise-state" className="mt-1" value={state} onChange={(e) => setState(e.target.value as ExerciseState | '')}><option value="">Todos</option><option>Activo</option><option>Desactivado</option></Select>
           </label>
         </div>
-        {query.isPending && <div aria-busy="true" aria-label="Cargando ejercicios" className="space-y-3">{[1, 2, 3].map((i) => <div key={i} className="h-20 animate-pulse rounded-xl bg-purple-50" />)}</div>}
-        {query.isError && <ErrorState title="No se pudieron cargar los ejercicios" message={query.error.message} action={<Button variant="secondary" onClick={() => void query.refetch()}>Reintentar</Button>} />}
-        {query.isSuccess && items.length === 0 && <EmptyState title="Sin ejercicios" description="Prueba con otros filtros o crea un ejercicio." />}
-        <div className="space-y-3">{items.map((exercise, i) => (
+        {query.isPending && <div aria-busy="true" aria-label="Cargando ejercicios" className="space-y-3">{[1, 2, 3].map((i) => <div key={i} className="skeleton-shimmer h-20 animate-pulse rounded-xl bg-purple-50" />)}</div>}
+        {query.isError && <ErrorState title="No pudimos cargar los ejercicios. Inténtalo de nuevo." message={query.error.message} action={<Button variant="secondary" onClick={() => void query.refetch()}>Intentar de nuevo</Button>} />}
+        {query.isSuccess && items.length === 0 && <EmptyState title="No encontramos ejercicios con esos filtros." description="Prueba con otros o crea uno." />}
+        <div className="list-stagger space-y-3">{items.map((exercise, i) => (
           <div key={exercise.id ?? i} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--color-border)] p-4">
             <div><h2 className="mb-1 text-base">{exercise.nombre || '—'}</h2><p className="mb-2 text-sm text-[var(--color-text-muted)]">{gameTypeLabel(exercise.tipo)} · {exercise.categoria || '—'} · Nivel {exercise.nivel_dificultad ?? '—'}</p><Badge variant={exercise.estado === 'Activo' ? 'success' : 'attention'}>{exercise.estado || 'Estado no disponible'}</Badge></div>
             <div className="flex gap-2"><Button size="sm" variant="secondary" onClick={() => { setFailure(''); setEditing(exercise) }}>Editar</Button>{exercise.id && <Button size="sm" variant="secondary" disabled={toggle.isPending} onClick={async () => { try { await toggle.mutateAsync({ id: exercise.id!, estado: exercise.estado === 'Activo' ? 'Desactivado' : 'Activo' }) } catch (error) { setFailure(getErrorMessage(error)) } }}>{exercise.estado === 'Activo' ? 'Desactivar' : 'Activar'}</Button>}</div>

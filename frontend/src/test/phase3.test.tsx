@@ -30,7 +30,7 @@ function renderPage(path: string, routes: Array<{ path: string; element: React.R
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 }, mutations: { retry: false } } })
   return render(
     <QueryClientProvider client={client}>
-      <AuthContext.Provider value={auth ?? null}>
+      <AuthContext.Provider value={auth ?? emptyAuth}>
         <MemoryRouter initialEntries={[path]}>
           <Routes>{routes.map((route) => <Route key={route.path} path={route.path} element={route.element} />)}</Routes>
         </MemoryRouter>
@@ -40,6 +40,17 @@ function renderPage(path: string, routes: Array<{ path: string; element: React.R
 }
 
 const adminRoutes = [{ path: '/admin/usuarios', element: <UsersPage /> }]
+const emptyAuth: AuthContextValue = {
+  user: null,
+  loading: false,
+  patientRejected: false,
+  sessionError: null,
+  signIn: async () => { throw new Error('No se usa en este test.') },
+  signOut: async () => {},
+  rejectPatient: async () => {},
+  rejectUnsupportedRole: async () => {},
+  clearPatientNotice: () => {},
+}
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -62,7 +73,7 @@ describe('fase 3: administración y catálogo', () => {
 
   it.each([
     [409, 'El correo ya existe.'],
-    [503, 'No se pudo enviar el correo; la cuenta quedó inactiva. Restablece su contraseña desde la edición del usuario.'],
+    [503, 'No pudimos enviar el correo y la cuenta quedó inactiva. Puedes volver a enviar la contraseña desde la edición de la cuenta.'],
   ])('crea una cuenta sin contraseña y muestra el error %i', async (status, expected) => {
     const fetcher = async (input: RequestInfo | URL) => {
       const url = requestUrl(input)
@@ -74,7 +85,7 @@ describe('fase 3: administración y catálogo', () => {
     }
     renderPage('/admin/usuarios/nuevo-especialista', [{ path: '/admin/usuarios/nuevo-especialista', element: <AccountFormPage role="Especialista" /> }], fetcher)
     expect(screen.queryByLabelText(/contraseña/i)).not.toBeInTheDocument()
-    expect(screen.getByText('Se enviará una contraseña temporal al correo.')).toBeInTheDocument()
+    expect(screen.getByText('Enviaremos una contraseña temporal al correo de esta persona.')).toBeInTheDocument()
     const user = userEvent.setup()
     await user.type(screen.getByLabelText('Nombre'), 'Ana Pérez')
     await user.type(screen.getByLabelText('Cédula'), '123456')
@@ -110,7 +121,7 @@ describe('fase 3: administración y catálogo', () => {
     await user.click(await screen.findByRole('button', { name: 'Restablecer contraseña' }))
     expect(await screen.findByRole('dialog', { name: 'Restablecer contraseña' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /^Restablecer$/ }))
-    expect(await screen.findByText('No se pudo entregar la contraseña; la cuenta no se modificó.')).toBeInTheDocument()
+    expect(await screen.findByText('No pudimos enviar la contraseña. La cuenta no cambió. Inténtalo de nuevo.')).toBeInTheDocument()
   })
 
   it('valida campos por tipo y nivel de dificultad; explica el conflicto 409 al editar', async () => {
