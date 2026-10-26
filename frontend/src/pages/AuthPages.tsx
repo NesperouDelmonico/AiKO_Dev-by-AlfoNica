@@ -14,18 +14,17 @@ import { Input } from '../components/ui/Input'
 import { Logo } from '../components/ui/Logo'
 import { Spinner } from '../components/ui/Spinner'
 
-const emailSchema = z.string().trim().email('Ingresa un correo válido.')
+const emailSchema = z.string().trim().email('Revisa que el correo tenga un formato válido.')
 const passwordSchema = z
   .string()
   .min(8, 'La contraseña debe tener al menos 8 caracteres.')
-  .max(72, 'La contraseña no puede superar 72 caracteres.')
-  .regex(/[a-z]/, 'Agrega al menos una minúscula.')
-  .regex(/[A-Z]/, 'Agrega al menos una mayúscula.')
-  .regex(/[0-9]/, 'Agrega al menos un número.')
-
+  .max(72, 'La contraseña no puede tener más de 72 caracteres.')
+  .regex(/[a-z]/, 'Incluye al menos una letra minúscula.')
+  .regex(/[A-Z]/, 'Incluye al menos una letra mayúscula.')
+  .regex(/[0-9]/, 'Incluye al menos un número.')
 const loginSchema = z.object({
   correo: emailSchema,
-  contraseña: z.string().min(1, 'Ingresa tu contraseña.').max(72, 'La contraseña no puede superar 72 caracteres.'),
+  contraseña: z.string().min(1, 'Escribe tu contraseña.').max(72, 'La contraseña no puede tener más de 72 caracteres.'),
 })
 const forgotSchema = z.object({ correo: emailSchema })
 const resetSchema = z.object({
@@ -34,7 +33,7 @@ const resetSchema = z.object({
   nueva_contraseña: passwordSchema,
 })
 const changeSchema = z.object({
-  contraseña_actual: z.string().min(1, 'Ingresa tu contraseña actual.').max(72),
+  contraseña_actual: z.string().min(1, 'Escribe tu contraseña actual.').max(72, 'La contraseña no puede tener más de 72 caracteres.'),
   nueva_contraseña: passwordSchema,
 })
 
@@ -53,10 +52,10 @@ function AuthShell({ children, subtitle }: { children: ReactNode; subtitle: stri
   return (
     <main className="flex min-h-screen items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
-        <div className="mb-7 flex justify-center">
-          <Logo className="h-auto w-36 max-h-28" />
+        <div className="auth-logo-enter mb-7 flex justify-center">
+          <Logo className="h-auto w-48 max-h-36" />
         </div>
-        <Card className="border-white/80 p-6 sm:p-8">
+        <Card className="auth-card-enter border-white/80 p-6 sm:p-8">
           <p className="mb-6 text-center text-sm text-[var(--color-text-muted)]">{subtitle}</p>
           {children}
         </Card>
@@ -125,18 +124,18 @@ export function LoginPage() {
         try {
           await rejectPatient()
         } catch {
-          setPatientMessage('Esta cuenta corresponde a un paciente. Para usar AiKO, ingresa desde la aplicación móvil. La sesión del panel se cerró.')
+          setPatientMessage('Esta cuenta es de paciente. Para ingresar a AiKO, usa la aplicación móvil. La sesión del panel se cerró.')
           return
         }
-        setPatientMessage('Esta cuenta corresponde a un paciente. Para usar AiKO, ingresa desde la aplicación móvil.')
+        setPatientMessage('Esta cuenta es de paciente. Para ingresar a AiKO, usa la aplicación móvil.')
         return
       }
       navigate(destination, { replace: true })
     } catch (error) {
       if (error instanceof ApiError && error.status === 423) {
-        setServerError('Cuenta bloqueada: usa Olvidé mi contraseña o contacta al administrador')
+        setServerError('No puedes ingresar por ahora. Restablece tu contraseña o comunícate con el administrador.')
       } else if (error instanceof ApiError && error.status === 401) {
-        setServerError('Correo o contraseña inválidos.')
+        setServerError('No pudimos iniciar sesión. Revisa tu correo y contraseña e inténtalo de nuevo.')
       } else {
         setServerError(getErrorMessage(error))
       }
@@ -144,11 +143,11 @@ export function LoginPage() {
   }
 
   return (
-    <AuthShell subtitle="Inicia sesión en tu panel de AiKO">
+    <AuthShell subtitle="Ingresa a tu cuenta de AiKO.">
       {notice && <p role="status" className="mb-4 rounded-xl bg-purple-50 p-3 text-sm text-brand-heading">{notice}</p>}
       {(patientRejected || patientMessage) && (
         <div role="status" className="mb-4 rounded-xl bg-purple-50 p-3 text-sm text-brand-heading">
-          {patientMessage || 'Las cuentas de paciente deben usar la aplicación móvil.'}
+          {patientMessage || 'Esta cuenta es de paciente. Para ingresar a AiKO, usa la aplicación móvil.'}
         </div>
       )}
       {sessionError && !serverError && <FieldError message={sessionError} />}
@@ -184,18 +183,18 @@ export function ForgotPasswordPage() {
     setRequestedEmail(values.correo)
     try {
       await requestPasswordReset(values.correo)
-      setMessage('Si el correo está registrado, recibirás instrucciones para restablecer tu contraseña.')
+      setMessage('Si encontramos una cuenta con ese correo, te enviaremos instrucciones para recuperar el acceso.')
     } catch (error) {
-      setMessage('Si el correo está registrado, recibirás instrucciones para restablecer tu contraseña.')
+      setMessage('Si encontramos una cuenta con ese correo, te enviaremos instrucciones para recuperar el acceso.')
       setFailure(
         error instanceof ApiError && [429, 503].includes(error.status)
           ? error.message
-          : 'No fue posible completar la solicitud. Intenta nuevamente más tarde.',
+          : 'No pudimos enviar la solicitud. Inténtalo de nuevo más tarde.',
       )
     }
   }
   return (
-    <AuthShell subtitle="Te ayudamos a recuperar el acceso a tu cuenta">
+    <AuthShell subtitle="Recupera el acceso a tu cuenta.">
       {message && <p role="status" className="mb-4 rounded-xl bg-purple-50 p-3 text-sm text-brand-heading">{message}</p>}
       {failure && <ErrorState message={failure} />}
       <form className="space-y-4" onSubmit={form.handleSubmit(submit)} noValidate>
@@ -236,19 +235,19 @@ export function ResetPasswordPage() {
     setServerError('')
     try {
       await resetPassword(values.correo, values.codigo, values.nueva_contraseña)
-      navigate('/login', { replace: true, state: { notice: 'Contraseña actualizada' } })
+      navigate('/login', { replace: true, state: { notice: 'Tu contraseña quedó actualizada.' } })
     } catch (error) {
       setServerError(getErrorMessage(error))
     }
   }
   return (
-    <AuthShell subtitle="Restablece tu contraseña">
+    <AuthShell subtitle="Crea una contraseña nueva para tu cuenta.">
       <form className="space-y-4" onSubmit={form.handleSubmit(submit)} noValidate>
         <Field label="Correo electrónico" name="correo" type="email" autoComplete="email" register={form.register} error={form.formState.errors.correo?.message} />
         <Field label="Código de 6 dígitos" name="codigo" inputMode="numeric" autoComplete="one-time-code" register={form.register} error={form.formState.errors.codigo?.message} />
         <Field label="Nueva contraseña" name="nueva_contraseña" type="password" autoComplete="new-password" register={form.register} error={form.formState.errors.nueva_contraseña?.message} />
-        <p className="text-xs text-[var(--color-text-muted)]">El código tiene 6 dígitos, vence en 15 minutos y permite 5 intentos</p>
-        <p className="text-xs text-[var(--color-text-muted)]">Usa entre 8 y 72 caracteres, con al menos una minúscula, una mayúscula y un número.</p>
+        <p className="text-xs text-[var(--color-text-muted)]">Tu código tiene 6 dígitos, dura 15 minutos y puedes intentar hasta 5 veces.</p>
+        <p className="text-xs text-[var(--color-text-muted)]">Usa entre 8 y 72 caracteres e incluye una minúscula, una mayúscula y un número.</p>
         <FieldError message={serverError} />
         <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
           {form.formState.isSubmitting && <Spinner className="size-4 text-white" />}
@@ -278,12 +277,12 @@ export function ChangePasswordPage() {
   }
   return (
     <div className="mx-auto max-w-xl space-y-4">
-      <h1 className="text-2xl">Cambiar contraseña</h1>
+      <div><h1 className="mb-1 text-2xl">Cambiar contraseña</h1><p className="mb-0 text-sm text-[var(--color-text-muted)]">Actualiza tu contraseña para mantener tu cuenta protegida.</p></div>
       <Card>
         <form className="space-y-4" onSubmit={form.handleSubmit(submit)} noValidate>
           <Field label="Contraseña actual" name="contraseña_actual" type="password" autoComplete="current-password" register={form.register} error={form.formState.errors.contraseña_actual?.message} />
           <Field label="Nueva contraseña" name="nueva_contraseña" type="password" autoComplete="new-password" register={form.register} error={form.formState.errors.nueva_contraseña?.message} />
-          <p className="text-xs text-[var(--color-text-muted)]">Usa entre 8 y 72 caracteres, con minúscula, mayúscula y número.</p>
+          <p className="text-xs text-[var(--color-text-muted)]">Usa entre 8 y 72 caracteres e incluye una minúscula, una mayúscula y un número.</p>
           <FieldError message={serverError} />
           <Button type="submit" disabled={form.formState.isSubmitting}>
             {form.formState.isSubmitting && <Spinner className="size-4 text-white" />}

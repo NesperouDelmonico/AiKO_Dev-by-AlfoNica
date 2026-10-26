@@ -7,7 +7,7 @@ export function PatientListSkeleton() {
   return (
     <div aria-label="Cargando pacientes" aria-busy="true" className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       {Array.from({ length: 6 }, (_, index) => (
-        <Card key={index} className="animate-pulse">
+        <Card key={index} className="animate-pulse skeleton-shimmer">
           <div className="mb-4 h-12 w-12 rounded-full bg-purple-100" />
           <div className="mb-2 h-4 w-2/3 rounded bg-purple-100" />
           <div className="h-3 w-1/2 rounded bg-purple-50" />
@@ -20,7 +20,7 @@ export function PatientListSkeleton() {
 
 export function SectionSkeleton({ title }: { title: string }) {
   return (
-    <Card aria-label={`Cargando ${title}`} aria-busy="true" className="animate-pulse space-y-3">
+    <Card aria-label={`Cargando ${title}`} aria-busy="true" className="animate-pulse skeleton-shimmer space-y-3">
       <div className="h-5 w-1/3 rounded bg-purple-100" />
       <div className="h-4 w-full rounded bg-purple-50" />
       <div className="h-4 w-3/4 rounded bg-purple-50" />

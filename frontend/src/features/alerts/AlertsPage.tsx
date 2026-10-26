@@ -37,7 +37,7 @@ export function AlertsPage() {
   const alerts = query.data ?? []
   return (
     <div className="space-y-6">
-      <header><p className="mb-1 text-sm font-semibold text-brand-primary">AiKO · Especialista</p><h1 className="mb-0 text-3xl">Alertas</h1><p className="mb-0 mt-2 text-sm text-[var(--color-text-muted)]">Las alertas se resuelven automáticamente; no requieren una acción manual.</p></header>
+      <header><h1 className="mb-1 text-3xl">Alertas</h1><p className="mb-0 text-sm text-[var(--color-text-muted)]">Consulta las alertas de tus pacientes; se resuelven automáticamente.</p></header>
       <Card>
         <div className="mb-5 grid gap-3 sm:grid-cols-2">
           <label htmlFor="alert-type" className="text-sm font-semibold">Tipo
@@ -47,10 +47,10 @@ export function AlertsPage() {
             <Select id="alert-state" value={state} onChange={(event) => setState(event.target.value)} className="mt-1"><option value="">Todos</option><option>Activa</option><option>Resuelta</option></Select>
           </label>
         </div>
-        {query.isPending && <div aria-busy="true" aria-label="Cargando alertas" className="space-y-3">{[1, 2, 3].map((n) => <div key={n} className="h-16 animate-pulse rounded-xl bg-purple-50" />)}</div>}
-        {query.isError && <ErrorState title="No se pudieron cargar las alertas" message={query.error.message} action={<Button variant="secondary" onClick={() => void query.refetch()}>Reintentar</Button>} />}
-        {query.isSuccess && alerts.length === 0 && <EmptyState title="Sin alertas" description="No hay alertas con estos filtros." />}
-        <ul className="space-y-3 pl-0">{alerts.map((alert, i) => {
+        {query.isPending && <div aria-busy="true" aria-label="Cargando alertas" className="space-y-3">{[1, 2, 3].map((n) => <div key={n} className="skeleton-shimmer h-16 animate-pulse rounded-xl bg-purple-50" />)}</div>}
+        {query.isError && <ErrorState title="No pudimos cargar las alertas. Inténtalo de nuevo." message={query.error.message} action={<Button variant="secondary" onClick={() => void query.refetch()}>Intentar de nuevo</Button>} />}
+        {query.isSuccess && alerts.length === 0 && <EmptyState title="No hay alertas que coincidan con esos filtros." />}
+        <ul className="list-stagger space-y-3 pl-0">{alerts.map((alert, i) => {
           const label = alert.tipo === 'BajoRendimiento' ? 'Bajo rendimiento' : alert.tipo === 'Inactividad' ? 'Inactividad' : 'Tipo no disponible'
           return <li key={alert.id ?? `${alert.paciente_id}-${i}`} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--color-border)] p-4">
             <div><h2 className="mb-1 text-base">{label}</h2><p className="mb-1 text-sm">Paciente: {alert.paciente_id ? <Link to={`/especialista/pacientes/${alert.paciente_id}`}>{alert.paciente_nombre ?? 'Ver paciente'}</Link> : '—'}</p><p className="mb-0 text-xs text-[var(--color-text-muted)]">{alert.fecha_generada ? formatDate(alert.fecha_generada, { dateStyle: 'medium', timeStyle: 'short' }) : 'Fecha no disponible'}</p></div>

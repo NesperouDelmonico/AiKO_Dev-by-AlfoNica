@@ -21,9 +21,9 @@ export function IndicatorsPage() {
   }))
   return (
     <div className="space-y-6">
-      <header><p className="mb-1 text-sm font-semibold text-brand-primary">AiKO · Administración</p><h1 className="mb-0 text-3xl">Indicadores</h1></header>
-      {indicators.isPending && <div aria-busy="true" aria-label="Cargando indicadores" className="grid gap-4 md:grid-cols-3">{[1, 2, 3].map((n) => <div key={n} className="h-28 animate-pulse rounded-2xl bg-white" />)}</div>}
-      {indicators.isError && <ErrorState title="No se pudieron cargar los indicadores" message={indicators.error.message} action={<Button variant="secondary" onClick={() => void indicators.refetch()}>Reintentar</Button>} />}
+      <header><h1 className="mb-1 text-3xl">Indicadores</h1><p className="mb-0 text-sm text-[var(--color-text-muted)]">Mira de un vistazo cómo avanza la plataforma.</p></header>
+      {indicators.isPending && <div aria-busy="true" aria-label="Cargando indicadores" className="grid gap-4 md:grid-cols-3">{[1, 2, 3].map((n) => <div key={n} className="skeleton-shimmer h-28 animate-pulse rounded-2xl bg-white" />)}</div>}
+      {indicators.isError && <ErrorState title="No pudimos cargar los indicadores. Inténtalo de nuevo." message={indicators.error.message} action={<Button variant="secondary" onClick={() => void indicators.refetch()}>Intentar de nuevo</Button>} />}
       {indicators.data && <div className="grid gap-4 md:grid-cols-3">
         <Metric title="Usuarios registrados" value={indicators.data.total_usuarios} />
         <Metric title="Pacientes" value={indicators.data.total_pacientes} />
@@ -34,8 +34,8 @@ export function IndicatorsPage() {
           <div role="group" aria-label="Período de tendencias" className="flex gap-2"><Button variant={period === 'semanal' ? 'primary' : 'secondary'} onClick={() => setPeriod('semanal')}>Semanal</Button><Button variant={period === 'mensual' ? 'primary' : 'secondary'} onClick={() => setPeriod('mensual')}>Mensual</Button></div>
         </div>
         {trends.isPending && <div aria-busy="true" aria-label="Cargando tendencias" className="h-64 animate-pulse rounded-xl bg-purple-50" />}
-        {trends.isError && <ErrorState title="No se pudieron cargar las tendencias" message={trends.error.message} action={<Button variant="secondary" onClick={() => void trends.refetch()}>Reintentar</Button>} />}
-        {trends.isSuccess && chart.length === 0 && <EmptyState title="Sin datos de tendencias" />}
+        {trends.isError && <ErrorState title="No pudimos cargar las tendencias. Inténtalo de nuevo." message={trends.error.message} action={<Button variant="secondary" onClick={() => void trends.refetch()}>Intentar de nuevo</Button>} />}
+        {trends.isSuccess && chart.length === 0 && <EmptyState title="Aún no hay datos para mostrar." />}
         {chart.length > 0 && <>
           <Suspense fallback={<div aria-busy="true" aria-label="Cargando gráfica" className="h-72 animate-pulse rounded-xl bg-purple-50" />}>
             <TrendChart data={chart} />

@@ -56,16 +56,16 @@ export function AccountFormPage({ role }: { role: AccountRole }) {
           : hasId
             ? `La cédula ya existe. ${serverMessage}`
             : `El correo o la cédula ya existen. ${serverMessage}`)
-      } else if (error instanceof ApiError && error.status === 503) setFailure('No se pudo enviar el correo; la cuenta quedó inactiva. Restablece su contraseña desde la edición del usuario.')
+      } else if (error instanceof ApiError && error.status === 503) setFailure('No pudimos enviar el correo y la cuenta quedó inactiva. Puedes volver a enviar la contraseña desde la edición de la cuenta.')
       else setFailure(getErrorMessage(error))
     }
   }
   return (
     <div className="mx-auto max-w-2xl space-y-5">
       <Link to="/admin/usuarios">← Volver a usuarios</Link>
-      <div><p className="mb-1 text-sm font-semibold text-brand-primary">AiKO · Administración</p><h1 className="mb-0 text-3xl">Nueva cuenta de {role.toLowerCase()}</h1></div>
+      <div><h1 className="mb-1 text-3xl">Nueva cuenta de {role.toLowerCase()}</h1><p className="mb-0 text-sm text-[var(--color-text-muted)]">Registra una cuenta de {role.toLowerCase()} para la plataforma.</p></div>
       <Card>
-        <p className="mb-5 rounded-xl bg-purple-50 p-3 text-sm">Se enviará una contraseña temporal al correo.</p>
+        <p className="mb-5 rounded-xl bg-purple-50 p-3 text-sm">Enviaremos una contraseña temporal al correo de esta persona.</p>
         {failure && <p role="alert" className="mb-4 rounded-xl bg-[var(--color-attention-bg)] p-3 text-sm text-[var(--color-attention-text)]">{failure}</p>}
         <form className="space-y-3" onSubmit={form.handleSubmit(submit)} noValidate>
           <FormField label="Nombre" id="account-name" autoComplete="name" {...form.register('nombre')} error={form.formState.errors.nombre?.message} />
@@ -88,8 +88,8 @@ export function EditUserPage() {
   const update = useMutation({ mutationFn: (values: Values) => updateUser(id, values), onSuccess: async () => { await Promise.all([client.invalidateQueries({ queryKey: queryKeys.users.detail(id) }), client.invalidateQueries({ queryKey: queryKeys.users.all })] ) } })
   const toggle = useMutation({ mutationFn: (state: boolean) => updateUserState(id, state), onSuccess: async () => { await Promise.all([client.invalidateQueries({ queryKey: queryKeys.users.detail(id) }), client.invalidateQueries({ queryKey: queryKeys.users.all })]) } })
   const reset = useMutation({ mutationFn: () => resetUserPassword(id), onSuccess: async () => { await Promise.all([client.invalidateQueries({ queryKey: queryKeys.users.detail(id) }), client.invalidateQueries({ queryKey: queryKeys.users.all })]) } })
-  if (query.isPending) return <Card><div aria-busy="true" className="h-40 animate-pulse rounded-xl bg-purple-50" /></Card>
-  if (query.isError) return <ErrorState title="No pudimos cargar el usuario" message={query.error.message} action={<Button variant="secondary" onClick={() => void query.refetch()}>Reintentar</Button>} />
+  if (query.isPending) return <Card><div aria-busy="true" className="skeleton-shimmer h-40 animate-pulse rounded-xl bg-purple-50" /></Card>
+  if (query.isError) return <ErrorState title="No pudimos cargar esta cuenta. Inténtalo de nuevo." message={query.error.message} action={<Button variant="secondary" onClick={() => void query.refetch()}>Intentar de nuevo</Button>} />
   async function performConfirm() {
     try {
       setFailure('')
@@ -98,14 +98,14 @@ export function EditUserPage() {
       setConfirm(null)
     } catch (error) {
       setFailure(confirm === 'reset' && error instanceof ApiError && error.status === 503
-        ? 'No se pudo entregar la contraseña; la cuenta no se modificó.'
+        ? 'No pudimos enviar la contraseña. La cuenta no cambió. Inténtalo de nuevo.'
         : getErrorMessage(error))
       setConfirm(null)
     }
   }
   return (
     <div className="mx-auto max-w-2xl space-y-5">
-      <Link to="/admin/usuarios">← Volver a usuarios</Link><div><p className="mb-1 text-sm font-semibold text-brand-primary">AiKO · Administración</p><h1 className="mb-0 text-3xl">Editar usuario</h1></div>
+      <Link to="/admin/usuarios">← Volver a usuarios</Link><div><h1 className="mb-1 text-3xl">Editar usuario</h1><p className="mb-0 text-sm text-[var(--color-text-muted)]">Actualiza los datos y el estado de esta cuenta.</p></div>
       <Card>
         {failure && <p role="alert" className="mb-3 rounded-xl bg-[var(--color-attention-bg)] p-3 text-sm text-[var(--color-attention-text)]">{failure}</p>}
         <form className="space-y-3" onSubmit={form.handleSubmit(async (values) => { try { await update.mutateAsync(values) } catch (error) { setFailure(getErrorMessage(error)) } })} noValidate>
@@ -118,7 +118,7 @@ export function EditUserPage() {
           </div>
         </form>
       </Card>
-      {confirm && <Dialog title={confirm === 'reset' ? 'Restablecer contraseña' : 'Desactivar usuario'} description={confirm === 'reset' ? 'Se enviará una contraseña temporal por correo.' : 'La cuenta perderá acceso al panel.'} onClose={() => setConfirm(null)}>
+      {confirm && <Dialog title={confirm === 'reset' ? 'Restablecer contraseña' : 'Desactivar usuario'} description={confirm === 'reset' ? 'Enviaremos una contraseña temporal al correo de esta persona.' : 'Esta persona ya no podrá ingresar al panel.'} onClose={() => setConfirm(null)}>
         <div className="flex justify-end gap-2"><Button variant="secondary" onClick={() => setConfirm(null)}>Cancelar</Button><Button onClick={() => void performConfirm()} disabled={reset.isPending || toggle.isPending}>{confirm === 'reset' ? 'Restablecer' : 'Desactivar'}</Button></div>
       </Dialog>}
     </div>

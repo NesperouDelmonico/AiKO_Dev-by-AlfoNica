@@ -58,8 +58,175 @@ h3 {
   font-weight: 600;
 }
 
-a {
-  color: var(--color-primary);
+@layer base {
+  a {
+    color: var(--color-primary);
+  }
+}
+
+@keyframes fade-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes auth-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes list-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes dialog-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    opacity: 0;
+    transform: translateX(-100%);
+  }
+
+  25%,
+  75% {
+    opacity: 0.55;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+}
+
+.greeting-enter {
+  animation: fade-slide-up 400ms ease-out both;
+}
+
+.auth-logo-enter {
+  animation: auth-enter 400ms ease-out both;
+}
+
+.auth-card-enter {
+  animation: auth-enter 400ms ease-out 120ms both;
+}
+
+.list-stagger > * {
+  animation: list-enter 400ms ease-out both;
+}
+
+.list-stagger > :nth-child(1) {
+  animation-delay: 0ms;
+}
+
+.list-stagger > :nth-child(2) {
+  animation-delay: 50ms;
+}
+
+.list-stagger > :nth-child(3) {
+  animation-delay: 100ms;
+}
+
+.list-stagger > :nth-child(4) {
+  animation-delay: 150ms;
+}
+
+.list-stagger > :nth-child(5) {
+  animation-delay: 200ms;
+}
+
+.list-stagger > :nth-child(6) {
+  animation-delay: 250ms;
+}
+
+.list-stagger > :nth-child(7) {
+  animation-delay: 300ms;
+}
+
+.list-stagger > :nth-child(8) {
+  animation-delay: 350ms;
+}
+
+.list-stagger > :nth-child(9) {
+  animation-delay: 400ms;
+}
+
+.list-stagger > :nth-child(10) {
+  animation-delay: 450ms;
+}
+
+.list-stagger > :nth-child(n + 11) {
+  animation-delay: 0ms;
+}
+
+dialog[open] {
+  animation: dialog-enter 180ms ease-out both;
+}
+
+dialog[open]::backdrop {
+  animation: fade-in 180ms ease-out both;
+}
+
+.observation-backdrop-enter {
+  animation: fade-in 180ms ease-out both;
+}
+
+.observation-dialog-enter {
+  animation: dialog-enter 180ms ease-out both;
+}
+
+.skeleton-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.skeleton-shimmer::after {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 30%, rgb(255 255 255 / 55%) 50%, transparent 70%);
+  content: '';
+  pointer-events: none;
+  animation: skeleton-shimmer 1.8s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -67,8 +234,13 @@ a {
   *::before,
   *::after {
     scroll-behavior: auto !important;
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    animation: none !important;
+    transition: none !important;
+  }
+
+  button:hover,
+  button:active {
+    transform: none !important;
+    box-shadow: none !important;
   }
 }
