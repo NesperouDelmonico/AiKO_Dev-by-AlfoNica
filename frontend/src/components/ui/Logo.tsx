@@ -1,4 +1,5 @@
 import { cn } from '../../lib/utils'
+import aikoIcon from '../../assets/brand/aiko-icon.svg'
 
 type LogoProps = {
   className?: string
@@ -8,11 +9,11 @@ type LogoProps = {
 export function Logo({ className, compact = false }: LogoProps) {
   return (
     <img
-      className={cn('aiko-logo', compact && 'aiko-logo--compact', className)}
-      src="/assets/brand/logo.svg"
+      className={cn('aiko-logo', compact && 'aiko-logo--compact', 'max-h-12 max-w-full object-contain', className)}
+      src={aikoIcon}
       alt="AiKO"
-      width="132"
-      height="42"
+      width="220"
+      height="172"
     />
   )
 }
