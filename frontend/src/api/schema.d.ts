@@ -1326,13 +1326,20 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Listar catálogo filtrable (RF-033) / ejercicios filtrados por nivel y ruta (RF-006) */
+        /**
+         * Listar catálogo filtrable (RF-033) / ejercicios filtrados por nivel y ruta (RF-006)
+         * @description Especialista: solo los ejercicios que creó (incluidas las copias importadas).
+         *     Administrador: todos. Paciente: los disponibles en su ruta activa.
+         *     Por defecto se excluyen los archivados; `archivados=true` lista solo esos.
+         */
         get: {
             parameters: {
                 query?: {
                     categoria?: components["schemas"]["CategoriaEjercicio"];
                     nivel_dificultad?: number;
                     estado?: components["schemas"]["EstadoEjercicio"];
+                    /** @description true para listar solo los ejercicios archivados. */
+                    archivados?: boolean;
                 };
                 header?: never;
                 path?: never;
@@ -1419,7 +1426,12 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** Obtener ejercicio por ID */
+        /**
+         * Obtener ejercicio por ID
+         * @description Visible para el especialista dueño, para el especialista cuyos pacientes lo
+         *     tienen en una ruta, para el paciente que lo tiene en una ruta y para el
+         *     administrador. En otro caso responde 404.
+         */
         get: {
             parameters: {
                 query?: never;
@@ -1546,6 +1558,94 @@ export interface paths {
                         "application/json": components["schemas"]["Ejercicio"];
                     };
                 };
+            };
+        };
+        trace?: never;
+    };
+    "/ejercicios/{id}/archivar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPathParam"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Archivar un ejercicio propio
+         * @description Lo oculta del catálogo y no se puede agregar a rutas nuevas; las rutas que ya
+         *     lo usan siguen funcionando. Idempotente.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPathParam"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Ejercicio archivado */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Ejercicio"];
+                    };
+                };
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        trace?: never;
+    };
+    "/ejercicios/{id}/restaurar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPathParam"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Restaurar un ejercicio archivado */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPathParam"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Ejercicio restaurado */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Ejercicio"];
+                    };
+                };
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
             };
         };
         trace?: never;
@@ -3142,8 +3242,14 @@ export interface components {
             estado?: components["schemas"]["EstadoEjercicio"];
             /** Format: uuid */
             especialista_id?: string;
+            especialista_nombre?: string | null;
             /** Format: date-time */
             fecha_creacion?: string;
+            /**
+             * Format: date-time
+             * @description Fecha de archivo; null si está en el catálogo.
+             */
+            archivado_en?: string | null;
         };
         RutaTerapeutica: {
             /** Format: uuid */

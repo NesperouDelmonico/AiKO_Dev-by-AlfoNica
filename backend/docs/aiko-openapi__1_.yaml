@@ -700,6 +700,10 @@ paths:
     get:
       tags: [Ejercicios]
       summary: Listar catálogo filtrable (RF-033) / ejercicios filtrados por nivel y ruta (RF-006)
+      description: |
+        Especialista: solo los ejercicios que creó (incluidas las copias importadas).
+        Administrador: todos. Paciente: los disponibles en su ruta activa.
+        Por defecto se excluyen los archivados; `archivados=true` lista solo esos.
       parameters:
         - name: categoria
           in: query
@@ -710,6 +714,10 @@ paths:
         - name: estado
           in: query
           schema: { $ref: "#/components/schemas/EstadoEjercicio" }
+        - name: archivados
+          in: query
+          description: true para listar solo los ejercicios archivados.
+          schema: { type: boolean }
       responses:
         "200":
           description: Lista de ejercicios
@@ -763,6 +771,10 @@ paths:
     get:
       tags: [Ejercicios]
       summary: Obtener ejercicio por ID
+      description: |
+        Visible para el especialista dueño, para el especialista cuyos pacientes lo
+        tienen en una ruta, para el paciente que lo tiene en una ruta y para el
+        administrador. En otro caso responde 404.
       responses:
         "200":
           description: Ejercicio encontrado
@@ -829,6 +841,39 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Ejercicio" }
+
+  /ejercicios/{id}/archivar:
+    parameters:
+      - { $ref: "#/components/parameters/idPathParam" }
+    patch:
+      tags: [Ejercicios]
+      summary: Archivar un ejercicio propio
+      description: |
+        Lo oculta del catálogo y no se puede agregar a rutas nuevas; las rutas que ya
+        lo usan siguen funcionando. Idempotente.
+      responses:
+        "200":
+          description: Ejercicio archivado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Ejercicio" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /ejercicios/{id}/restaurar:
+    parameters:
+      - { $ref: "#/components/parameters/idPathParam" }
+    patch:
+      tags: [Ejercicios]
+      summary: Restaurar un ejercicio archivado
+      responses:
+        "200":
+          description: Ejercicio restaurado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Ejercicio" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   /ejercicios/{id}/ejecutar:
     parameters:
@@ -1808,7 +1853,13 @@ components:
         parametros: { $ref: "#/components/schemas/ParametrosEjercicio" }
         estado: { $ref: "#/components/schemas/EstadoEjercicio" }
         especialista_id: { type: string, format: uuid }
+        especialista_nombre: { type: string, nullable: true }
         fecha_creacion: { type: string, format: date-time }
+        archivado_en:
+          type: string
+          format: date-time
+          nullable: true
+          description: Fecha de archivo; null si está en el catálogo.
 
     RutaTerapeutica:
       type: object

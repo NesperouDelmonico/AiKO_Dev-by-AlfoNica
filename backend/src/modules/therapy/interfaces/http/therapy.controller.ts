@@ -49,8 +49,27 @@ export class TherapyController {
   ) {
     return this.use.create(d, user.sub);
   }
-  @Get('ejercicios/:id') get(@Param('id') id: string) {
-    return this.use.get(id);
+  @Get('ejercicios/:id') get(
+    @Param('id') id: string,
+    @CurrentAuthUser() user: { sub: string; rol: UserRole },
+  ) {
+    return this.use.getFor(id, user);
+  }
+  @Patch('ejercicios/:id/archivar')
+  @Roles(UserRole.ESPECIALISTA, UserRole.ADMINISTRADOR)
+  archive(
+    @Param('id') id: string,
+    @CurrentAuthUser() user: { sub: string; rol: UserRole },
+  ) {
+    return this.use.archive(id, true, user);
+  }
+  @Patch('ejercicios/:id/restaurar')
+  @Roles(UserRole.ESPECIALISTA, UserRole.ADMINISTRADOR)
+  restore(
+    @Param('id') id: string,
+    @CurrentAuthUser() user: { sub: string; rol: UserRole },
+  ) {
+    return this.use.archive(id, false, user);
   }
   @Put('ejercicios/:id')
   @Roles(UserRole.ESPECIALISTA, UserRole.ADMINISTRADOR)

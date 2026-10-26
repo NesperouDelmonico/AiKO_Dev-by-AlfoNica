@@ -63,9 +63,16 @@ export class TherapyUseCase {
       estado: query.estado,
     };
     if (actor.rol !== UserRole.PACIENTE) {
-      return (await this.repository.exercises(filters)).map((exercise) =>
-        this.exerciseResponse(exercise),
-      );
+      // Cada especialista ve solo su catálogo; el administrador ve todos.
+      return (
+        await this.repository.exercises({
+          ...filters,
+          archivados: query.archivados ?? false,
+          ...(actor.rol === UserRole.ADMINISTRADOR
+            ? {}
+            : { especialistaUserId: actor.sub }),
+        })
+      ).map((exercise) => this.exerciseResponse(exercise));
     }
     const patient = await this.repository.patientForUser(actor.sub);
     if (!patient)
@@ -121,6 +128,49 @@ export class TherapyUseCase {
     const exercise = await this.repository.exercise(id);
     if (!exercise) throw new NotFoundException('Ejercicio no encontrado');
     return this.exerciseResponse(exercise);
+  }
+
+  /**
+   * Detalle visible para quien consulta: el administrador ve todo; el
+   * especialista, sus ejercicios y los que ya están en rutas de sus
+   * pacientes; el paciente, los de sus rutas. Lo demás responde 404.
+   */
+  async getFor(id: string, actor: Actor) {
+    const exercise = await this.get(id);
+    if (actor.rol === UserRole.ADMINISTRADOR) return exercise;
+    if (actor.rol === UserRole.ESPECIALISTA) {
+      if (
+        (await this.repository.exerciseOwnedBySpecialist(id, actor.sub)) ||
+        (await this.repository.exerciseUsedInRoutes(id, {
+          especialistaUserId: actor.sub,
+        }))
+      ) {
+        return exercise;
+      }
+    } else if (actor.rol === UserRole.PACIENTE) {
+      const patient = await this.repository.patientForUser(actor.sub);
+      if (
+        patient &&
+        (await this.repository.exerciseUsedInRoutes(id, {
+          pacienteId: patient.id,
+        }))
+      ) {
+        return exercise;
+      }
+    }
+    throw new NotFoundException('Ejercicio no encontrado');
+  }
+
+  /** Archiva (true) o restaura (false) un ejercicio propio. */
+  async archive(id: string, archived: boolean, actor: Actor) {
+    const exercise = await this.get(id);
+    await this.assertExerciseOwner(exercise.id, actor);
+    if (Boolean(exercise.archivado_en) === archived) return exercise;
+    const updated = await this.repository.updateExercise(id, {
+      archivadoEn: archived ? new Date() : null,
+    });
+    if (!updated) throw new NotFoundException('Ejercicio no encontrado');
+    return this.exerciseResponse(updated);
   }
 
   async update(id: string, data: UpdateExerciseDto, actor: Actor) {
@@ -223,6 +273,8 @@ export class TherapyUseCase {
     const patient = await this.repository.patientById(patientId);
     if (!patient) throw new NotFoundException('Paciente no encontrado');
     // Un mes puede tener cientos de pasos: se consulta cada ejercicio una vez.
+    const specialistId =
+      await this.repository.specialistIdForUser(specialistUserId);
     for (const ejercicioId of new Set(items.map((item) => item.ejercicioId))) {
       const exercise = await this.repository.exercise(ejercicioId);
       if (!exercise || exercise.estado !== ExerciseStatus.ACTIVO) {
@@ -230,6 +282,7 @@ export class TherapyUseCase {
           'Todos los ejercicios deben existir y estar activos',
         );
       }
+      this.assertUsableInNewStep(exercise, specialistId);
       if (exercise.nivelDificultad > patient.nivelActual) {
         throw new BadRequestException(
           'La ruta contiene ejercicios de nivel bloqueado',
@@ -298,6 +351,7 @@ export class TherapyUseCase {
     if (!exercise || exercise.estado !== ExerciseStatus.ACTIVO) {
       throw new NotFoundException('Ejercicio activo no encontrado');
     }
+    await this.assertUsableBy(exercise, actor);
     if (!patient || exercise.nivelDificultad > patient.nivelActual) {
       throw new ForbiddenException('Ejercicio bloqueado por nivel');
     }
@@ -379,6 +433,7 @@ export class TherapyUseCase {
     if (!replacement || replacement.estado !== ExerciseStatus.ACTIVO) {
       throw new NotFoundException('Ejercicio activo no encontrado');
     }
+    await this.assertUsableBy(replacement, actor);
     if (!patient || replacement.nivelDificultad > patient.nivelActual) {
       throw new ForbiddenException('Ejercicio bloqueado por nivel');
     }
@@ -593,8 +648,12 @@ export class TherapyUseCase {
       estado: exercise.estado,
       especialista_id: exercise.especialista?.id,
       especialistaId: exercise.especialista?.id,
+      especialista_nombre: exercise.especialista?.usuario?.nombre ?? null,
+      especialistaNombre: exercise.especialista?.usuario?.nombre ?? null,
       fecha_creacion: exercise.fechaCreacion,
       fechaCreacion: exercise.fechaCreacion,
+      archivado_en: exercise.archivadoEn ?? null,
+      archivadoEn: exercise.archivadoEn ?? null,
     };
   }
 
@@ -679,6 +738,40 @@ export class TherapyUseCase {
         'El ejercicio pertenece a otro especialista',
       );
     }
+  }
+
+  /**
+   * Un paso nuevo de ruta solo puede usar ejercicios propios (incluidas las
+   * copias importadas del taller) y no archivados. El administrador no
+   * tiene catálogo propio, así que solo se le exige que no esté archivado.
+   */
+  private assertUsableInNewStep(
+    exercise: ExerciseEntity,
+    specialistId: string | null,
+  ) {
+    if (exercise.archivadoEn) {
+      throw new BadRequestException(
+        `El ejercicio "${exercise.nombre}" está archivado; restáuralo para usarlo`,
+      );
+    }
+    if (specialistId !== null && exercise.especialista?.id !== specialistId) {
+      throw new ForbiddenException(
+        'Solo puedes usar ejercicios de tu catálogo',
+      );
+    }
+  }
+
+  private async assertUsableBy(exercise: ExerciseEntity, actor: Actor) {
+    const specialistId =
+      actor.rol === UserRole.ADMINISTRADOR
+        ? null
+        : await this.repository.specialistIdForUser(actor.sub);
+    if (actor.rol !== UserRole.ADMINISTRADOR && !specialistId) {
+      throw new ForbiddenException(
+        'Solo puedes usar ejercicios de tu catálogo',
+      );
+    }
+    this.assertUsableInNewStep(exercise, specialistId);
   }
 
   private async assertPatientAccess(patientId: string, actor: Actor) {

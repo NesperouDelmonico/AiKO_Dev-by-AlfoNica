@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Not, Repository } from 'typeorm';
+import { FindOptionsWhere, In, IsNull, Not, Repository } from 'typeorm';
 import type { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity';
 import {
   ExerciseEntity,
@@ -22,7 +22,10 @@ import {
   AlertStatus,
   AlertType,
 } from '../../../tracking/domain/entities/alert.entity';
-import type { TherapyRepositoryPort } from '../../domain/ports/therapy.repository.port';
+import type {
+  ExerciseFilters,
+  TherapyRepositoryPort,
+} from '../../domain/ports/therapy.repository.port';
 
 @Injectable()
 export class PostgresTherapyRepository implements TherapyRepositoryPort {
@@ -40,17 +43,44 @@ export class PostgresTherapyRepository implements TherapyRepositoryPort {
     @InjectRepository(SpecialistEntity)
     private readonly specialists: Repository<SpecialistEntity>,
   ) {}
-  exercises(filters: Partial<ExerciseEntity>) {
+  exercises(filters: ExerciseFilters) {
+    const { especialistaUserId, archivados, ...columns } = filters;
+    const where: FindOptionsWhere<ExerciseEntity> = {};
+    if (columns.categoria !== undefined) where.categoria = columns.categoria;
+    if (columns.nivelDificultad !== undefined)
+      where.nivelDificultad = columns.nivelDificultad;
+    if (columns.estado !== undefined) where.estado = columns.estado;
+    if (especialistaUserId)
+      where.especialista = { usuario: { id: especialistaUserId } };
+    if (archivados !== undefined)
+      where.archivadoEn = archivados ? Not(IsNull()) : IsNull();
     return this.ex.find({
-      where: filters,
-      relations: { especialista: true },
+      where,
+      relations: { especialista: { usuario: true } },
       order: { fechaCreacion: 'DESC' },
     });
   }
   exercise(id: string) {
     return this.ex.findOne({
       where: { id },
-      relations: { especialista: true },
+      relations: { especialista: { usuario: true } },
+    });
+  }
+  exerciseUsedInRoutes(
+    exerciseId: string,
+    scope: { pacienteId?: string; especialistaUserId?: string },
+  ) {
+    if (!scope.pacienteId && !scope.especialistaUserId)
+      return Promise.resolve(false);
+    return this.items.exists({
+      where: {
+        ejercicio: { id: exerciseId },
+        ruta: {
+          paciente: scope.pacienteId
+            ? { id: scope.pacienteId }
+            : { especialista: { usuario: { id: scope.especialistaUserId } } },
+        },
+      },
     });
   }
   async specialistIdForUser(userId: string) {
@@ -166,6 +196,7 @@ export class PostgresTherapyRepository implements TherapyRepositoryPort {
       const exercises = await manager.findBy(ExerciseEntity, {
         id: In(uniqueIds),
         estado: 'Activo' as ExerciseEntity['estado'],
+        archivadoEn: IsNull(),
       });
       if (exercises.length !== uniqueIds.length) {
         throw new Error('ROUTE_EXERCISE_NOT_AVAILABLE');
