@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/models.dart';
+import '../../core/theme.dart';
 import 'complete_words_game_screen.dart';
 import 'game_outcome.dart';
 import 'logic_game_screen.dart';
@@ -82,5 +83,48 @@ Future<bool> playExercise(
     );
     submitted = true;
     if (action != ResultAction.retry) return submitted;
+  }
+}
+
+/// Práctica libre: juega el ejercicio sin enviar el resultado (no cuenta
+/// para la ruta ni da XP) y muestra cómo le fue.
+Future<void> practiceExercise(BuildContext context, Exercise exercise) async {
+  while (true) {
+    final game = gameFor(exercise);
+    if (game == null || !context.mounted) return;
+    final outcome = await Navigator.of(context).push<GameOutcome>(
+      MaterialPageRoute(builder: (_) => game, fullscreenDialog: true),
+    );
+    if (outcome == null || !context.mounted) return;
+    final again = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Práctica terminada'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('${outcome.puntaje}%',
+                style: const TextStyle(fontSize: 44, fontWeight: FontWeight.w900)),
+            Text('${outcome.aciertos} de ${outcome.intentos} aciertos'
+                '${outcome.tiempoReaccionMs == null ? '' : ' · ${outcome.tiempoReaccionMs} ms'}'),
+            const SizedBox(height: 10),
+            const Text('La práctica no cuenta para tu ruta.',
+                textAlign: TextAlign.center, style: TextStyle(fontSize: 13)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Listo'),
+          ),
+          FilledButton(
+            style: dialogButtonStyle,
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Otra vez'),
+          ),
+        ],
+      ),
+    );
+    if (again != true) return;
   }
 }

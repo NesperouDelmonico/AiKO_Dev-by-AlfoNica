@@ -5,6 +5,8 @@ import '../../core/api_client.dart';
 import '../../core/session.dart';
 import '../../core/theme.dart';
 import '../../core/validators.dart';
+import '../../widgets/mascot.dart';
+import '../../widgets/motion.dart';
 import '../../widgets/password_field.dart';
 import '../../widgets/submit_button.dart';
 import 'forgot_password_screen.dart';
@@ -61,26 +63,20 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Container(
-                      alignment: Alignment.center,
-                      height: 96,
-                      width: 96,
-                      margin: const EdgeInsets.only(bottom: 20),
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: AikoColors.heroGradient,
-                      ),
-                      child: const Icon(Icons.psychology_alt_rounded,
-                          size: 52, color: Colors.white),
+                    const FadeSlideIn(
+                      offset: Offset(0, -16),
+                      child: Center(child: AikoLogo(mascotSize: 104)),
                     ),
-                    Text('AiKO',
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                            fontWeight: FontWeight.w800, color: AikoColors.violet)),
-                    const SizedBox(height: 6),
-                    const Text('Entrena tu mente, un paso a la vez.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 16, color: AikoColors.inkSoft)),
+                    const SizedBox(height: 14),
+                    const FadeSlideIn(
+                      delay: Duration(milliseconds: 150),
+                      child: Text('Entrena tu mente, un paso a la vez.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                              color: AikoColors.inkSoft)),
+                    ),
                     const SizedBox(height: 36),
                     TextFormField(
                       controller: _email,

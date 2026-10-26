@@ -1,7 +1,7 @@
 name: aiko_mobile
 description: AiKO - app móvil de rehabilitación cognitiva gamificada.
 publish_to: 'none'
-version: 0.1.0+1
+version: 0.2.0+2
 
 environment:
   sdk: ^3.5.0
@@ -12,11 +12,53 @@ dependencies:
   http: ^1.2.2
   provider: ^6.1.2
   flutter_secure_storage: ^9.2.2
+  # Preferencias locales (tamaño de letra, reducir animaciones).
+  shared_preferences: ^2.3.2
+  # Transiciones Material (eje compartido, fundido) entre páginas.
+  animations: ^2.0.11
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
+  # Generan el ícono y la pantalla de arranque nativos:
+  #   dart run flutter_launcher_icons
+  #   dart run flutter_native_splash:create
+  flutter_launcher_icons: ^0.14.1
+  flutter_native_splash: ^2.4.1
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/brand/
+  fonts:
+    - family: Nunito
+      fonts:
+        - asset: assets/fonts/Nunito-400.ttf
+          weight: 400
+        - asset: assets/fonts/Nunito-600.ttf
+          weight: 600
+        - asset: assets/fonts/Nunito-700.ttf
+          weight: 700
+        - asset: assets/fonts/Nunito-800.ttf
+          weight: 800
+        - asset: assets/fonts/Nunito-900.ttf
+          weight: 900
+
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: assets/brand/icon-1024.png
+  min_sdk_android: 21
+  adaptive_icon_background: "#6D28D9"
+  adaptive_icon_foreground: assets/brand/icon-foreground.png
+
+flutter_native_splash:
+  color: "#6D28D9"
+  image: assets/brand/splash.png
+  android_12:
+    color: "#6D28D9"
+    # 1152 px con el dibujo dentro del círculo central (Android 12+).
+    image: assets/brand/splash-android12.png
+  ios: false
+  web: false
