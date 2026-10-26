@@ -1,4 +1,8 @@
-import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import type { ConfigService } from '@nestjs/config';
 import { TherapyUseCase } from './therapy.use-case';
 import type { TherapyRepositoryPort } from '../../domain/ports/therapy.repository.port';
@@ -24,6 +28,7 @@ describe('TherapyUseCase.result', () => {
   const repository = {
     exercises: jest.fn(),
     exercise: jest.fn(),
+    exerciseUsedInRoutes: jest.fn(),
     specialistIdForUser: jest.fn(),
     patientForUser: jest.fn(),
     patientById: jest.fn(),
@@ -172,9 +177,12 @@ describe('TherapyUseCase.result', () => {
       id: 'e',
       estado: ExerciseStatus.ACTIVO,
       nivelDificultad: 1,
+      especialista: { id: 'specialist-id' },
+      archivadoEn: null,
     });
 
     beforeEach(() => {
+      repository.specialistIdForUser.mockResolvedValue('specialist-id');
       repository.patientAssignedToSpecialist.mockResolvedValue(true);
       repository.patientById.mockResolvedValue(patient);
       repository.exercise.mockResolvedValue(exercise);
@@ -412,5 +420,150 @@ describe('TherapyUseCase.result', () => {
       ),
     ).rejects.toThrow(/se habilita el/);
     expect(repository.saveResult).not.toHaveBeenCalled();
+  });
+
+  describe('aislamiento y archivo de ejercicios', () => {
+    const specialist = { sub: 'specialist-user', rol: UserRole.ESPECIALISTA };
+    const admin = { sub: 'admin-user', rol: UserRole.ADMINISTRADOR };
+    const own = Object.assign(new ExerciseEntity(), {
+      id: 'own',
+      nombre: 'Propio',
+      estado: ExerciseStatus.ACTIVO,
+      nivelDificultad: 1,
+      especialista: { id: 'specialist-id', usuario: { nombre: 'Ana' } },
+      archivadoEn: null,
+    });
+    const foreign = Object.assign(new ExerciseEntity(), {
+      ...own,
+      id: 'foreign',
+      nombre: 'Ajeno',
+      especialista: { id: 'other-specialist', usuario: { nombre: 'Luis' } },
+    });
+    const archived = Object.assign(new ExerciseEntity(), {
+      ...own,
+      id: 'archived',
+      nombre: 'Viejo',
+      archivadoEn: new Date('2026-10-01T00:00:00Z'),
+    });
+    const byId: Record<string, ExerciseEntity> = { own, foreign, archived };
+
+    beforeEach(() => {
+      repository.exercise.mockImplementation(async (id) => byId[id] ?? null);
+      repository.exercises.mockResolvedValue([own]);
+      repository.specialistIdForUser.mockResolvedValue('specialist-id');
+      repository.exerciseOwnedBySpecialist.mockImplementation(
+        async (id) => byId[id]?.especialista.id === 'specialist-id',
+      );
+      repository.exerciseUsedInRoutes.mockResolvedValue(false);
+      repository.patientAssignedToSpecialist.mockResolvedValue(true);
+      repository.patientById.mockResolvedValue(patient);
+      repository.createRoute.mockResolvedValue(route);
+      repository.routeExists.mockResolvedValue(true);
+      repository.routeIsActive.mockResolvedValue(true);
+      repository.routePatientId.mockResolvedValue(patient.id);
+      repository.routeExerciseCount.mockResolvedValue(0);
+      repository.updateExercise.mockImplementation(async (id, data) =>
+        Object.assign(new ExerciseEntity(), byId[id], data),
+      );
+    });
+
+    it('el especialista lista solo su catálogo vigente; el admin, todo', async () => {
+      const [item] = await useCase.list({}, specialist);
+      expect(repository.exercises).toHaveBeenLastCalledWith({
+        categoria: undefined,
+        nivelDificultad: undefined,
+        estado: undefined,
+        archivados: false,
+        especialistaUserId: 'specialist-user',
+      });
+      expect(item).toMatchObject({
+        especialista_nombre: 'Ana',
+        archivado_en: null,
+      });
+      await useCase.list({ archivados: true }, admin);
+      expect(repository.exercises).toHaveBeenLastCalledWith(
+        expect.not.objectContaining({ especialistaUserId: expect.anything() }),
+      );
+      expect(repository.exercises).toHaveBeenLastCalledWith(
+        expect.objectContaining({ archivados: true }),
+      );
+    });
+
+    it('oculta el detalle de ejercicios ajenos salvo que estén en rutas de sus pacientes', async () => {
+      await expect(useCase.getFor('own', specialist)).resolves.toMatchObject({
+        id: 'own',
+      });
+      await expect(
+        useCase.getFor('foreign', specialist),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      repository.exerciseUsedInRoutes.mockResolvedValue(true);
+      await expect(
+        useCase.getFor('foreign', specialist),
+      ).resolves.toMatchObject({ id: 'foreign' });
+      expect(repository.exerciseUsedInRoutes).toHaveBeenLastCalledWith(
+        'foreign',
+        { especialistaUserId: 'specialist-user' },
+      );
+      await expect(useCase.getFor('foreign', admin)).resolves.toBeDefined();
+    });
+
+    it('no deja editar, archivar ni usar en rutas ejercicios de otro especialista', async () => {
+      await expect(
+        useCase.update('foreign', { nombre: 'X' }, specialist),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      await expect(
+        useCase.archive('foreign', true, specialist),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      await expect(
+        useCase.route(
+          patient.id,
+          [{ ejercicioId: 'foreign', orden: 1 }],
+          'specialist-user',
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      await expect(
+        useCase.add(
+          route.id,
+          { ejercicio_id: 'foreign', orden: 1 },
+          specialist,
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(repository.createRoute).not.toHaveBeenCalled();
+      expect(repository.addRouteExercise).not.toHaveBeenCalled();
+    });
+
+    it('rechaza ejercicios archivados en pasos nuevos de ruta', async () => {
+      await expect(
+        useCase.route(
+          patient.id,
+          [{ ejercicioId: 'archived', orden: 1 }],
+          'specialist-user',
+        ),
+      ).rejects.toThrow(/archivado/);
+      await expect(
+        useCase.add(route.id, { ejercicio_id: 'archived', orden: 1 }, admin),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      await useCase.route(
+        patient.id,
+        [{ ejercicioId: 'own', orden: 1 }],
+        'specialist-user',
+      );
+      expect(repository.createRoute).toHaveBeenCalledTimes(1);
+    });
+
+    it('archiva y restaura (idempotente)', async () => {
+      const done = await useCase.archive('own', true, specialist);
+      expect(repository.updateExercise).toHaveBeenLastCalledWith('own', {
+        archivadoEn: expect.any(Date),
+      });
+      expect(done.archivado_en).toBeInstanceOf(Date);
+      await useCase.archive('archived', true, specialist);
+      expect(repository.updateExercise).toHaveBeenCalledTimes(1);
+      const restored = await useCase.archive('archived', false, specialist);
+      expect(repository.updateExercise).toHaveBeenLastCalledWith('archived', {
+        archivadoEn: null,
+      });
+      expect(restored.archivado_en).toBeNull();
+    });
   });
 });
