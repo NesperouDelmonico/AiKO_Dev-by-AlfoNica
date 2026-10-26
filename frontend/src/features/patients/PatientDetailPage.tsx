@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useLocation, useParams } from 'react-router-dom'
-import { ArrowLeft, Plus, Route as RouteIcon, Trophy } from 'lucide-react'
+import { Plus, Route as RouteIcon, Trophy } from 'lucide-react'
 import { getErrorMessage } from '../../api/client'
 import { queryKeys } from '../../api/queryKeys'
 import { Badge } from '../../components/ui/Badge'
@@ -192,10 +192,6 @@ export function PatientDetailPage() {
       )}
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <Link to="/especialista/pacientes" className="mb-4 inline-flex min-h-10 items-center gap-2 text-sm font-semibold no-underline">
-            <ArrowLeft aria-hidden="true" className="size-4" strokeWidth={1.75} />
-            Volver
-          </Link>
           <h1 className="mb-0 text-3xl">{patient.nombre || 'Paciente'}</h1>
           <p className="mb-0 mt-1 text-sm text-[var(--color-text-muted)]">Consulta el progreso y seguimiento de {patient.nombre || 'tu paciente'}.</p>
         </div>

@@ -13,10 +13,12 @@ import { Select } from '../../components/ui/Select'
 import { initials, display } from '../../lib/text'
 import { useDebouncedValue } from '../patients/useDebouncedValue'
 import { getUsers, type UserFilters } from './api'
+import { useAuth } from '../../auth/AuthContext'
 
 const PAGE_SIZE = 10
 
 export function UsersPage() {
+  const { user } = useAuth()
   const navigate = useNavigate()
   const [text, setText] = useState('')
   const [role, setRole] = useState('')
@@ -33,10 +35,12 @@ export function UsersPage() {
   const query = useQuery({ queryKey: queryKeys.users.list(filters), queryFn: () => getUsers(filters) })
   const users = query.data?.data ?? []
   const pages = Math.max(1, Math.ceil((query.data?.total ?? users.length) / PAGE_SIZE))
+  const userName = user?.nombre?.trim()
+
   return (
     <div className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
-        <div><h1 className="mb-1 text-3xl">Usuarios</h1><p className="mb-0 text-sm text-[var(--color-text-muted)]">Consulta y administra las cuentas de la plataforma.</p></div>
+        <div><p className="greeting-enter mb-1 text-lg font-semibold text-brand-primary">{userName ? `Hola, ${userName}` : 'Hola'}</p><h1 className="mb-1 text-3xl">Usuarios</h1><p className="mb-0 text-sm text-[var(--color-text-muted)]">Consulta y administra las cuentas de la plataforma.</p></div>
         <div className="relative">
           <Button aria-expanded={newAccountOpen} aria-haspopup="menu" onClick={() => setNewAccountOpen((open) => !open)}>
             <Plus aria-hidden="true" className="size-4" strokeWidth={1.75} /> Nueva cuenta
