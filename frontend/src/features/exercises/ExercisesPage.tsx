@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus } from 'lucide-react'
+import { Archive, ArchiveRestore, Plus } from 'lucide-react'
 import { apiClient, getErrorMessage, requireResponse } from '../../api/client'
 import { queryKeys } from '../../api/queryKeys'
 import { Badge } from '../../components/ui/Badge'
@@ -27,16 +27,37 @@ export function ExercisesPage() {
   const client = useQueryClient()
   const [category, setCategory] = useState<Category | ''>('')
   const [state, setState] = useState<ExerciseState | ''>('')
+  const [archived, setArchived] = useState(false)
   const [editing, setEditing] = useState<Exercise | 'new' | null>(null)
   const [failure, setFailure] = useState('')
+  const [notice, setNotice] = useState('')
   const filters = useMemo(() => ({ ...(category ? { categoria: category } : {}), ...(state ? { estado: state } : {}) }), [category, state])
   const query = useQuery({
-    queryKey: queryKeys.exercises.list(filters),
+    queryKey: queryKeys.exercises.list({ ...filters, archivados: archived ? 'true' : undefined }),
     queryFn: async () => {
-      const result = await apiClient.GET('/ejercicios', { params: { query: filters } })
+      const result = await apiClient.GET('/ejercicios', { params: { query: { ...filters, ...(archived ? { archivados: true } : {}) } } })
       return requireResponse(result.data, result.response)
     },
   })
+  const archive = useMutation({
+    mutationFn: async ({ id, restore }: { id: string; restore: boolean }) => {
+      const result = restore
+        ? await apiClient.PATCH('/ejercicios/{id}/restaurar', { params: { path: { id } } })
+        : await apiClient.PATCH('/ejercicios/{id}/archivar', { params: { path: { id } } })
+      return requireResponse(result.data, result.response)
+    },
+    onSuccess: () => client.invalidateQueries({ queryKey: queryKeys.exercises.all }),
+  })
+  async function changeArchive(exercise: Exercise, restore: boolean) {
+    setFailure('')
+    setNotice('')
+    try {
+      await archive.mutateAsync({ id: exercise.id!, restore })
+      setNotice(restore
+        ? `"${exercise.nombre}" volvió a tu catálogo.`
+        : `"${exercise.nombre}" se archivó. Las rutas que ya lo usan siguen igual; puedes restaurarlo desde Archivados.`)
+    } catch (error) { setFailure(getErrorMessage(error)) }
+  }
   const toggle = useMutation({
     mutationFn: async ({ id, estado }: { id: string; estado: ExerciseState }) => {
       const result = await apiClient.PATCH('/ejercicios/{id}/estado', { params: { path: { id } }, body: { estado } })
@@ -48,8 +69,13 @@ export function ExercisesPage() {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-end justify-between gap-3"><div><h1 className="mb-1 text-3xl">Ejercicios</h1><p className="mb-0 text-sm text-[var(--color-text-muted)]">Consulta y organiza los ejercicios disponibles para tus pacientes.</p></div><Button onClick={() => { setFailure(''); setEditing('new') }}><Plus aria-hidden="true" className="size-4" />Crear ejercicio</Button></header>
+      <header className="flex flex-wrap items-end justify-between gap-3"><div><h1 className="mb-1 text-3xl">Ejercicios</h1><p className="mb-0 text-sm text-[var(--color-text-muted)]">Tu catálogo personal: solo tú ves y usas estos ejercicios en las rutas de tus pacientes.</p></div><Button onClick={() => { setFailure(''); setEditing('new') }}><Plus aria-hidden="true" className="size-4" />Crear ejercicio</Button></header>
       <Card>
+        <div role="tablist" aria-label="Vista del catálogo" className="mb-4 inline-flex rounded-xl border border-[var(--color-border)] p-1">
+          {([[false, 'Mis ejercicios'], [true, 'Archivados']] as const).map(([value, label]) => (
+            <button key={label} type="button" role="tab" aria-selected={archived === value} onClick={() => { setArchived(value); setFailure(''); setNotice('') }} className={`rounded-lg px-4 py-1.5 text-sm font-semibold transition-colors ${archived === value ? 'bg-[var(--color-primary)] text-white' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'}`}>{label}</button>
+          ))}
+        </div>
         <div className="mb-5 grid gap-3 sm:grid-cols-2">
           <label htmlFor="exercise-category" className="text-sm font-semibold">Categoría
             <Select id="exercise-category" className="mt-1" value={category} onChange={(e) => setCategory(e.target.value as Category | '')}><option value="">Todas</option>{categories.map((value) => <option key={value}>{value}</option>)}</Select>
@@ -60,13 +86,20 @@ export function ExercisesPage() {
         </div>
         {query.isPending && <div aria-busy="true" aria-label="Cargando ejercicios" className="space-y-3">{[1, 2, 3].map((i) => <div key={i} className="skeleton-shimmer h-20 animate-pulse rounded-xl bg-purple-50" />)}</div>}
         {query.isError && <ErrorState title="No pudimos cargar los ejercicios. Inténtalo de nuevo." message={query.error.message} action={<Button variant="secondary" onClick={() => void query.refetch()}>Intentar de nuevo</Button>} />}
-        {query.isSuccess && items.length === 0 && <EmptyState title="No encontramos ejercicios con esos filtros." description="Prueba con otros o crea uno." />}
+        {query.isSuccess && items.length === 0 && (archived
+          ? <EmptyState title="No tienes ejercicios archivados." description="Archiva los que ya no uses para mantener ordenado tu catálogo." />
+          : <EmptyState title="No encontramos ejercicios con esos filtros." description="Prueba con otros o crea uno." />)}
         <div className="list-stagger space-y-3">{items.map((exercise, i) => (
           <div key={exercise.id ?? i} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--color-border)] p-4">
-            <div><h2 className="mb-1 text-base">{exercise.nombre || '—'}</h2><p className="mb-2 text-sm text-[var(--color-text-muted)]">{gameTypeLabel(exercise.tipo)} · {exercise.categoria || '—'} · Nivel {exercise.nivel_dificultad ?? '—'}</p><Badge variant={exercise.estado === 'Activo' ? 'success' : 'attention'}>{exercise.estado || 'Estado no disponible'}</Badge></div>
-            <div className="flex gap-2"><Button size="sm" variant="secondary" onClick={() => { setFailure(''); setEditing(exercise) }}>Editar</Button>{exercise.id && <Button size="sm" variant="secondary" disabled={toggle.isPending} onClick={async () => { try { await toggle.mutateAsync({ id: exercise.id!, estado: exercise.estado === 'Activo' ? 'Desactivado' : 'Activo' }) } catch (error) { setFailure(getErrorMessage(error)) } }}>{exercise.estado === 'Activo' ? 'Desactivar' : 'Activar'}</Button>}</div>
+            <div><h2 className="mb-1 text-base">{exercise.nombre || '—'}</h2><p className="mb-2 text-sm text-[var(--color-text-muted)]">{gameTypeLabel(exercise.tipo)} · {exercise.categoria || '—'} · Nivel {exercise.nivel_dificultad ?? '—'}</p>{exercise.archivado_en
+                ? <Badge variant="neutral">Archivado</Badge>
+                : <Badge variant={exercise.estado === 'Activo' ? 'success' : 'attention'}>{exercise.estado || 'Estado no disponible'}</Badge>}</div>
+            {exercise.archivado_en
+              ? <div className="flex gap-2">{exercise.id && <Button size="sm" variant="secondary" disabled={archive.isPending} onClick={() => void changeArchive(exercise, true)}><ArchiveRestore aria-hidden="true" className="size-4" />Restaurar</Button>}</div>
+              : <div className="flex flex-wrap gap-2"><Button size="sm" variant="secondary" onClick={() => { setFailure(''); setEditing(exercise) }}>Editar</Button>{exercise.id && <Button size="sm" variant="secondary" disabled={toggle.isPending} onClick={async () => { try { await toggle.mutateAsync({ id: exercise.id!, estado: exercise.estado === 'Activo' ? 'Desactivado' : 'Activo' }) } catch (error) { setFailure(getErrorMessage(error)) } }}>{exercise.estado === 'Activo' ? 'Desactivar' : 'Activar'}</Button>}{exercise.id && <Button size="sm" variant="secondary" aria-label={`Archivar ${exercise.nombre ?? 'ejercicio'}`} disabled={archive.isPending} onClick={() => void changeArchive(exercise, false)}><Archive aria-hidden="true" className="size-4" />Archivar</Button>}</div>}
           </div>
         ))}</div>
+        {notice && <p role="status" className="mt-4 rounded-xl bg-[var(--color-success-bg)] p-3 text-sm text-[var(--color-success-text)]">{notice}</p>}
         {failure && <p role="alert" className="mt-4 rounded-xl bg-[var(--color-attention-bg)] p-3 text-sm text-[var(--color-attention-text)]">{failure}</p>}
       </Card>
       {editing && <ExerciseDialog key={editing === 'new' ? 'new' : editing.id} exercise={editing === 'new' ? null : editing} onClose={() => setEditing(null)} onSaved={async () => { await client.invalidateQueries({ queryKey: queryKeys.exercises.all }); setEditing(null) }} />}

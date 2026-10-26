@@ -180,6 +180,38 @@ describe('fase 3: administración y catálogo', () => {
     expect(opener).toHaveFocus()
   })
 
+  it('archiva un ejercicio y lo restaura desde la vista Archivados', async () => {
+    const seen: string[] = []
+    let archivedAt: string | null = null
+    const fetcher = (input: RequestInfo | URL) => {
+      const url = requestUrl(input)
+      const method = input instanceof Request ? input.method : 'GET'
+      seen.push(`${method} ${url.pathname}${url.search}`)
+      const exercise = { id: 'ex1', nombre: 'Reacción', categoria: 'Velocidad', tipo: 'reaccion', nivel_dificultad: 1, estado: 'Activo', archivado_en: archivedAt }
+      if (url.pathname.endsWith('/ejercicios/ex1/archivar')) { archivedAt = '2026-10-26T00:00:00Z'; return response(200, { ...exercise, archivado_en: archivedAt }) }
+      if (url.pathname.endsWith('/ejercicios/ex1/restaurar')) { archivedAt = null; return response(200, { ...exercise, archivado_en: null }) }
+      if (url.pathname.endsWith('/ejercicios')) {
+        const wantsArchived = url.searchParams.get('archivados') === 'true'
+        return response(200, wantsArchived === Boolean(archivedAt) ? [exercise] : [])
+      }
+      return response(404, { message: 'No encontrado' })
+    }
+    renderPage('/especialista/ejercicios', [{ path: '/especialista/ejercicios', element: <ExercisesPage /> }], fetcher)
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Archivar Reacción' }))
+    expect(await screen.findByRole('status')).toHaveTextContent('se archivó')
+    expect(seen).toContain('PATCH /v1/ejercicios/ex1/archivar')
+    expect(await screen.findByText('No encontramos ejercicios con esos filtros.')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('tab', { name: 'Archivados' }))
+    expect(await screen.findByText('Archivado')).toBeInTheDocument()
+    expect(seen).toContain('GET /v1/ejercicios?archivados=true')
+    expect(screen.queryByRole('button', { name: 'Editar' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Restaurar' }))
+    expect(await screen.findByRole('status')).toHaveTextContent('volvió a tu catálogo')
+    expect(seen).toContain('PATCH /v1/ejercicios/ex1/restaurar')
+  })
+
   it('edita parámetros tipados según el juego seleccionado', async () => {
     const fetcher = (input: RequestInfo | URL) => {
       if (requestUrl(input).pathname.endsWith('/ejercicios')) return response(200, [])

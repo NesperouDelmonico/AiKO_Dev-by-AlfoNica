@@ -5,9 +5,24 @@ import { ExerciseResultEntity } from '../entities/exercise-result.entity';
 import { RouteStatus } from '../entities/therapeutic-route.entity';
 import { PatientEntity } from '../../../users/domain/entities/patient.entity';
 export const THERAPY_REPOSITORY = Symbol('THERAPY_REPOSITORY');
+
+export type ExerciseFilters = Partial<
+  Pick<ExerciseEntity, 'categoria' | 'nivelDificultad' | 'estado'>
+> & {
+  /** Solo ejercicios creados por este usuario especialista. */
+  especialistaUserId?: string;
+  /** true: solo archivados; false: solo vigentes; sin valor: todos. */
+  archivados?: boolean;
+};
+
 export interface TherapyRepositoryPort {
-  exercises(filters: Partial<ExerciseEntity>): Promise<ExerciseEntity[]>;
+  exercises(filters: ExerciseFilters): Promise<ExerciseEntity[]>;
   exercise(id: string): Promise<ExerciseEntity | null>;
+  /** ¿Aparece el ejercicio en alguna ruta del paciente o de los pacientes del especialista? */
+  exerciseUsedInRoutes(
+    exerciseId: string,
+    scope: { pacienteId?: string; especialistaUserId?: string },
+  ): Promise<boolean>;
   specialistIdForUser(userId: string): Promise<string | null>;
   patientForUser(userId: string): Promise<PatientEntity | null>;
   patientById(patientId: string): Promise<PatientEntity | null>;

@@ -75,4 +75,8 @@ export class ExerciseEntity {
 
   @CreateDateColumn({ type: 'timestamp', name: 'fecha_creacion' })
   fechaCreacion!: Date;
+
+  /** Archivado: oculto en el catálogo; las rutas que ya lo usan siguen. */
+  @Column({ type: 'timestamp', name: 'archivado_en', nullable: true })
+  archivadoEn!: Date | null;
 }

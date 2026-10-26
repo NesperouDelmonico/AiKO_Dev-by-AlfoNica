@@ -1,8 +1,9 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   IsArray,
+  IsBoolean,
   IsIn,
   IsEnum,
   IsInt,
@@ -144,6 +145,16 @@ export class ExerciseQueryDto {
   @IsOptional()
   @IsEnum(ExerciseStatus)
   estado?: ExerciseStatus;
+  @ApiPropertyOptional({
+    description:
+      'true: solo archivados. Por defecto se listan los ejercicios no archivados.',
+  })
+  @IsOptional()
+  @Transform(({ value }) =>
+    value === 'true' ? true : value === 'false' ? false : value,
+  )
+  @IsBoolean()
+  archivados?: boolean;
 }
 
 export class ResultsQueryDto {
