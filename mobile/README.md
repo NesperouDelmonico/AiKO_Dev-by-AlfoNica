@@ -8,7 +8,13 @@ App móvil de AiKO. Paleta lila–durazno, login contra la API desplegada en Ver
 cd mobile
 flutter create --platforms=android --org co.edu.amigo --project-name aiko_mobile .
 flutter pub get
+dart run flutter_launcher_icons        # ícono de la app (assets/brand/)
+dart run flutter_native_splash:create  # pantalla de arranque morada
 ```
+
+Vuelve a correr los dos últimos comandos si cambian las imágenes de
+`assets/brand/`. Para que el nombre bajo el ícono sea "AiKO", en el
+manifiesto cambia `android:label="aiko_mobile"` por `android:label="AiKO"`.
 
 `flutter create .` no sobrescribe `lib/`, `pubspec.yaml` ni `test/`.
 
@@ -49,6 +55,15 @@ Requiere Android 11+ y que PC y teléfono estén en la misma red WiFi.
 El puerto de conexión cambia al reiniciar el teléfono o la depuración inalámbrica, y hay que
 volver a ejecutar `adb connect`. La vinculación (`adb pair`) se conserva.
 Guías para otros sistemas: `docs/SETUP_MAC.md`.
+
+## Diseño
+
+- Marca: `assets/brand/` (logo, mascota, ícono adaptativo, arranque). La
+  mascota se dibuja en código (`lib/widgets/mascot.dart`) para que parpadee
+  y flote.
+- Fuente Nunito (`assets/fonts/`, licencia OFL).
+- Animaciones en `lib/widgets/motion.dart`; todas respetan "Reducir
+  animaciones" (Ajustes) y la opción del sistema.
 
 ## Estado
 

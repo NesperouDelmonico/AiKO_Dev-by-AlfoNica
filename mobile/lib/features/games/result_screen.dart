@@ -5,6 +5,8 @@ import '../../core/api_client.dart';
 import '../../core/session.dart';
 import '../../core/theme.dart';
 import '../../widgets/aiko_card.dart';
+import '../../widgets/mascot.dart';
+import '../../widgets/motion.dart';
 import 'game_outcome.dart';
 import 'results_repository.dart';
 
@@ -130,8 +132,22 @@ class _ResultScreenState extends State<ResultScreen> {
     final outcome = widget.outcome;
     final color = result.advanced ? AikoColors.success : const Color(0xFFE07B39);
     return ListView(
-      padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
       children: [
+        Center(
+          child: FadeSlideIn(
+            offset: const Offset(0, -20),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (result.advanced) const SparkleStar(size: 22),
+                AikoMascot(size: 92, happy: result.advanced),
+                if (result.advanced) const SparkleStar(size: 30),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
         Text(
           result.advanced ? '¡Ejercicio completado!' : '¡Buen intento!',
           textAlign: TextAlign.center,
@@ -155,17 +171,26 @@ class _ResultScreenState extends State<ResultScreen> {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  CircularProgressIndicator(
-                    value: outcome.puntaje / 100,
-                    strokeWidth: 14,
-                    strokeCap: StrokeCap.round,
-                    backgroundColor: Colors.white,
-                    color: color,
+                  TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0, end: outcome.puntaje / 100),
+                    duration: reduceMotion(context)
+                        ? Duration.zero
+                        : const Duration(milliseconds: 1100),
+                    curve: Curves.easeOutCubic,
+                    builder: (context, value, _) => CircularProgressIndicator(
+                      value: value,
+                      strokeWidth: 14,
+                      strokeCap: StrokeCap.round,
+                      backgroundColor: Colors.white,
+                      color: color,
+                    ),
                   ),
                   Center(
-                    child: Text('${outcome.puntaje}%',
-                        style: const TextStyle(
-                            fontSize: 44, fontWeight: FontWeight.w800)),
+                    child: CountUp(
+                      value: outcome.puntaje,
+                      suffix: '%',
+                      style: const TextStyle(fontSize: 44, fontWeight: FontWeight.w900),
+                    ),
                   ),
                 ],
               ),

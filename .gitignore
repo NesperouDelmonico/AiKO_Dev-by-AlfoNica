@@ -1,0 +1,13 @@
+# Secretos: nunca subir archivos .env reales (usar los .env.example).
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# Dependencias y compilados
+node_modules/
+dist/
+coverage/
+.DS_Store

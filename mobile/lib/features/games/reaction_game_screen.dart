@@ -129,6 +129,7 @@ class _ReactionGameScreenState extends State<ReactionGameScreen> {
             child: const Text('Seguir jugando'),
           ),
           FilledButton(
+            style: dialogButtonStyle,
             onPressed: () => Navigator.of(context).pop(true),
             child: const Text('Salir'),
           ),
