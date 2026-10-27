@@ -37,6 +37,9 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
+          # Misma versión que el equipo de desarrollo (macOS 13 no corre
+          # Flutter 3.38+). Al subirla, regenerar android/ con esa versión.
+          flutter-version: "3.35.7"
           channel: stable
           cache: true
 
