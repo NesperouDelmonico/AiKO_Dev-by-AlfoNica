@@ -10,6 +10,7 @@ import '../../widgets/mascot.dart';
 import '../../widgets/motion.dart';
 import 'exercise_detail_screen.dart';
 import 'island_art.dart';
+import 'routine_done_screen.dart';
 
 /// Etiqueta Hero de la isla de un día (mapa → panel).
 String islandHeroTag(String routeId, int dia) => 'island-$routeId-$dia';
@@ -59,10 +60,20 @@ class _DayScreenState extends State<DayScreen> {
     final fresh = await widget.reload();
     if (!mounted || fresh == null) return;
     final day = fresh.days.where((d) => d.dia == _day.dia).firstOrNull;
+    final justFinished = !_day.isComplete && (day?.isComplete ?? false);
     setState(() {
       _route = fresh;
       if (day != null) _day = day;
     });
+    if (!justFinished) return;
+    final action = await Navigator.of(context).push<RoutineDoneAction>(
+      MaterialPageRoute(
+        builder: (_) => RoutineDoneScreen(day: _day, totalDays: widget.totalDays),
+      ),
+    );
+    if (!mounted) return;
+    // Devuelve al mapa; con `progress` el Inicio abre la pestaña Seguimiento.
+    Navigator.of(context).pop(action);
   }
 
   @override

@@ -200,30 +200,15 @@ class _CompleteWordsGameScreenState extends State<CompleteWordsGameScreen> {
             : 'Arrastra las letras que faltan';
     return GameShell(
       progress: _total == 0 ? 1 : _placed / _total,
+      title: title,
+      subtitle: subtitle,
+      trailing: TimerPill(
+        text: _clockText,
+        semantics: 'Tiempo restante $_clockText',
+      ),
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+        padding: const EdgeInsets.fromLTRB(20, 6, 20, 28),
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(title,
-                    style: Theme.of(context)
-                        .textTheme
-                        .headlineSmall
-                        ?.copyWith(fontWeight: FontWeight.w800)),
-              ),
-              Semantics(
-                label: 'Tiempo restante $_clockText',
-                excludeSemantics: true,
-                child: Chip(
-                  avatar: const Icon(Icons.timer_rounded, size: 18),
-                  label: Text(_clockText),
-                ),
-              ),
-            ],
-          ),
-          Text(subtitle, style: const TextStyle(color: AikoColors.inkSoft)),
-          const SizedBox(height: 14),
           if (widget.imagenId != null) ...[
             ExerciseImage(widget.imagenId!, height: 170),
             const SizedBox(height: 18),

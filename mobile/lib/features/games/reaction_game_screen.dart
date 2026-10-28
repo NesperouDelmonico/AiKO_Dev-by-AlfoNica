@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme.dart';
 import 'game_outcome.dart';
+import 'game_shell.dart';
 
 /// Velocidad de procesamiento: tocar el círculo apenas aparece.
 ///
@@ -147,15 +148,16 @@ class _ReactionGameScreenState extends State<ReactionGameScreen> {
         if (!didPop) _confirmExit();
       },
       child: Scaffold(
-        backgroundColor: AikoColors.lavenderBg,
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          leading: IconButton(
-            tooltip: 'Salir',
-            icon: const Icon(Icons.close_rounded),
-            onPressed: _confirmExit,
+        backgroundColor: const Color(0xFFF3EEFF),
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(64),
+          child: SafeArea(
+            child: GameTopBar(
+              progress: widget.intentos == 0 ? 0 : _trial / widget.intentos,
+              counter: '${min(_trial + 1, widget.intentos)}/${widget.intentos}',
+              onClose: _confirmExit,
+            ),
           ),
-          title: _Progress(done: _trial, total: widget.intentos),
         ),
         body: SafeArea(
           // Listener (y no GestureDetector) para registrar el toque al
@@ -247,29 +249,5 @@ class _Hint extends StatelessWidget {
             fontSize: 20,
             fontWeight: FontWeight.w700,
             color: AikoColors.inkSoft));
-  }
-}
-
-class _Progress extends StatelessWidget {
-  const _Progress({required this.done, required this.total});
-
-  final int done;
-  final int total;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      label: 'Intento ${min(done + 1, total)} de $total',
-      excludeSemantics: true,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: LinearProgressIndicator(
-          value: total == 0 ? 0 : done / total,
-          minHeight: 12,
-          backgroundColor: AikoColors.lilacSoft,
-          color: AikoColors.violet,
-        ),
-      ),
-    );
   }
 }

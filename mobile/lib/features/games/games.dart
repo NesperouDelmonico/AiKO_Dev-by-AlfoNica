@@ -67,17 +67,28 @@ Future<bool> playExercise(
   while (true) {
     final game = gameFor(item.ejercicio);
     if (game == null || !context.mounted) return submitted;
-    final outcome = await Navigator.of(context).push<GameOutcome>(
+    final clock = Stopwatch()..start();
+    final played = await Navigator.of(context).push<GameOutcome>(
       MaterialPageRoute(builder: (_) => game, fullscreenDialog: true),
     );
-    if (outcome == null || !context.mounted) return submitted;
+    if (played == null || !context.mounted) return submitted;
+    final outcome = played.withDuration(clock.elapsedMilliseconds);
     final action = await Navigator.of(context).push<ResultAction>(
-      MaterialPageRoute(
-        builder: (_) => ResultScreen(
+      PageRouteBuilder(
+        transitionDuration: const Duration(milliseconds: 450),
+        pageBuilder: (_, __, ___) => ResultScreen(
           routeId: routeId,
           routeExerciseId: item.id,
-          exerciseName: item.ejercicio.nombre,
+          exercise: item.ejercicio,
           outcome: outcome,
+        ),
+        transitionsBuilder: (_, animation, __, child) => FadeTransition(
+          opacity: animation,
+          child: ScaleTransition(
+            scale: Tween(begin: 0.96, end: 1.0).animate(
+                CurvedAnimation(parent: animation, curve: Curves.easeOutBack)),
+            child: child,
+          ),
         ),
       ),
     );

@@ -16,7 +16,7 @@ class IslandTheme {
     required this.deep,
   });
 
-  /// Sufijo de las imágenes: island_<key>.png, header_<key>.png.
+  /// Sufijo de las imágenes: `island_<key>.png`, `header_<key>.png`.
   final String key;
   final String name;
   final String tagline;

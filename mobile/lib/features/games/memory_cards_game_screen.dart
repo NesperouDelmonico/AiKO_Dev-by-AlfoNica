@@ -140,6 +140,24 @@ class _MemoryCardsGameScreenState extends State<MemoryCardsGameScreen>
     };
     return GameShell(
       progress: progress,
+      title: switch (_phase) {
+        _Phase.loading => 'Preparando las imágenes…',
+        _Phase.memorize => 'Observa las imágenes',
+        _Phase.answer => '¿Qué había en cada tarjeta?',
+        _Phase.review => 'Así te fue',
+      },
+      subtitle: switch (_phase) {
+        _Phase.memorize => 'Tienes unos segundos para recordarlas.',
+        _Phase.answer => 'Escribe una o dos palabras debajo de cada tarjeta.',
+        _ => null,
+      },
+      trailing: _phase == _Phase.memorize
+          ? TimerPill(
+              text: '$_remaining ${_remaining == 1 ? 'segundo' : 'segundos'}',
+              semantics: 'Se voltean en $_remaining segundos',
+              urgent: _remaining <= 2,
+            )
+          : null,
       bottom: switch (_phase) {
         _Phase.answer => CheckBar(label: 'COMPROBAR', onPressed: _check),
         _Phase.review => CheckBar(
@@ -151,32 +169,8 @@ class _MemoryCardsGameScreenState extends State<MemoryCardsGameScreen>
         _ => null,
       },
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+        padding: const EdgeInsets.fromLTRB(20, 6, 20, 24),
         children: [
-          Text(
-            switch (_phase) {
-              _Phase.loading => 'Preparando las imágenes…',
-              _Phase.memorize => 'Memoriza las imágenes',
-              _Phase.answer => '¿Qué había en cada tarjeta?',
-              _Phase.review => 'Así te fue',
-            },
-            style: Theme.of(context)
-                .textTheme
-                .headlineSmall
-                ?.copyWith(fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 6),
-          if (_phase == _Phase.memorize)
-            Semantics(
-              liveRegion: true,
-              child: Text('Se voltean en $_remaining s',
-                  style: const TextStyle(
-                      fontSize: 16, color: AikoColors.inkSoft)),
-            )
-          else if (_phase == _Phase.answer)
-            const Text('Escribe una o dos palabras debajo de cada tarjeta.',
-                style: TextStyle(fontSize: 16, color: AikoColors.inkSoft)),
-          const SizedBox(height: 16),
           if (_phase == _Phase.loading)
             const Padding(
               padding: EdgeInsets.only(top: 60),

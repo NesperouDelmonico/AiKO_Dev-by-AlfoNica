@@ -92,6 +92,9 @@ class _LogicGameScreenState extends State<LogicGameScreen> {
     final checked = _wasCorrect != null;
     return GameShell(
       progress: (_index + (checked ? 1 : 0)) / widget.preguntas.length,
+      title: 'Resuelve el problema',
+      subtitle: 'Lee con calma y elige una respuesta.',
+      counter: '${_index + 1}/${widget.preguntas.length}',
       bottom: CheckBar(
         label: checked ? 'CONTINUAR' : 'COMPROBAR',
         onPressed: checked ? _next : (_selected == null ? null : _check),
@@ -103,28 +106,15 @@ class _LogicGameScreenState extends State<LogicGameScreen> {
                 : 'La respuesta era: ${_letters[question.correcta]}. ${question.opciones[question.correcta]}',
       ),
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+        padding: const EdgeInsets.fromLTRB(20, 6, 20, 20),
         children: [
-          Text('Resuelve el problema',
-              style: Theme.of(context)
-                  .textTheme
-                  .headlineSmall
-                  ?.copyWith(fontWeight: FontWeight.w800)),
-          const SizedBox(height: 4),
-          Text('Pregunta ${_index + 1} de ${widget.preguntas.length}',
-              style: const TextStyle(color: AikoColors.inkSoft)),
-          const SizedBox(height: 16),
           if (question.imagenId != null) ...[
             ExerciseImage(question.imagenId!),
             const SizedBox(height: 16),
           ],
           Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: AikoColors.lilacSoft, width: 2),
-            ),
+            padding: const EdgeInsets.all(20),
+            decoration: softCard(),
             child: Text(question.enunciado,
                 style: const TextStyle(fontSize: 19, height: 1.4)),
           ),

@@ -16,6 +16,7 @@ import '../shell/app_shell.dart';
 import 'day_screen.dart';
 import 'home_repository.dart';
 import 'island_art.dart';
+import 'routine_done_screen.dart';
 
 /// Pantalla principal: la ruta terapéutica como un mapa de islas, una por
 /// día. Al tocar una isla se abre el panel con los ejercicios de ese día.
@@ -62,7 +63,7 @@ class _HomeScreenState extends State<HomeScreen> with ReloadOnTab<HomeScreen> {
   }
 
   Future<void> _openDay(ActiveRoute route, RouteDay day, int totalDays) async {
-    await Navigator.of(context).push(PageRouteBuilder<void>(
+    final action = await Navigator.of(context).push(PageRouteBuilder<RoutineDoneAction>(
       transitionDuration: const Duration(milliseconds: 520),
       reverseTransitionDuration: const Duration(milliseconds: 380),
       pageBuilder: (_, __, ___) => DayScreen(
@@ -76,6 +77,9 @@ class _HomeScreenState extends State<HomeScreen> with ReloadOnTab<HomeScreen> {
         child: child,
       ),
     ));
+    if (action == RoutineDoneAction.progress && mounted) {
+      context.read<ShellTab>().value = ShellTab.progress;
+    }
   }
 
   /// Lleva el mapa hasta la isla de hoy la primera vez que carga.

@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import '../../core/island_theme.dart';
 import '../../widgets/brand_image.dart';
 
-/// Ilustración de una isla: el PNG generado (island_<tema>.png) o, mientras
+/// Ilustración de una isla: el PNG generado (`island_<tema>.png`) o, mientras
 /// no exista, una isla pintada en código con el ícono del tema.
 class IslandArt extends StatelessWidget {
   const IslandArt({

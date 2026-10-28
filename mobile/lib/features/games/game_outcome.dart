@@ -6,6 +6,7 @@ class GameOutcome {
     required this.aciertos,
     required this.intentos,
     this.tiempoReaccionMs,
+    this.duracionMs,
   });
 
   /// 0–100.
@@ -15,6 +16,17 @@ class GameOutcome {
 
   /// Promedio de los aciertos; null si no hubo ninguno.
   final int? tiempoReaccionMs;
+
+  /// Duración total del ejercicio (solo se muestra; no se envía).
+  final int? duracionMs;
+
+  GameOutcome withDuration(int ms) => GameOutcome(
+        puntaje: puntaje,
+        aciertos: aciertos,
+        intentos: intentos,
+        tiempoReaccionMs: tiempoReaccionMs,
+        duracionMs: ms,
+      );
 
   /// Puntaje = porcentaje de aciertos; tiempo = promedio de los aciertos.
   factory GameOutcome.fromReactions({
