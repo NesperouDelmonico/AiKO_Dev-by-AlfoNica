@@ -57,9 +57,9 @@ class RoutineDoneScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 8),
-                const Semantics(
+                Semantics(
                   header: true,
-                  child: Text('¡Excelente!',
+                  child: const Text('¡Excelente!',
                       textAlign: TextAlign.center,
                       style: TextStyle(fontSize: 34, fontWeight: FontWeight.w900)),
                 ),
