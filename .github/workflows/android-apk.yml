@@ -92,7 +92,7 @@ jobs:
           status=$?
           cat test.txt
           if [ $status -ne 0 ]; then
-            grep -E "\[E\]|Expected:|Actual:|Which:|EXCEPTION CAUGHT|^The following|was thrown" test.txt \
+            grep -E -A3 "\[E\]|Expected:|Actual:|Which:|^The following" test.txt | grep -v "^--$" \
               | head -40 | sed 's/^/::error title=Prueba fallida::/'
           fi
           exit $status

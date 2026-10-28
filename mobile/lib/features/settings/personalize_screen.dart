@@ -60,7 +60,7 @@ class _PersonalizeScreenState extends State<PersonalizeScreen> {
             physics: const NeverScrollableScrollPhysics(),
             mainAxisSpacing: 12,
             crossAxisSpacing: 12,
-            childAspectRatio: 0.86,
+            childAspectRatio: 0.78,
             children: [
               for (final accessory in AikoAccessory.values)
                 Semantics(
@@ -81,16 +81,23 @@ class _PersonalizeScreenState extends State<PersonalizeScreen> {
                           width: 3,
                         ),
                       ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          AikoAvatar(size: 62, accessory: accessory),
-                          const SizedBox(height: 6),
-                          Text(accessory.label,
-                              textAlign: TextAlign.center,
-                              maxLines: 2,
-                              style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800)),
-                        ],
+                      // Se reduce con letra grande o pantallas angostas.
+                      child: FittedBox(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            AikoAvatar(size: 62, accessory: accessory),
+                            const SizedBox(height: 6),
+                            SizedBox(
+                              width: 84,
+                              child: Text(accessory.label,
+                                  textAlign: TextAlign.center,
+                                  maxLines: 2,
+                                  style: const TextStyle(
+                                      fontSize: 12.5, fontWeight: FontWeight.w800)),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
