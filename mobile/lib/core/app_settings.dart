@@ -12,7 +12,7 @@ enum TextSizeOption {
   final String label;
 }
 
-/// Accesorio del oso en "Personaliza a AiKO" (avatar_<name>.png).
+/// Accesorio del oso en "Personaliza a AiKO" (`avatar_<name>.png`).
 enum AikoAccessory {
   base('Sin accesorio'),
   gorra('Gorra'),
