@@ -20,7 +20,7 @@ const welcomePhrases = [
 ];
 
 String phraseOfTheDay([DateTime? now]) {
-  final day = (now ?? DateTime.now());
+  final day = now ?? DateTime.now();
   final index = DateTime(day.year, day.month, day.day)
           .difference(DateTime(2026))
           .inDays %
