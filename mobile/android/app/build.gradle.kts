@@ -24,7 +24,8 @@ android {
         applicationId = "co.edu.amigo.aiko_mobile"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        // Firebase Messaging pide Android 6 (API 23) o superior.
+        minSdk = maxOf(flutter.minSdkVersion, 23)
         targetSdk = flutter.targetSdkVersion
         // Uses the version code from pubspec.yaml. When using split APKs, 1000 * ABI_VERSION
         // is added automatically by Flutter. (https://developer.android.com/studio/build/configure-apk-splits#configure-APK-versions)
@@ -45,4 +46,10 @@ android {
 
 flutter {
     source = "../.."
+}
+
+// Firebase solo si existe google-services.json (local o inyectado en CI desde
+// el secreto GOOGLE_SERVICES_JSON); sin él la app compila sin push.
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
 }

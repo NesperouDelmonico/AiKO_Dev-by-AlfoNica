@@ -16,6 +16,9 @@ dependencies:
   shared_preferences: ^2.3.2
   # Transiciones Material (eje compartido, fundido) entre páginas.
   animations: ^2.0.11
+  # Push (FCM). Sin google-services.json la app funciona sin notificaciones.
+  firebase_core: ">=3.6.0 <5.0.0"
+  firebase_messaging: ">=15.1.0 <17.0.0"
 
 dev_dependencies:
   flutter_test:

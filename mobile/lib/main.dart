@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import 'core/api_client.dart';
 import 'core/app_settings.dart';
+import 'core/push.dart';
 import 'core/session.dart';
 import 'core/theme.dart';
 import 'features/auth/welcome_screen.dart';
@@ -33,6 +34,8 @@ class AikoApp extends StatefulWidget {
 
 class _AikoAppState extends State<AikoApp> {
   final _navigator = GlobalKey<NavigatorState>();
+  final _messenger = GlobalKey<ScaffoldMessengerState>();
+  late final PushService _push = PushService(context.read<Session>(), _messenger);
   bool? _wasAuthenticated;
 
   /// Al iniciar o cerrar sesión se vuelve a la raíz: el inicio de sesión
@@ -40,6 +43,14 @@ class _AikoAppState extends State<AikoApp> {
   void _onSession(Session session) {
     if (!session.ready) return;
     final now = session.isAuthenticated;
+    if (_wasAuthenticated != now) {
+      // Notificaciones: registra el teléfono con sesión y lo quita al salir.
+      if (now) {
+        _push.start();
+      } else if (_wasAuthenticated == true) {
+        _push.stop();
+      }
+    }
     if (_wasAuthenticated != null && _wasAuthenticated != now) {
       WidgetsBinding.instance.addPostFrameCallback(
         (_) => _navigator.currentState?.popUntil((route) => route.isFirst),
@@ -53,6 +64,7 @@ class _AikoAppState extends State<AikoApp> {
     final settings = context.watch<AppSettings>();
     return MaterialApp(
       navigatorKey: _navigator,
+      scaffoldMessengerKey: _messenger,
       title: 'AiKO',
       debugShowCheckedModeBanner: false,
       theme: buildAikoTheme(),

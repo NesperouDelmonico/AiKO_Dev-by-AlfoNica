@@ -4,14 +4,17 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/api_client.dart';
+import '../../core/app_settings.dart';
 import '../../core/dates.dart';
 import '../../core/island_theme.dart';
 import '../../core/models.dart';
 import '../../core/session.dart';
 import '../../core/theme.dart';
+import '../../widgets/aiko_avatar.dart';
 import '../../widgets/brand_image.dart';
 import '../../widgets/mascot.dart';
 import '../../widgets/motion.dart';
+import '../companion/companion.dart';
 import '../shell/app_shell.dart';
 import 'day_screen.dart';
 import 'home_repository.dart';
@@ -31,6 +34,7 @@ class _HomeScreenState extends State<HomeScreen> with ReloadOnTab<HomeScreen> {
   late Future<HomeData> _future;
   final _currentKey = GlobalKey();
   bool _scrolledToCurrent = false;
+  bool _greetingChecked = false;
 
   @override
   int get tabIndex => ShellTab.home;
@@ -77,9 +81,42 @@ class _HomeScreenState extends State<HomeScreen> with ReloadOnTab<HomeScreen> {
         child: child,
       ),
     ));
+    if (action == null || !mounted) return;
+    // Terminó la rutina: el compañero recuerda descansar (una vez al día).
+    final settings = context.read<AppSettings>();
+    if (!settings.restShownToday()) {
+      await settings.markRestShown();
+      if (mounted) await showRestReminder(context);
+    }
     if (action == RoutineDoneAction.progress && mounted) {
       context.read<ShellTab>().value = ShellTab.progress;
     }
+  }
+
+  /// Saludo del compañero la primera vez que se abre el Inicio en el día.
+  void _greetOnce(ActiveRoute? route) {
+    if (_greetingChecked) return;
+    _greetingChecked = true;
+    final settings = context.read<AppSettings>();
+    if (settings.greetedToday()) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      await settings.markGreeted();
+      final current = route == null ? null : _currentDay(route);
+      final playable = route != null &&
+          current != null &&
+          islandState(current, route.agenda) == IslandState.today;
+      if (!mounted) return;
+      final go = await showCompanionGreeting(
+        context,
+        name: context.read<Session>().firstName,
+        hasExercises: playable,
+      );
+      if (go && mounted && route != null && current != null) {
+        final totalDays = route.agenda.duracionDias ?? route.days.length;
+        await _openDay(route, current, totalDays);
+      }
+    });
   }
 
   /// Lleva el mapa hasta la isla de hoy la primera vez que carga.
@@ -126,6 +163,7 @@ class _HomeScreenState extends State<HomeScreen> with ReloadOnTab<HomeScreen> {
             final route =
                 candidate != null && candidate.ejercicios.isNotEmpty ? candidate : null;
             if (route != null) _scrollToCurrentOnce();
+            _greetOnce(route);
             final days = route?.days ?? const <RouteDay>[];
             final totalDays = route?.agenda.duracionDias ?? days.length;
             final current = route == null ? null : _currentDay(route);
@@ -591,6 +629,8 @@ class _TopBar extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
       child: Row(
         children: [
+          const AikoAvatar(size: 46),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
