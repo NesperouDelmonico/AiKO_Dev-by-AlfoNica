@@ -14,3 +14,6 @@ local.properties
 *.jks
 *.keystore
 **/ios/Pods/
+
+# Firebase (repo público): se inyecta en CI desde el secreto GOOGLE_SERVICES_JSON.
+/android/app/google-services.json

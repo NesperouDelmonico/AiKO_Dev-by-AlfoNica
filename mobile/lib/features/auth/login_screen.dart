@@ -51,7 +51,16 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final notice = context.select<Session, String?>((s) => s.notice);
+    final canGoBack = Navigator.of(context).canPop();
     return Scaffold(
+      extendBodyBehindAppBar: true,
+      appBar: canGoBack
+          ? AppBar(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              scrolledUnderElevation: 0,
+            )
+          : null,
       body: Container(
         decoration: const BoxDecoration(gradient: AikoColors.softGradient),
         child: SafeArea(

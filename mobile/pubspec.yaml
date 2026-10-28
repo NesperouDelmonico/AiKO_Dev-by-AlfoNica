@@ -31,6 +31,8 @@ flutter:
   uses-material-design: true
   assets:
     - assets/brand/
+    # Ilustraciones generadas con IA (docs/imagenes-ia.md); opcionales.
+    - assets/brand/ia/
   fonts:
     - family: Nunito
       fonts:
