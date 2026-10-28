@@ -2384,6 +2384,55 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/pacientes/{id}/constancia": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPathParam"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Calendario de constancia del paciente
+         * @description Días (hora Colombia) con al menos un ejercicio realizado en el mes, racha
+         *     actual (termina hoy o ayer), mejor racha e intentos de la semana (lunes a domingo).
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Mes YYYY-MM; por defecto el actual. */
+                    mes?: string;
+                };
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPathParam"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Constancia del mes */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Constancia"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/pacientes/{id}/perfil-logros": {
         parameters: {
             query?: never;
@@ -3250,6 +3299,17 @@ export interface components {
              * @description Fecha de archivo; null si está en el catálogo.
              */
             archivado_en?: string | null;
+        };
+        Constancia: {
+            /** @example 2026-10 */
+            mes?: string;
+            /** Format: date */
+            hoy?: string;
+            dias_activos?: string[];
+            racha_actual?: number;
+            mejor_racha?: number;
+            ejercicios_semana?: number;
+            dias_activos_total?: number;
         };
         RutaTerapeutica: {
             /** Format: uuid */

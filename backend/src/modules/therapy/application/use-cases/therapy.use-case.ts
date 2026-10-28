@@ -20,6 +20,7 @@ import { IMAGE_STORAGE } from '../../domain/ports/image-storage.port';
 import type { ImageStoragePort } from '../../domain/ports/image-storage.port';
 import { routeSchedule } from '../../domain/services/route-schedule';
 import { normalizeExerciseParameters } from '../../domain/services/exercise-parameters';
+import { consistency, currentMonth } from '../../domain/services/consistency';
 import { RouteExerciseStatus } from '../../domain/entities/route-exercise.entity';
 import { RouteExerciseEntity } from '../../domain/entities/route-exercise.entity';
 import { ExerciseResultEntity } from '../../domain/entities/exercise-result.entity';
@@ -620,6 +621,13 @@ export class TherapyUseCase {
   ) {
     await this.assertPatientAccess(patientId, actor);
     return this.repository.temporalProgress(patientId, desde, hasta);
+  }
+
+  /** Calendario de constancia del mes (YYYY-MM, por defecto el actual). */
+  async consistency(patientId: string, mes: string | undefined, actor: Actor) {
+    await this.assertPatientAccess(patientId, actor);
+    const month = mes ?? currentMonth();
+    return consistency(await this.repository.resultDates(patientId), month);
   }
 
   private numericConfig(key: string, fallback: number) {

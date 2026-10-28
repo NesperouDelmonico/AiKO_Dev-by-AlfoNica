@@ -53,6 +53,7 @@ describe('TherapyUseCase.result', () => {
     replaceRouteExercise: jest.fn(),
     saveResult: jest.fn(),
     results: jest.fn(),
+    resultDates: jest.fn(),
     resultsPage: jest.fn(),
     routesHistory: jest.fn(),
     domainProgress: jest.fn(),
@@ -564,6 +565,31 @@ describe('TherapyUseCase.result', () => {
         archivadoEn: null,
       });
       expect(restored.archivado_en).toBeNull();
+    });
+  });
+
+  describe('constancia', () => {
+    it('agrupa los resultados del paciente y exige acceso', async () => {
+      repository.resultDates.mockResolvedValue([
+        new Date('2026-10-27T17:00:00Z'),
+        new Date('2026-10-28T17:00:00Z'),
+      ]);
+      repository.patientAssignedToSpecialist.mockResolvedValue(true);
+      const result = await useCase.consistency('patient-id', '2026-10', {
+        sub: 'specialist-user',
+        rol: UserRole.ESPECIALISTA,
+      });
+      expect(result.mes).toBe('2026-10');
+      expect(result.dias_activos).toEqual(['2026-10-27', '2026-10-28']);
+      expect(repository.resultDates).toHaveBeenCalledWith('patient-id');
+
+      repository.patientAssignedToSpecialist.mockResolvedValue(false);
+      await expect(
+        useCase.consistency('patient-id', undefined, {
+          sub: 'other-specialist',
+          rol: UserRole.ESPECIALISTA,
+        }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
     });
   });
 });

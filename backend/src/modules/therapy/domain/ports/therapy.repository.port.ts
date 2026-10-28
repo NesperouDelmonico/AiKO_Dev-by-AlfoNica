@@ -90,6 +90,8 @@ export interface TherapyRepositoryPort {
     shouldAdvance?: boolean,
   ): Promise<ExerciseResultEntity>;
   results(patientId: string): Promise<ExerciseResultEntity[]>;
+  /** Fechas de todos los resultados del paciente (calendario de constancia). */
+  resultDates(patientId: string): Promise<Date[]>;
   resultsPage(
     patientId: string,
     page: number,

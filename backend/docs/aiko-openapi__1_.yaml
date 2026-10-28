@@ -1275,6 +1275,29 @@ paths:
                         valor: { type: number, format: float }
                   aviso: { type: string, nullable: true }
 
+  /pacientes/{id}/constancia:
+    parameters:
+      - { $ref: "#/components/parameters/idPathParam" }
+    get:
+      tags: [Ejecución y resultados]
+      summary: Calendario de constancia del paciente
+      description: |
+        Días (hora Colombia) con al menos un ejercicio realizado en el mes, racha
+        actual (termina hoy o ayer), mejor racha e intentos de la semana (lunes a domingo).
+      parameters:
+        - name: mes
+          in: query
+          description: Mes YYYY-MM; por defecto el actual.
+          schema: { type: string, pattern: "^\\d{4}-(0[1-9]|1[0-2])$", example: "2026-10" }
+      responses:
+        "200":
+          description: Constancia del mes
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Constancia" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
   # ============================================================
   # MÓDULO: GAMIFICACIÓN
   # ============================================================
@@ -1860,6 +1883,19 @@ components:
           format: date-time
           nullable: true
           description: Fecha de archivo; null si está en el catálogo.
+
+    Constancia:
+      type: object
+      properties:
+        mes: { type: string, example: "2026-10" }
+        hoy: { type: string, format: date }
+        dias_activos:
+          type: array
+          items: { type: string, format: date }
+        racha_actual: { type: integer, minimum: 0 }
+        mejor_racha: { type: integer, minimum: 0 }
+        ejercicios_semana: { type: integer, minimum: 0 }
+        dias_activos_total: { type: integer, minimum: 0 }
 
     RutaTerapeutica:
       type: object

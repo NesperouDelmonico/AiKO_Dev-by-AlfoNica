@@ -522,6 +522,14 @@ export class PostgresTherapyRepository implements TherapyRepositoryPort {
       order: { fecha: 'DESC' },
     });
   }
+  async resultDates(patientId: string) {
+    const rows = await this.result.find({
+      where: { paciente: { id: patientId } },
+      select: { id: true, fecha: true },
+      order: { fecha: 'ASC' },
+    });
+    return rows.map((row) => row.fecha);
+  }
   async resultsPage(patientId: string, page: number, limit: number) {
     const [data, total] = await this.result.findAndCount({
       where: { paciente: { id: patientId } },

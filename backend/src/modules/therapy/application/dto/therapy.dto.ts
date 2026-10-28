@@ -12,6 +12,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  Matches,
   Max,
   MaxLength,
   MinLength,
@@ -155,6 +156,15 @@ export class ExerciseQueryDto {
   )
   @IsBoolean()
   archivados?: boolean;
+}
+
+export class ConsistencyQueryDto {
+  @ApiPropertyOptional({ example: '2026-10', description: 'Mes YYYY-MM' })
+  @IsOptional()
+  @Matches(/^\d{4}-(0[1-9]|1[0-2])$/, {
+    message: 'mes debe tener el formato YYYY-MM',
+  })
+  mes?: string;
 }
 
 export class ResultsQueryDto {

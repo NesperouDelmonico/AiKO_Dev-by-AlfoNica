@@ -133,7 +133,7 @@ class _HomeScreenState extends State<HomeScreen> with ReloadOnTab<HomeScreen> {
               children: [
                 Column(
                   children: [
-                    _TopBar(profile: data.profile),
+                    _TopBar(profile: data.profile, streak: data.streak),
                     Expanded(
                       child: RefreshIndicator(
                         onRefresh: _refresh,
@@ -579,9 +579,10 @@ class _ContinueBar extends StatelessWidget {
 // Cabecera
 
 class _TopBar extends StatelessWidget {
-  const _TopBar({required this.profile});
+  const _TopBar({required this.profile, this.streak});
 
   final AchievementProfile profile;
+  final int? streak;
 
   @override
   Widget build(BuildContext context) {
@@ -610,13 +611,23 @@ class _TopBar extends StatelessWidget {
             color: AikoColors.violet,
           ),
           const SizedBox(width: 6),
-          _StatChip(
-            semantics: '${profile.xp} puntos de experiencia',
-            leading: const Icon(Icons.bolt_rounded, size: 20, color: Color(0xFFE07B39)),
-            value: profile.xp,
-            suffix: ' XP',
-            color: const Color(0xFFE07B39),
-          ),
+          if (streak != null)
+            _StatChip(
+              semantics: '$streak ${streak == 1 ? 'día seguido' : 'días seguidos'} practicando',
+              leading: const Icon(Icons.local_fire_department_rounded,
+                  size: 20, color: Color(0xFFE07B39)),
+              value: streak!,
+              suffix: streak == 1 ? ' día' : ' días',
+              color: const Color(0xFFE07B39),
+            )
+          else
+            _StatChip(
+              semantics: '${profile.xp} puntos de experiencia',
+              leading: const Icon(Icons.bolt_rounded, size: 20, color: Color(0xFFE07B39)),
+              value: profile.xp,
+              suffix: ' XP',
+              color: const Color(0xFFE07B39),
+            ),
         ],
       ),
     );

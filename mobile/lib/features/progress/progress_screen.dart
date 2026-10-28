@@ -11,6 +11,7 @@ import '../../core/theme.dart';
 import '../../widgets/mascot.dart';
 import '../../widgets/motion.dart';
 import '../shell/app_shell.dart';
+import 'consistency_calendar.dart';
 import 'progress_repository.dart';
 
 /// Seguimiento: nivel y XP, progreso por área, evolución, insignias e
@@ -108,6 +109,18 @@ class _ProgressScreenState extends State<ProgressScreen>
                   const _Title('Tu progreso'),
                   FadeSlideIn(child: _LevelCard(nivel: data.nivel, xp: data.xp)),
                   const SizedBox(height: 22),
+                  if (data.consistency != null) ...[
+                    const _Section('Mi constancia'),
+                    FadeSlideIn(
+                      delay: const Duration(milliseconds: 60),
+                      child: ConsistencyCalendar(
+                        initial: data.consistency!,
+                        load: (month) => _repository.consistency(
+                            context.read<Session>().pacienteId!, month),
+                      ),
+                    ),
+                    const SizedBox(height: 22),
+                  ],
                   const _Section('Tus áreas'),
                   FadeSlideIn(
                     delay: const Duration(milliseconds: 100),

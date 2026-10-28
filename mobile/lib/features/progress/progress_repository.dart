@@ -78,6 +78,37 @@ class AttemptPage {
   final int total;
 }
 
+/// GET /pacientes/:id/constancia?mes=YYYY-MM
+class Consistency {
+  const Consistency({
+    required this.mes,
+    required this.hoy,
+    required this.diasActivos,
+    required this.rachaActual,
+    required this.mejorRacha,
+    required this.ejerciciosSemana,
+  });
+
+  /// YYYY-MM.
+  final String mes;
+
+  /// YYYY-MM-DD (Colombia).
+  final String hoy;
+  final Set<String> diasActivos;
+  final int rachaActual;
+  final int mejorRacha;
+  final int ejerciciosSemana;
+
+  factory Consistency.fromJson(Map<String, dynamic> json) => Consistency(
+        mes: '${json['mes']}',
+        hoy: '${json['hoy']}',
+        diasActivos: ((json['dias_activos'] as List?) ?? const []).map((d) => '$d').toSet(),
+        rachaActual: (json['racha_actual'] as num?)?.toInt() ?? 0,
+        mejorRacha: (json['mejor_racha'] as num?)?.toInt() ?? 0,
+        ejerciciosSemana: (json['ejercicios_semana'] as num?)?.toInt() ?? 0,
+      );
+}
+
 class ProgressData {
   const ProgressData({
     required this.nivel,
@@ -87,6 +118,7 @@ class ProgressData {
     required this.domains,
     required this.series,
     required this.history,
+    this.consistency,
   });
 
   final int nivel;
@@ -98,6 +130,9 @@ class ProgressData {
   final List<DomainProgress> domains;
   final List<SeriesPoint> series;
   final AttemptPage history;
+
+  /// Null si el servidor aún no tiene el calendario de constancia.
+  final Consistency? consistency;
 }
 
 class ProgressRepository {
@@ -118,6 +153,7 @@ class ProgressRepository {
       _api.get('$base/progreso/dominio'),
       _api.get('$base/progreso/temporal'),
       history(pacienteId, 1),
+      consistency(pacienteId).then<Consistency?>((c) => c, onError: (_) => null),
     ]);
     final profile = Map<String, dynamic>.from(results[0] as Map);
     final earned = ((profile['insignias'] as List?) ?? const [])
@@ -150,7 +186,14 @@ class ProgressRepository {
           .map((p) => SeriesPoint('${p['fecha']}', (p['valor'] as num?)?.toDouble() ?? 0))
           .toList(),
       history: results[4] as AttemptPage,
+      consistency: results[5] as Consistency?,
     );
+  }
+
+  Future<Consistency> consistency(String pacienteId, [String? mes]) async {
+    final query = mes == null ? '' : '?mes=$mes';
+    final data = await _api.get('/pacientes/$pacienteId/constancia$query');
+    return Consistency.fromJson(Map<String, dynamic>.from(data as Map));
   }
 
   Future<AttemptPage> history(String pacienteId, int page) async {
