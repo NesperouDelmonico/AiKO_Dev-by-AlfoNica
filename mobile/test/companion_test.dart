@@ -42,6 +42,9 @@ void main() {
   });
 
   testWidgets('personalizar guarda el accesorio elegido', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2340);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
     SharedPreferences.setMockInitialValues({});
     final settings = AppSettings();
     await settings.load();
@@ -69,7 +72,10 @@ void main() {
     ));
     await tester.tap(find.text('abrir'));
     await tester.pumpAndSettle();
-    await tester.tap(find.bySemanticsLabel('Audífonos'));
+    final option = find.bySemanticsLabel('Audífonos');
+    await tester.ensureVisible(option);
+    await tester.pumpAndSettle();
+    await tester.tap(option);
     await tester.pump();
     await tester.tap(find.widgetWithText(FilledButton, 'Guardar'));
     await tester.pumpAndSettle();

@@ -85,7 +85,17 @@ jobs:
           exit $status
 
       - name: Pruebas
-        run: flutter test --reporter github
+        # Las pruebas que fallan se publican como anotaciones.
+        run: |
+          set +e
+          flutter test --reporter expanded > test.txt 2>&1
+          status=$?
+          cat test.txt
+          if [ $status -ne 0 ]; then
+            grep -E "\[E\]|Expected:|Actual:|Which:|EXCEPTION CAUGHT|^The following|was thrown" test.txt \
+              | head -40 | sed 's/^/::error title=Prueba fallida::/'
+          fi
+          exit $status
 
       - name: Compilar APK
         run: |
