@@ -9,6 +9,7 @@ import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { ErrorState } from '../../components/ui/ErrorState'
+import { PageHeader } from '../../components/ui/PageHeader'
 import { Select } from '../../components/ui/Select'
 import { useAuth } from '../../auth/AuthContext'
 import { formatDate } from '../../lib/date'
@@ -37,7 +38,7 @@ export function AlertsPage() {
   const alerts = query.data ?? []
   return (
     <div className="space-y-6">
-      <header><h1 className="mb-1 text-3xl">Alertas</h1><p className="mb-0 text-sm text-[var(--color-text-muted)]">Consulta las alertas de tus pacientes; se resuelven automáticamente.</p></header>
+      <PageHeader title="Alertas" description="Consulta las alertas de tus pacientes; se resuelven automáticamente." />
       <Card>
         <div className="mb-5 grid gap-3 sm:grid-cols-2">
           <label htmlFor="alert-type" className="text-sm font-semibold">Tipo

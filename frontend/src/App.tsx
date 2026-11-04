@@ -9,6 +9,8 @@ import { PanelErrorBoundary } from './components/layout/PanelErrorBoundary'
 import { ChangePasswordPage, ForgotPasswordPage, LoginPage, ResetPasswordPage } from './pages/AuthPages'
 import { NewPatientPage } from './features/patients/NewPatientPage'
 import { SessionLoading } from './auth/SessionLoading'
+import { ToastProvider } from './components/ui/ToastProvider'
+import { NotFoundPage } from './pages/NotFoundPage'
 
 const PatientsListPage = lazy(() => import('./features/patients/PatientsListPage').then((module) => ({ default: module.PatientsListPage })))
 const PatientDetailPage = lazy(() => import('./features/patients/PatientDetailPage').then((module) => ({ default: module.PatientDetailPage })))
@@ -40,8 +42,10 @@ export default function App() {
 
 export function AppRoutes() {
   return (
-    <Suspense fallback={<SessionLoading />}>
-      <Routes>
+    <ToastProvider>
+      <div className="app-background" aria-hidden="true" />
+      <Suspense fallback={<SessionLoading />}>
+        <Routes>
         <Route element={<PublicRoute />}>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/olvide-contrasena" element={<ForgotPasswordPage />} />
@@ -78,8 +82,9 @@ export function AppRoutes() {
           <Route path="/cambiar-contrasena" element={<ChangePasswordPage />} />
         </Route>
         <Route path="/" element={<RoleHomeRedirect />} />
-        <Route path="*" element={<RoleHomeRedirect />} />
-      </Routes>
-    </Suspense>
+        <Route path="*" element={<NotFoundPage />} />
+        </Routes>
+      </Suspense>
+    </ToastProvider>
   )
 }

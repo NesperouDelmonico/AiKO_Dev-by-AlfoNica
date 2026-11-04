@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm, type FieldPath, type FieldValues, type UseFormRegister } from 'react-hook-form'
@@ -9,9 +9,11 @@ import { useAuth } from '../auth/AuthContext'
 import { homeForRole } from '../auth/roles'
 import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
-import { ErrorState } from '../components/ui/ErrorState'
 import { Input } from '../components/ui/Input'
 import { Logo } from '../components/ui/Logo'
+import { Mascot } from '../components/ui/Mascot'
+import { PageHeader } from '../components/ui/PageHeader'
+import { useToast } from '../components/ui/toastContext'
 import { Spinner } from '../components/ui/Spinner'
 
 const emailSchema = z.string().trim().email('Revisa que el correo tenga un formato válido.')
@@ -55,6 +57,7 @@ function AuthShell({ children, subtitle }: { children: ReactNode; subtitle: stri
         <div className="auth-logo-enter mb-7 flex justify-center">
           <Logo className="h-auto w-48 max-h-36" />
         </div>
+        <Mascot className="mx-auto mb-4 size-16" />
         <Card className="auth-card-enter border-white/80 p-6 sm:p-8">
           <p className="mb-6 text-center text-sm text-[var(--color-text-muted)]">{subtitle}</p>
           {children}
@@ -105,16 +108,22 @@ function FieldError({ message }: { message?: string }) {
 
 export function LoginPage() {
   const { signIn, rejectPatient, patientRejected, sessionError, clearPatientNotice, user } = useAuth()
+  const { notify } = useToast()
   const navigate = useNavigate()
   const location = useLocation()
-  const [serverError, setServerError] = useState('')
   const [patientMessage, setPatientMessage] = useState('')
   const form = useForm<LoginValues>({ resolver: zodResolver(loginSchema), defaultValues: { correo: '', contraseña: '' } })
   const notice = navigationStateString(location.state, 'notice')
+  useEffect(() => {
+    if (notice) notify({ type: 'success', message: notice })
+  }, [notice, notify])
+  useEffect(() => {
+    if (sessionError) notify({ type: 'error', message: sessionError })
+  }, [notify, sessionError])
+
   if (user) return <Navigate to={homeForRole(user.rol) || '/login'} replace />
 
   async function submit(values: LoginValues) {
-    setServerError('')
     setPatientMessage('')
     clearPatientNotice()
     try {
@@ -132,29 +141,28 @@ export function LoginPage() {
       }
       navigate(destination, { replace: true })
     } catch (error) {
-      if (error instanceof ApiError && error.status === 423) {
-        setServerError('No puedes ingresar por ahora. Restablece tu contraseña o comunícate con el administrador.')
+      if (error instanceof Error && error.message.startsWith('No reconocemos el rol de esta cuenta.')) {
+        return
+      } else if (error instanceof ApiError && error.status === 423) {
+        notify({ type: 'error', message: 'No puedes ingresar por ahora. Restablece tu contraseña o comunícate con el administrador.' })
       } else if (error instanceof ApiError && error.status === 401) {
-        setServerError('No pudimos iniciar sesión. Revisa tu correo y contraseña e inténtalo de nuevo.')
+        notify({ type: 'error', message: 'No pudimos iniciar sesión. Revisa tu correo y contraseña e inténtalo de nuevo.' })
       } else {
-        setServerError(getErrorMessage(error))
+        notify({ type: 'error', message: getErrorMessage(error) })
       }
     }
   }
 
   return (
     <AuthShell subtitle="Ingresa a tu cuenta de AiKO.">
-      {notice && <p role="status" className="mb-4 rounded-xl bg-purple-50 p-3 text-sm text-brand-heading">{notice}</p>}
       {(patientRejected || patientMessage) && (
         <div role="status" className="mb-4 rounded-xl bg-purple-50 p-3 text-sm text-brand-heading">
           {patientMessage || 'Esta cuenta es de paciente. Para ingresar a AiKO, usa la aplicación móvil.'}
         </div>
       )}
-      {sessionError && !serverError && <FieldError message={sessionError} />}
       <form className="space-y-4" onSubmit={form.handleSubmit(submit)} noValidate>
         <Field label="Correo electrónico" name="correo" type="email" autoComplete="email" register={form.register} error={form.formState.errors.correo?.message} />
         <Field label="Contraseña" name="contraseña" type="password" autoComplete="current-password" register={form.register} error={form.formState.errors.contraseña?.message} />
-        <FieldError message={serverError} />
         <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
           {form.formState.isSubmitting && <Spinner className="size-4 text-white" />}
           Iniciar sesión
@@ -170,33 +178,28 @@ export function LoginPage() {
 export function ForgotPasswordPage() {
   const location = useLocation()
   const navigate = useNavigate()
-  const [message, setMessage] = useState('')
-  const [failure, setFailure] = useState('')
+  const { notify } = useToast()
   const [requestedEmail, setRequestedEmail] = useState('')
   const form = useForm<ForgotValues>({
     resolver: zodResolver(forgotSchema),
     defaultValues: { correo: navigationStateString(location.state, 'correo') ?? '' },
   })
   async function submit(values: ForgotValues) {
-    setFailure('')
-    setMessage('')
     setRequestedEmail(values.correo)
     try {
       await requestPasswordReset(values.correo)
-      setMessage('Si encontramos una cuenta con ese correo, te enviaremos instrucciones para recuperar el acceso.')
     } catch (error) {
-      setMessage('Si encontramos una cuenta con ese correo, te enviaremos instrucciones para recuperar el acceso.')
-      setFailure(
-        error instanceof ApiError && [429, 503].includes(error.status)
+      notify({
+        type: 'error',
+        message: error instanceof ApiError && [429, 503].includes(error.status)
           ? error.message
           : 'No pudimos enviar la solicitud. Inténtalo de nuevo más tarde.',
-      )
+      })
     }
+    notify({ type: 'success', message: 'Si encontramos una cuenta con ese correo, te enviaremos instrucciones para recuperar el acceso.' })
   }
   return (
     <AuthShell subtitle="Recupera el acceso a tu cuenta.">
-      {message && <p role="status" className="mb-4 rounded-xl bg-purple-50 p-3 text-sm text-brand-heading">{message}</p>}
-      {failure && <ErrorState message={failure} />}
       <form className="space-y-4" onSubmit={form.handleSubmit(submit)} noValidate>
         <Field label="Correo electrónico" name="correo" type="email" autoComplete="email" register={form.register} error={form.formState.errors.correo?.message} />
         <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
@@ -277,7 +280,7 @@ export function ChangePasswordPage() {
   }
   return (
     <div className="mx-auto max-w-xl space-y-4">
-      <div><h1 className="mb-1 text-2xl">Cambiar contraseña</h1><p className="mb-0 text-sm text-[var(--color-text-muted)]">Actualiza tu contraseña para mantener tu cuenta protegida.</p></div>
+      <PageHeader title="Cambiar contraseña" description="Actualiza tu contraseña para mantener tu cuenta protegida." />
       <Card>
         <form className="space-y-4" onSubmit={form.handleSubmit(submit)} noValidate>
           <Field label="Contraseña actual" name="contraseña_actual" type="password" autoComplete="current-password" register={form.register} error={form.formState.errors.contraseña_actual?.message} />

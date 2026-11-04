@@ -21,6 +21,53 @@ body {
   min-width: 320px;
   min-height: 100vh;
   margin: 0;
+  isolation: isolate;
+}
+
+.app-background {
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.app-background::before,
+.app-background::after {
+  position: absolute;
+  width: min(42rem, 80vw);
+  aspect-ratio: 1;
+  border-radius: 9999px;
+  content: '';
+  filter: blur(2px);
+}
+
+.app-background::before {
+  top: -18rem;
+  right: -12rem;
+  background: radial-gradient(circle, var(--color-decoration-lavender), transparent 68%);
+}
+
+.app-background::after {
+  bottom: -24rem;
+  left: -15rem;
+  background: radial-gradient(circle, var(--color-decoration-lilac), transparent 70%);
+}
+
+.toast-enter {
+  animation: toast-enter var(--duration-feedback) ease-out both;
+}
+
+@keyframes toast-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 button,
@@ -125,7 +172,7 @@ h3 {
 }
 
 .drawer-enter {
-  animation: drawer-enter 240ms ease-out both;
+  animation: drawer-enter 180ms ease-out both;
 }
 
 @keyframes fade-in {
@@ -156,19 +203,19 @@ h3 {
 }
 
 .greeting-enter {
-  animation: fade-slide-up 400ms ease-out both;
+  animation: fade-slide-up 180ms ease-out both;
 }
 
 .auth-logo-enter {
-  animation: auth-enter 400ms ease-out both;
+  animation: auth-enter 180ms ease-out both;
 }
 
 .auth-card-enter {
-  animation: auth-enter 400ms ease-out 120ms both;
+  animation: auth-enter 180ms ease-out 40ms both;
 }
 
 .list-stagger > * {
-  animation: list-enter 400ms ease-out both;
+  animation: list-enter 180ms ease-out both;
 }
 
 .list-stagger > :nth-child(1) {
@@ -176,39 +223,39 @@ h3 {
 }
 
 .list-stagger > :nth-child(2) {
-  animation-delay: 50ms;
+  animation-delay: 30ms;
 }
 
 .list-stagger > :nth-child(3) {
-  animation-delay: 100ms;
+  animation-delay: 60ms;
 }
 
 .list-stagger > :nth-child(4) {
-  animation-delay: 150ms;
+  animation-delay: 90ms;
 }
 
 .list-stagger > :nth-child(5) {
-  animation-delay: 200ms;
+  animation-delay: 120ms;
 }
 
 .list-stagger > :nth-child(6) {
-  animation-delay: 250ms;
+  animation-delay: 150ms;
 }
 
 .list-stagger > :nth-child(7) {
-  animation-delay: 300ms;
+  animation-delay: 180ms;
 }
 
 .list-stagger > :nth-child(8) {
-  animation-delay: 350ms;
+  animation-delay: 180ms;
 }
 
 .list-stagger > :nth-child(9) {
-  animation-delay: 400ms;
+  animation-delay: 180ms;
 }
 
 .list-stagger > :nth-child(10) {
-  animation-delay: 450ms;
+  animation-delay: 180ms;
 }
 
 .list-stagger > :nth-child(n + 11) {
@@ -242,7 +289,7 @@ dialog[open]::backdrop {
   background: linear-gradient(110deg, transparent 30%, rgb(255 255 255 / 55%) 50%, transparent 70%);
   content: '';
   pointer-events: none;
-  animation: skeleton-shimmer 1.8s ease-in-out infinite;
+  animation: skeleton-shimmer var(--duration-shimmer) ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
