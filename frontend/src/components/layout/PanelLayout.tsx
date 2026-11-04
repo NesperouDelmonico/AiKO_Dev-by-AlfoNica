@@ -2,7 +2,6 @@ import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   Activity,
-  ArrowLeft,
   Bell,
   Check,
   ChevronDown,
@@ -20,8 +19,8 @@ import { useAuth } from '../../auth/AuthContext'
 import { queryKeys } from '../../api/queryKeys'
 import type { components } from '../../api/schema'
 import { cn } from '../../lib/utils'
-import { ErrorState } from '../ui/ErrorState'
 import { Logo } from '../ui/Logo'
+import { useToast } from '../ui/toastContext'
 
 type PanelRole = 'admin' | 'specialist'
 type NavigationItem = { to: string; label: string; icon: typeof Users }
@@ -192,35 +191,18 @@ function PatientSearch({ onNavigate }: { onNavigate: (patientId: string) => void
   )
 }
 
-function getPageInfo(pathname: string) {
-  if (pathname === '/admin/usuarios') return { title: 'Usuarios' }
-  if (pathname === '/admin/indicadores') return { title: 'Indicadores' }
-  if (pathname.endsWith('/nuevo-especialista')) return { title: 'Nuevo especialista' }
-  if (pathname.endsWith('/nuevo-administrador')) return { title: 'Nuevo administrador' }
-  if (/^\/admin\/usuarios\/[^/]+$/.test(pathname)) return { title: 'Editar usuario', back: '/admin/usuarios' }
-  if (pathname === '/especialista/pacientes') return { title: 'Mis pacientes' }
-  if (pathname === '/especialista/pacientes/nuevo') return { title: 'Nuevo paciente' }
-  const routeBuilder = pathname.match(/^\/especialista\/pacientes\/([^/]+)\/ruta$/)
-  if (routeBuilder) return { title: 'Constructor de ruta', back: `/especialista/pacientes/${routeBuilder[1]}` }
-  if (/^\/especialista\/pacientes\/[^/]+$/.test(pathname)) return { title: 'Detalle del paciente', back: '/especialista/pacientes' }
-  if (pathname === '/especialista/alertas') return { title: 'Alertas' }
-  if (pathname === '/especialista/ejercicios') return { title: 'Ejercicios' }
-  return { title: 'Panel AiKO' }
-}
-
 function PanelLayoutBase({ role }: { role: PanelRole }) {
   const { user, signOut } = useAuth()
+  const { notify } = useToast()
   const location = useLocation()
   const navigate = useNavigate()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [drawerPath, setDrawerPath] = useState(location.pathname)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [userMenuPath, setUserMenuPath] = useState(location.pathname)
-  const [logoutError, setLogoutError] = useState('')
   const drawerRef = useRef<HTMLElement>(null)
   const menuButtonRef = useRef<HTMLButtonElement>(null)
   const userName = user?.nombre?.trim() || 'Usuario'
-  const page = getPageInfo(location.pathname)
   const isDrawerOpen = drawerOpen && drawerPath === location.pathname
   const isUserMenuOpen = userMenuOpen && userMenuPath === location.pathname
   const alertsQuery = useQuery({
@@ -292,11 +274,10 @@ function PanelLayoutBase({ role }: { role: PanelRole }) {
   }
 
   async function handleLogout() {
-    setLogoutError('')
     try {
       await signOut()
     } catch (error) {
-      setLogoutError(getErrorMessage(error))
+      notify({ type: 'error', message: getErrorMessage(error) })
     }
   }
 
@@ -315,18 +296,6 @@ function PanelLayoutBase({ role }: { role: PanelRole }) {
           <Menu aria-hidden="true" className="size-5" strokeWidth={1.9} />
         </button>
         <Logo compact className="h-9 w-8 shrink-0" />
-        <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-4">
-          {page.back && (
-            <Link
-              to={page.back}
-              className="inline-flex min-h-10 shrink-0 items-center gap-1 rounded-lg px-2 text-xs font-semibold text-brand-primary no-underline hover:bg-purple-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary sm:text-sm"
-            >
-              <ArrowLeft aria-hidden="true" className="size-4" />
-              <span>Volver</span>
-            </Link>
-          )}
-          <span className="min-w-0 truncate font-brand-heading text-base font-semibold text-brand-heading sm:text-lg">{page.title}</span>
-        </div>
         {role === 'specialist' && (
           <div className="flex shrink-0 items-center gap-1 sm:gap-2">
             <PatientSearch onNavigate={(patientId) => navigate(`/especialista/pacientes/${patientId}`)} />
@@ -401,7 +370,6 @@ function PanelLayoutBase({ role }: { role: PanelRole }) {
       </header>
 
       <main className="mx-auto w-full max-w-7xl p-4 sm:p-8">
-        {logoutError && <ErrorState title="No se pudo confirmar el cierre de sesión" message={logoutError} />}
         <Outlet />
       </main>
 

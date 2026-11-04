@@ -10,8 +10,10 @@ import { Dialog } from '../../components/ui/Dialog'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { ErrorState } from '../../components/ui/ErrorState'
 import { Input } from '../../components/ui/Input'
+import { PageHeader } from '../../components/ui/PageHeader'
 import { Select } from '../../components/ui/Select'
 import { Textarea } from '../../components/ui/Textarea'
+import { useToast } from '../../components/ui/toastContext'
 import type { components } from '../../api/schema'
 import { ParamsEditor } from './ParamsEditor'
 import {
@@ -25,12 +27,11 @@ const categories: Category[] = ['Atención', 'Memoria', 'Velocidad']
 
 export function ExercisesPage() {
   const client = useQueryClient()
+  const { notify } = useToast()
   const [category, setCategory] = useState<Category | ''>('')
   const [state, setState] = useState<ExerciseState | ''>('')
   const [archived, setArchived] = useState(false)
   const [editing, setEditing] = useState<Exercise | 'new' | null>(null)
-  const [failure, setFailure] = useState('')
-  const [notice, setNotice] = useState('')
   const filters = useMemo(() => ({ ...(category ? { categoria: category } : {}), ...(state ? { estado: state } : {}) }), [category, state])
   const query = useQuery({
     queryKey: queryKeys.exercises.list({ ...filters, archivados: archived ? 'true' : undefined }),
@@ -49,14 +50,12 @@ export function ExercisesPage() {
     onSuccess: () => client.invalidateQueries({ queryKey: queryKeys.exercises.all }),
   })
   async function changeArchive(exercise: Exercise, restore: boolean) {
-    setFailure('')
-    setNotice('')
     try {
       await archive.mutateAsync({ id: exercise.id!, restore })
-      setNotice(restore
+      notify({ type: 'success', message: restore
         ? `"${exercise.nombre}" volvió a tu catálogo.`
-        : `"${exercise.nombre}" se archivó. Las rutas que ya lo usan siguen igual; puedes restaurarlo desde Archivados.`)
-    } catch (error) { setFailure(getErrorMessage(error)) }
+        : `"${exercise.nombre}" se archivó. Las rutas que ya lo usan siguen igual; puedes restaurarlo desde Archivados.` })
+    } catch (error) { notify({ type: 'error', message: getErrorMessage(error) }) }
   }
   const toggle = useMutation({
     mutationFn: async ({ id, estado }: { id: string; estado: ExerciseState }) => {
@@ -69,11 +68,11 @@ export function ExercisesPage() {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-end justify-between gap-3"><div><h1 className="mb-1 text-3xl">Ejercicios</h1><p className="mb-0 text-sm text-[var(--color-text-muted)]">Tu catálogo personal: solo tú ves y usas estos ejercicios en las rutas de tus pacientes.</p></div><Button onClick={() => { setFailure(''); setEditing('new') }}><Plus aria-hidden="true" className="size-4" />Crear ejercicio</Button></header>
+      <PageHeader title="Ejercicios" description="Tu catálogo personal: solo tú ves y usas estos ejercicios en las rutas de tus pacientes." actions={<Button onClick={() => setEditing('new')}><Plus aria-hidden="true" className="size-4" />Crear ejercicio</Button>} />
       <Card>
         <div role="tablist" aria-label="Vista del catálogo" className="mb-4 inline-flex rounded-xl border border-[var(--color-border)] p-1">
           {([[false, 'Mis ejercicios'], [true, 'Archivados']] as const).map(([value, label]) => (
-            <button key={label} type="button" role="tab" aria-selected={archived === value} onClick={() => { setArchived(value); setFailure(''); setNotice('') }} className={`rounded-lg px-4 py-1.5 text-sm font-semibold transition-colors ${archived === value ? 'bg-[var(--color-primary)] text-white' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'}`}>{label}</button>
+            <button key={label} type="button" role="tab" aria-selected={archived === value} onClick={() => setArchived(value)} className={`rounded-lg px-4 py-1.5 text-sm font-semibold transition-colors ${archived === value ? 'bg-[var(--color-primary)] text-white' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'}`}>{label}</button>
           ))}
         </div>
         <div className="mb-5 grid gap-3 sm:grid-cols-2">
@@ -96,13 +95,21 @@ export function ExercisesPage() {
                 : <Badge variant={exercise.estado === 'Activo' ? 'success' : 'attention'}>{exercise.estado || 'Estado no disponible'}</Badge>}</div>
             {exercise.archivado_en
               ? <div className="flex gap-2">{exercise.id && <Button size="sm" variant="secondary" disabled={archive.isPending} onClick={() => void changeArchive(exercise, true)}><ArchiveRestore aria-hidden="true" className="size-4" />Restaurar</Button>}</div>
-              : <div className="flex flex-wrap gap-2"><Button size="sm" variant="secondary" onClick={() => { setFailure(''); setEditing(exercise) }}>Editar</Button>{exercise.id && <Button size="sm" variant="secondary" disabled={toggle.isPending} onClick={async () => { try { await toggle.mutateAsync({ id: exercise.id!, estado: exercise.estado === 'Activo' ? 'Desactivado' : 'Activo' }) } catch (error) { setFailure(getErrorMessage(error)) } }}>{exercise.estado === 'Activo' ? 'Desactivar' : 'Activar'}</Button>}{exercise.id && <Button size="sm" variant="secondary" aria-label={`Archivar ${exercise.nombre ?? 'ejercicio'}`} disabled={archive.isPending} onClick={() => void changeArchive(exercise, false)}><Archive aria-hidden="true" className="size-4" />Archivar</Button>}</div>}
+                      : <div className="flex flex-wrap gap-2"><Button size="sm" variant="secondary" onClick={() => setEditing(exercise)}>Editar</Button>{exercise.id && <Button size="sm" variant="secondary" disabled={toggle.isPending} onClick={async () => {
+                        const nextState = exercise.estado === 'Activo' ? 'Desactivado' : 'Activo'
+                        try {
+                          await toggle.mutateAsync({ id: exercise.id!, estado: nextState })
+                          notify({ type: 'success', message: `Ejercicio ${nextState === 'Activo' ? 'activado' : 'desactivado'} correctamente.` })
+                        } catch (error) { notify({ type: 'error', message: getErrorMessage(error) }) }
+                      }}>{exercise.estado === 'Activo' ? 'Desactivar' : 'Activar'}</Button>}{exercise.id && <Button size="sm" variant="secondary" aria-label={`Archivar ${exercise.nombre ?? 'ejercicio'}`} disabled={archive.isPending} onClick={() => void changeArchive(exercise, false)}><Archive aria-hidden="true" className="size-4" />Archivar</Button>}</div>}
           </div>
         ))}</div>
-        {notice && <p role="status" className="mt-4 rounded-xl bg-[var(--color-success-bg)] p-3 text-sm text-[var(--color-success-text)]">{notice}</p>}
-        {failure && <p role="alert" className="mt-4 rounded-xl bg-[var(--color-attention-bg)] p-3 text-sm text-[var(--color-attention-text)]">{failure}</p>}
       </Card>
-      {editing && <ExerciseDialog key={editing === 'new' ? 'new' : editing.id} exercise={editing === 'new' ? null : editing} onClose={() => setEditing(null)} onSaved={async () => { await client.invalidateQueries({ queryKey: queryKeys.exercises.all }); setEditing(null) }} />}
+      {editing && <ExerciseDialog key={editing === 'new' ? 'new' : editing.id} exercise={editing === 'new' ? null : editing} onClose={() => setEditing(null)} onSaved={async () => {
+        await client.invalidateQueries({ queryKey: queryKeys.exercises.all })
+        setEditing(null)
+        notify({ type: 'success', message: editing === 'new' ? 'Ejercicio creado correctamente.' : 'Ejercicio actualizado correctamente.' })
+      }} />}
     </div>
   )
 }
@@ -112,6 +119,7 @@ function ExerciseDialog({ exercise, onClose, onSaved }: {
   onClose: () => void
   onSaved: () => Promise<void>
 }) {
+  const { notify } = useToast()
   const [nombre, setNombre] = useState(exercise?.nombre ?? '')
   const [categoria, setCategoria] = useState<Category>(exercise?.categoria ?? 'Velocidad')
   const [tipo, setTipo] = useState<GameType>(exercise?.tipo ?? (exercise?.categoria ? DEFAULT_TYPE_BY_CATEGORY[exercise.categoria] : 'reaccion'))
@@ -119,13 +127,11 @@ function ExerciseDialog({ exercise, onClose, onSaved }: {
   const [instructions, setInstructions] = useState(exercise?.instrucciones ?? '')
   const [paramsForm, setParamsForm] = useState(() => paramsToForm(tipo, exercise?.parametros))
   const [fieldError, setFieldError] = useState('')
-  const [dialogError, setDialogError] = useState('')
   const [saving, setSaving] = useState(false)
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setFieldError('')
-    setDialogError('')
     const parsed = formToParams(tipo, paramsForm)
     if (!parsed.ok) { setFieldError(parsed.error); return }
     const numericLevel = Number(level)
@@ -137,13 +143,13 @@ function ExerciseDialog({ exercise, onClose, onSaved }: {
         ? await apiClient.PUT('/ejercicios/{id}', { params: { path: { id: exercise.id } }, body })
         : await apiClient.POST('/ejercicios', { body })
       if (exercise?.id && result.response.status === 409) {
-        setDialogError('No se puede editar este ejercicio porque está en una ruta activa.')
+        notify({ type: 'error', message: 'No se puede editar este ejercicio porque está en una ruta activa.' })
         return
       }
       requireResponse(result.data, result.response)
       await onSaved()
     } catch (error) {
-      setDialogError(getErrorMessage(error))
+      notify({ type: 'error', message: getErrorMessage(error) })
     } finally { setSaving(false) }
   }
 
@@ -163,7 +169,6 @@ function ExerciseDialog({ exercise, onClose, onSaved }: {
       <label className="block text-sm font-semibold" htmlFor="exercise-instructions">Instrucciones<Textarea id="exercise-instructions" value={instructions} onChange={(e) => setInstructions(e.target.value)} required className="mt-1" /></label>
       <ParamsEditor type={tipo} form={paramsForm} onChange={setParamsForm} />
       {fieldError && <p role="alert" className="text-sm text-[var(--color-attention-text)]">{fieldError}</p>}
-      {dialogError && <p role="alert" className="rounded-xl bg-[var(--color-attention-bg)] p-3 text-sm text-[var(--color-attention-text)]">{dialogError}</p>}
       <div className="flex justify-end gap-2"><Button type="button" variant="secondary" onClick={onClose}>Cancelar</Button><Button type="submit" disabled={saving}>{exercise ? 'Guardar cambios' : 'Crear ejercicio'}</Button></div>
     </form>
   </Dialog>

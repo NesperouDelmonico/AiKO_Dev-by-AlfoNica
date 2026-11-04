@@ -10,6 +10,7 @@ import { AuthProvider } from '../auth/AuthProvider'
 import { ProtectedRoute } from '../auth/ProtectedRoute'
 import { PanelErrorBoundary } from '../components/layout/PanelErrorBoundary'
 import { tokenStorage } from '../auth/tokenStorage'
+import { ToastProvider } from '../components/ui/ToastProvider'
 import { LoginPage, ResetPasswordPage } from '../pages/AuthPages'
 import { PlaceholderPage } from '../pages/PlaceholderPage'
 import { roleHomePaths } from '../auth/roles'
@@ -47,16 +48,18 @@ function renderAuth(initialPath: string, onFetch: (input: RequestInfo | URL, ini
   return render(
     <MemoryRouter initialEntries={[initialPath]}>
       <AuthProvider>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/admin/usuarios" element={<ProtectedRoute role="Administrador" />}>
-            <Route index element={<PlaceholderPage title="Usuarios protegidos" />} />
-          </Route>
-          <Route path="/especialista/pacientes" element={<ProtectedRoute role="Especialista" />}>
-            <Route index element={<PlaceholderPage title="Pacientes protegidos" />} />
-          </Route>
-          <Route path="/especialista" element={<Navigate to="/especialista/pacientes" replace />} />
-        </Routes>
+        <ToastProvider>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/admin/usuarios" element={<ProtectedRoute role="Administrador" />}>
+              <Route index element={<PlaceholderPage title="Usuarios protegidos" />} />
+            </Route>
+            <Route path="/especialista/pacientes" element={<ProtectedRoute role="Especialista" />}>
+              <Route index element={<PlaceholderPage title="Pacientes protegidos" />} />
+            </Route>
+            <Route path="/especialista" element={<Navigate to="/especialista/pacientes" replace />} />
+          </Routes>
+        </ToastProvider>
       </AuthProvider>
     </MemoryRouter>,
   )
@@ -221,13 +224,14 @@ describe('autenticación y cliente API', () => {
     }
     renderApplication('/admin/usuarios', fetcher, 'admin-token')
 
-    expect(await screen.findByText('Paciente Uno')).toBeInTheDocument()
+    expect(await screen.findAllByText('Paciente Uno')).toHaveLength(2)
     expect(screen.queryByRole('navigation', { name: 'Navegación principal' })).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Abrir menú' }))
     const navigation = within(screen.getByRole('dialog')).getByRole('navigation', { name: 'Navegación principal' })
     expect(within(navigation).getAllByRole('link').map((link) => link.textContent)).toEqual(['Usuarios', 'Indicadores'])
     expect(screen.queryByRole('link', { name: /pacientes|historial|ruta clínica/i })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Editar' })).toBeInTheDocument()
+    await user.click(screen.getAllByRole('button', { name: 'Acciones para Paciente Uno' })[0]!)
+    expect(screen.getByRole('menuitem', { name: 'Editar' })).toBeInTheDocument()
     expect(calls.some((call) => call.includes('/pacientes'))).toBe(false)
   })
 
@@ -283,7 +287,7 @@ describe('autenticación y cliente API', () => {
   it.each([
     ['/ruta-inexistente', undefined, jsonResponse(401, { statusCode: 401 })],
     ['/ruta-inexistente', 'restored-admin-token', jsonResponse(200, { ...specialist, rol: 'Administrador' })],
-  ])('resuelve una ruta desconocida sin bucle para sesión %s', async (initialPath, token, meResponse) => {
+  ])('muestra la página 404 para una ruta desconocida con sesión %s', async (initialPath, token, meResponse) => {
     const userData = { ...specialist, rol: 'Administrador' as const }
     const paths: string[] = []
     const fetcher = (input: RequestInfo | URL) => {
@@ -296,8 +300,8 @@ describe('autenticación y cliente API', () => {
     }
     renderApplication(initialPath, fetcher, token, paths)
 
-    if (token) expect(await screen.findByRole('heading', { name: 'Usuarios' })).toBeInTheDocument()
-    else expect(await screen.findByText('Ingresa a tu cuenta de AiKO.')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'No encontramos esta página' })).toBeInTheDocument()
+    await waitFor(() => expect(paths.filter((path) => path === initialPath)).toHaveLength(1))
     await waitFor(() => expect(paths.length).toBeGreaterThan(0))
     expect(paths.length - 1).toBeLessThanOrEqual(2)
     expect(userData.rol).toBe('Administrador')

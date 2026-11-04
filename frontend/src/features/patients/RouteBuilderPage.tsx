@@ -10,7 +10,9 @@ import { Card } from '../../components/ui/Card'
 import { Dialog } from '../../components/ui/Dialog'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { ErrorState } from '../../components/ui/ErrorState'
+import { PageHeader } from '../../components/ui/PageHeader'
 import { Select } from '../../components/ui/Select'
+import { useToast } from '../../components/ui/toastContext'
 import { cn } from '../../lib/utils'
 import { formatDate } from '../../lib/date'
 import { display } from '../../lib/text'
@@ -25,6 +27,7 @@ import { copyDay, daysLostOnResize, emptyDays, move, PERIODS, planToSteps, resiz
 export function RouteBuilderPage() {
   const { id = '' } = useParams()
   const client = useQueryClient()
+  const { notify } = useToast()
   const [period, setPeriod] = useState<RoutePeriod>(1)
   const [plan, setPlan] = useState<DayPlan>([[]])
   const [day, setDay] = useState(0)
@@ -34,7 +37,6 @@ export function RouteBuilderPage() {
   const [replaceTarget, setReplaceTarget] = useState<{ stepId: string; exerciseId: string; nextId: string } | null>(null)
   const [confirmReplace, setConfirmReplace] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<{ stepId: string; name: string } | null>(null)
-  const [failure, setFailure] = useState('')
   const patientQuery = useQuery({ queryKey: queryKeys.patients.detail(id), queryFn: () => getPatient(id), enabled: Boolean(id) })
   const routeQuery = useQuery({ queryKey: queryKeys.patients.route(id), queryFn: () => getActiveRoute(id), enabled: Boolean(id) })
   const exercisesQuery = useQuery({ queryKey: queryKeys.patients.exercises(id), queryFn: getExercises, enabled: Boolean(id) })
@@ -69,9 +71,11 @@ export function RouteBuilderPage() {
   const deleteMutation = useMutation({ mutationFn: () => deleteRouteExercise(routeId, deleteTarget!.stepId), onSuccess: invalidateRouteData })
   const replaceMutation = useMutation({ mutationFn: () => replaceRouteExercise(routeId, replaceTarget!.stepId, replaceTarget!.nextId), onSuccess: invalidateRouteData })
 
-  async function perform(action: () => Promise<unknown>) {
-    setFailure('')
-    try { await action() } catch (error) { setFailure(getErrorMessage(error)) }
+  async function perform(action: () => Promise<unknown>, successMessage: string) {
+    try {
+      await action()
+      notify({ type: 'success', message: successMessage })
+    } catch (error) { notify({ type: 'error', message: getErrorMessage(error) }) }
   }
   function exerciseName(exerciseId: string | undefined) {
     return exercises.find((exercise) => exercise.id === exerciseId)?.nombre ?? 'Ejercicio no disponible'
@@ -104,8 +108,7 @@ export function RouteBuilderPage() {
 
   return (
     <div className="space-y-6">
-      <header><h1 className="mb-1 text-3xl">Ruta de {patientQuery.data.nombre}</h1><p className="mb-0 text-sm text-[var(--color-text-muted)]">Organiza los ejercicios de la ruta de {patientQuery.data.nombre}.</p></header>
-      {failure && <p role="alert" className="rounded-xl bg-[var(--color-attention-bg)] p-3 text-sm text-[var(--color-attention-text)]">{failure}</p>}
+      <PageHeader title={`Ruta de ${patientQuery.data.nombre}`} description={`Organiza los ejercicios de la ruta de ${patientQuery.data.nombre}.`} backTo={`/especialista/pacientes/${id}`} backLabel="Volver al paciente" />
       <Card className="border-l-4 border-l-brand-primary">
         <h2 className="mb-2 flex items-center gap-2 text-lg"><RouteIcon aria-hidden="true" className="size-5" />Reglas de la ruta</h2>
         <p className="mb-0 text-sm">Elige el periodo del plan y los ejercicios de cada día. Un ejercicio puede repetirse. El paciente hace un día por fecha: el día siguiente se habilita al día calendario siguiente. Solo se pueden eliminar o reemplazar ejercicios no completados.</p>
@@ -170,7 +173,7 @@ export function RouteBuilderPage() {
               {planToSteps(plan).length} ejercicios en {period} {period === 1 ? 'día' : 'días'}.
               {missing.length > 0 && <> Faltan ejercicios en {missing.length === 1 ? 'el día' : 'los días'} {missing.join(', ')}.</>}
             </p>
-            <Button disabled={missing.length > 0 || createMutation.isPending} onClick={() => void perform(() => createMutation.mutateAsync())}>Crear ruta</Button>
+            <Button disabled={missing.length > 0 || createMutation.isPending} onClick={() => void perform(() => createMutation.mutateAsync(), 'Ruta creada correctamente.')}>Crear ruta</Button>
           </div>
         </Card>
         <Card><h2 className="text-lg">Fuera de nivel</h2>{excluded.length === 0 ? <p className="mb-0 text-sm text-[var(--color-text-muted)]">No hay ejercicios activos de nivel superior.</p> : <ul className="space-y-2">{excluded.map((exercise, i) => <li key={exercise.id ?? i} className="flex justify-between gap-3 text-sm"><span>{display(exercise.nombre)}</span><Badge variant="attention">Nivel {exercise.nivel_dificultad} supera nivel {level}</Badge></li>)}</ul>}</Card>
@@ -211,7 +214,7 @@ export function RouteBuilderPage() {
             <option value={lastDay}>Día {lastDay}</option>
             {(routeDuration === null || lastDay < routeDuration) && <option value={lastDay + 1}>Día {lastDay + 1} (nuevo)</option>}
           </Select>
-          <Button variant="secondary" disabled={!addId || addMutation.isPending} onClick={() => void perform(() => addMutation.mutateAsync())}>Agregar ejercicio</Button>
+          <Button variant="secondary" disabled={!addId || addMutation.isPending} onClick={() => void perform(() => addMutation.mutateAsync(), 'Ejercicio agregado a la ruta.')}>Agregar ejercicio</Button>
         </div>
       </Card>}
 
@@ -219,10 +222,10 @@ export function RouteBuilderPage() {
         <div className="flex justify-end gap-2"><Button variant="secondary" onClick={() => setPendingPeriod(null)}>Cancelar</Button><Button onClick={() => applyPeriod(pendingPeriod)}>Cambiar periodo</Button></div>
       </Dialog>}
       {deleteTarget && <Dialog title="¿Quieres quitar este ejercicio de la ruta?" description={`No podrás deshacerlo. Ejercicio: “${deleteTarget.name}”.`} onClose={() => setDeleteTarget(null)}>
-        <div className="flex justify-end gap-2"><Button variant="secondary" onClick={() => setDeleteTarget(null)}>Cancelar</Button><Button onClick={() => void perform(async () => { await deleteMutation.mutateAsync(); setDeleteTarget(null) })} disabled={deleteMutation.isPending}>Eliminar</Button></div>
+        <div className="flex justify-end gap-2"><Button variant="secondary" onClick={() => setDeleteTarget(null)}>Cancelar</Button><Button onClick={() => void perform(async () => { await deleteMutation.mutateAsync(); setDeleteTarget(null) }, 'Ejercicio eliminado de la ruta.')} disabled={deleteMutation.isPending}>Eliminar</Button></div>
       </Dialog>}
       {confirmReplace && replaceTarget && <Dialog title="¿Quieres reemplazar este ejercicio?" description={`No podrás deshacerlo. Se cambiará “${exerciseName(replaceTarget.exerciseId)}” por “${exerciseName(replaceTarget.nextId)}”.`} onClose={() => setConfirmReplace(false)}>
-        <div className="flex justify-end gap-2"><Button variant="secondary" onClick={() => setConfirmReplace(false)}>Cancelar</Button><Button onClick={() => void perform(async () => { await replaceMutation.mutateAsync(); setConfirmReplace(false); setReplaceTarget(null) })} disabled={replaceMutation.isPending}>Confirmar reemplazo</Button></div>
+        <div className="flex justify-end gap-2"><Button variant="secondary" onClick={() => setConfirmReplace(false)}>Cancelar</Button><Button onClick={() => void perform(async () => { await replaceMutation.mutateAsync(); setConfirmReplace(false); setReplaceTarget(null) }, 'Ejercicio reemplazado correctamente.')} disabled={replaceMutation.isPending}>Confirmar reemplazo</Button></div>
       </Dialog>}
     </div>
   )

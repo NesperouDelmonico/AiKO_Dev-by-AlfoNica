@@ -6,6 +6,7 @@ import { queryKeys } from '../../api/queryKeys'
 import { Button } from '../../components/ui/Button'
 import { Dialog } from '../../components/ui/Dialog'
 import { Input } from '../../components/ui/Input'
+import { useToast } from '../../components/ui/toastContext'
 import { ageInBogota, todayInBogota } from './dateValidation'
 import type { components } from '../../api/schema'
 
@@ -18,11 +19,11 @@ const birthDateSchema = z.string().refine((date) => {
 
 export function PatientSettingsDialog({ patient, patientId, onClose }: { patient: Patient; patientId: string; onClose: () => void }) {
   const client = useQueryClient()
+  const { notify } = useToast()
   const [tab, setTab] = useState<'thresholds' | 'birth'>('thresholds')
   const [low, setLow] = useState(String(patient.umbral_bajo_rendimiento ?? ''))
   const [days, setDays] = useState(String(patient.umbral_dias_inactividad ?? ''))
   const [birthDate, setBirthDate] = useState(patient.fecha_nacimiento ?? '')
-  const [failure, setFailure] = useState('')
   const [fieldError, setFieldError] = useState('')
   const saveThresholds = useMutation({
     mutationFn: async () => {
@@ -41,7 +42,6 @@ export function PatientSettingsDialog({ patient, patientId, onClose }: { patient
   })
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    setFailure('')
     setFieldError('')
     try {
       if (tab === 'thresholds') {
@@ -62,8 +62,9 @@ export function PatientSettingsDialog({ patient, patientId, onClose }: { patient
         client.invalidateQueries({ queryKey: queryKeys.patients.alerts(patientId) }),
         client.invalidateQueries({ queryKey: queryKeys.patients.all }),
       ])
+      notify({ type: 'success', message: 'Información del paciente actualizada.' })
       onClose()
-    } catch (error) { setFailure(getErrorMessage(error)) }
+    } catch (error) { notify({ type: 'error', message: getErrorMessage(error) }) }
   }
   return <Dialog title="Editar información del paciente" onClose={onClose}>
     <div role="tablist" aria-label="Información editable" className="mb-4 flex gap-2">
@@ -76,7 +77,6 @@ export function PatientSettingsDialog({ patient, patientId, onClose }: { patient
         <label className="block text-sm font-semibold" htmlFor="threshold-days">Días de inactividad<Input id="threshold-days" type="number" min="1" step="1" value={days} onChange={(event) => setDays(event.target.value)} className="mt-1" /></label>
       </> : <label className="block text-sm font-semibold" htmlFor="patient-birth-date">Fecha de nacimiento<Input id="patient-birth-date" type="date" max={todayInBogota()} value={birthDate} onChange={(event) => setBirthDate(event.target.value)} className="mt-1" /></label>}
       {fieldError && <p role="alert" className="text-sm text-[var(--color-attention-text)]">{fieldError}</p>}
-      {failure && <p role="alert" className="text-sm text-[var(--color-attention-text)]">{failure}</p>}
       <div className="flex justify-end gap-2"><Button variant="secondary" type="button" onClick={onClose}>Cancelar</Button><Button type="submit" disabled={saveThresholds.isPending || saveBirthDate.isPending}>Guardar</Button></div>
     </form>
   </Dialog>

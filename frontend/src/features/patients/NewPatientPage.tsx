@@ -1,15 +1,16 @@
-import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { ApiError, getErrorMessage } from '../../api/client'
 import { queryKeys } from '../../api/queryKeys'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { Input } from '../../components/ui/Input'
+import { PageHeader } from '../../components/ui/PageHeader'
 import { Spinner } from '../../components/ui/Spinner'
+import { useToast } from '../../components/ui/toastContext'
 import { ageInBogota, todayInBogota } from './dateValidation'
 import { createPatient } from './api'
 
@@ -54,8 +55,8 @@ function mapCreateError(error: unknown): string {
 
 export function NewPatientPage() {
   const navigate = useNavigate()
+  const { notify } = useToast()
   const queryClient = useQueryClient()
-  const [error, setError] = useState('')
   const form = useForm<PatientFormInput, unknown, PatientForm>({
     resolver: zodResolver(patientSchema),
     defaultValues: {
@@ -72,19 +73,18 @@ export function NewPatientPage() {
     onSuccess: async (patient) => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.patients.all })
       if (!patient.id) {
-        setError('No pudimos confirmar la creación del perfil. Actualiza la lista e inténtalo de nuevo.')
+        notify({ type: 'error', message: 'No pudimos confirmar la creación del perfil. Actualiza la lista e inténtalo de nuevo.' })
         return
       }
+      notify({ type: 'success', message: 'Paciente creado. Se envió la contraseña temporal al correo', mascot: true })
       navigate(`/especialista/pacientes/${patient.id}`, {
         replace: true,
-        state: { notice: 'Paciente creado. Se envió la contraseña temporal al correo' },
       })
     },
-    onError: (mutationError: unknown) => setError(mapCreateError(mutationError)),
+    onError: (mutationError: unknown) => notify({ type: 'error', message: mapCreateError(mutationError) }),
   })
 
   async function onSubmit(values: PatientForm) {
-    setError('')
     await createMutation.mutateAsync({
       ...values,
       nombre: values.nombre.trim(),
@@ -95,11 +95,7 @@ export function NewPatientPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-5">
-      <Link to="/especialista/pacientes" className="inline-flex min-h-11 items-center text-sm font-semibold no-underline">← Volver a mis pacientes</Link>
-      <div>
-        <h1 className="mb-1 text-3xl">Nuevo paciente</h1>
-        <p className="mb-0 text-sm text-[var(--color-text-muted)]">Crea un perfil para iniciar el seguimiento de tu paciente.</p>
-      </div>
+      <PageHeader title="Nuevo paciente" description="Crea un perfil para iniciar el seguimiento de tu paciente." backTo="/especialista/pacientes" backLabel="Volver a mis pacientes" />
       <Card>
         <form className="space-y-5" onSubmit={form.handleSubmit(onSubmit)} noValidate>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -128,7 +124,6 @@ export function NewPatientPage() {
               {fieldError(form.formState.errors.umbral_dias_inactividad?.message)}
             </label>
           </div>
-          {error && <p role="alert" className="rounded-xl bg-[var(--color-attention-bg)] p-3 text-sm text-[var(--color-attention-text)]">{error}</p>}
           <div className="flex flex-wrap justify-end gap-3">
             <Button type="button" variant="secondary" onClick={() => navigate('/especialista/pacientes')}>Cancelar</Button>
             <Button type="submit" disabled={createMutation.isPending}>

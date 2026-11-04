@@ -9,6 +9,7 @@ import { Card } from '../../components/ui/Card'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { ErrorState } from '../../components/ui/ErrorState'
 import { Input } from '../../components/ui/Input'
+import { PageHeader } from '../../components/ui/PageHeader'
 import { Select } from '../../components/ui/Select'
 import { getPatients, isApiStatus, type Patient } from './api'
 import { PatientListSkeleton, QueryError } from './PatientStates'
@@ -114,7 +115,7 @@ export function PatientsListPage() {
   }
 
   const patients = patientsQuery.data.data ?? []
-  const userName = user?.nombre?.trim()
+  const userName = user?.nombre?.trim() ?? ''
   const total = patientsQuery.data.total ?? patients.length
   const attention = patients.filter((patient) => (patient.alertas_activas ?? 0) > 0).length
   const hasAlertCounts = patients.every((patient) => typeof patient.alertas_activas === 'number')
@@ -126,24 +127,19 @@ export function PatientsListPage() {
     : `${total} ${total === 1 ? 'paciente asignado' : 'pacientes asignados'}`
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="greeting-enter mb-1 text-lg font-semibold text-brand-primary">{userName ? `Hola, ${userName}` : 'Hola'}</p>
-          <h1 className="mb-2 text-3xl">Mis pacientes</h1>
-          <p className="mb-2 text-sm text-[var(--color-text-muted)]">Tus pacientes y su progreso reciente.</p>
-          <p className="mb-0 text-sm text-[var(--color-text-muted)]">
-            {patientCountLabel} · {hasAlertCounts ? `${attention} ${attention === 1 ? 'requiere' : 'requieren'} atención` : 'alertas no disponibles para este filtro'}
-            {attentionIsPageOnly && hasAlertCounts ? ' en esta página' : ''}
-          </p>
-        </div>
-        <Link
+      <PageHeader
+        title="Mis pacientes"
+        description="Tus pacientes y su progreso reciente."
+        greetingName={userName}
+        context={`${patientCountLabel} · ${hasAlertCounts ? `${attention} ${attention === 1 ? 'requiere' : 'requieren'} atención${attentionIsPageOnly ? ' en esta página' : ''}` : 'alertas no disponibles para este filtro'}`}
+        actions={<Link
           to="/especialista/pacientes/nuevo"
           className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-brand-primary px-4 py-2 text-sm font-semibold text-white no-underline hover:bg-[var(--color-primary-hover)] focus-visible:outline focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-brand-primary"
         >
           <Plus aria-hidden="true" className="size-4" strokeWidth={1.75} />
           Nuevo paciente
-        </Link>
-      </header>
+        </Link>}
+      />
 
       <Card className="p-4">
         <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_220px]">
