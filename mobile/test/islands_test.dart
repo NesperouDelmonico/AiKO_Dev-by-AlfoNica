@@ -31,19 +31,19 @@ void main() {
       IslandTheme.forDay(day([
         item('a', Exercise.logic),
         item('b', Exercise.logic),
-        item('c', Exercise.reaction),
+        item('c', Exercise.colorTap),
       ])),
       IslandTheme.logica,
     );
     // Empate de dos tipos (mitad y mitad): gana el primero que llega a la mitad.
     expect(
-      IslandTheme.forDay(day([item('a', Exercise.reaction), item('b', Exercise.logic)])),
+      IslandTheme.forDay(day([item('a', Exercise.colorTap), item('b', Exercise.logic)])),
       isIn([IslandTheme.reaccion, IslandTheme.logica]),
     );
     // Tres tipos distintos: isla mixta.
     expect(
       IslandTheme.forDay(day([
-        item('a', Exercise.reaction),
+        item('a', Exercise.colorTap),
         item('b', Exercise.logic),
         item('c', Exercise.completeWords),
       ])),
@@ -76,7 +76,7 @@ void main() {
       ejercicios: [
         item('a', Exercise.logic, estado: RouteExercise.completed),
         item('b', Exercise.logic),
-        item('c', Exercise.reaction),
+        item('c', Exercise.colorTap),
       ],
     );
     await tester.pumpWidget(MaterialApp(

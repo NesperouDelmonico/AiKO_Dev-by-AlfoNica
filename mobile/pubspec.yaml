@@ -19,6 +19,8 @@ dependencies:
   # Push (FCM). Sin google-services.json la app funciona sin notificaciones.
   firebase_core: ">=3.6.0 <5.0.0"
   firebase_messaging: ">=15.1.0 <17.0.0"
+  # Notas de los botones en Secuencia de colores (tonos generados en memoria).
+  audioplayers: ^6.1.0
 
 dev_dependencies:
   flutter_test:

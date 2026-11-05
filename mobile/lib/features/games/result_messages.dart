@@ -34,12 +34,12 @@ const _byTheme = <String, _Copies>{
   'atencion': _Copies(
     ['¡Qué concentración!', '¡Muy bien!'],
     [
+      'Encontraste cada figura con ojo de águila.',
       'Tu atención estuvo firme de principio a fin.',
-      'Observaste con calma y lo notaste todo.',
     ],
     ['¡Buen intento!', 'Casi lo tienes'],
     [
-      'Busca un lugar tranquilo, enfoca la mirada y vuelve a intentarlo.',
+      'Recorre la cuadrícula con calma, de izquierda a derecha.',
       'La atención se entrena poco a poco. ¡Otra vez!',
     ],
   ),
@@ -63,7 +63,7 @@ const _byTheme = <String, _Copies>{
     ],
     ['¡Buen intento!', 'Respira y vuelve'],
     [
-      'Espera a ver el círculo antes de tocar; la precisión vale más que la prisa.',
+      'Lee el color con calma antes de tocar; la precisión vale más que la prisa.',
       'Relaja la mano y mantén la vista en el centro.',
     ],
   ),

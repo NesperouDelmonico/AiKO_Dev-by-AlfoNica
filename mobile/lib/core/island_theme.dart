@@ -31,7 +31,7 @@ class IslandTheme {
   static const atencion = IslandTheme(
     key: 'atencion',
     name: 'Isla del Faro',
-    tagline: 'Enfoca tu atención y observa con calma.',
+    tagline: 'Mira con atención y encuentra lo que buscas.',
     icon: Icons.wb_twilight_rounded,
     color: Color(0xFFE9A23B),
     soft: Color(0xFFFFF0D6),
@@ -40,7 +40,7 @@ class IslandTheme {
   static const memoria = IslandTheme(
     key: 'memoria',
     name: 'Isla del Gran Árbol',
-    tagline: 'Recuerda, relaciona y fortalece tu memoria.',
+    tagline: 'Escucha, recuerda y repite la secuencia.',
     icon: Icons.park_rounded,
     color: AikoColors.mint,
     soft: AikoColors.mintSoft,
@@ -102,12 +102,13 @@ class IslandTheme {
   );
 
   static const _byType = {
-    'atencion_sostenida': atencion,
-    'memoria_secuencias': memoria,
-    Exercise.reaction: reaccion,
     Exercise.completeWords: palabras,
-    Exercise.rememberImages: imagenes,
     Exercise.logic: logica,
+    Exercise.rememberImages: imagenes,
+    Exercise.colorSequence: memoria,
+    Exercise.colorTap: reaccion,
+    Exercise.findImage: atencion,
+    Exercise.reaction: reaccion,
   };
 
   static const _byCategory = {
