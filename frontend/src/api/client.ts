@@ -78,7 +78,10 @@ async function errorFromResponse(response: Response): Promise<ApiError> {
   const message =
     response.status === 400 || response.status === 409
       ? serverMessage || 'No pudimos procesar la solicitud.'
-      : fixedMessages[response.status] || serverMessage || 'Ocurrió un error al comunicarse con el servicio.'
+      : fixedMessages[response.status] ||
+        (response.status >= 500
+          ? 'Ocurrió un error en el servicio. Inténtalo de nuevo.'
+          : serverMessage || 'Ocurrió un error al comunicarse con el servicio.')
   return new ApiError(response.status, message)
 }
 

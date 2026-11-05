@@ -7,7 +7,7 @@ const buttonStyles = cva(
   {
     variants: {
       variant: {
-        primary: 'bg-brand-primary text-white hover:bg-[var(--color-primary-hover)]',
+        primary: 'bg-brand-primary text-white [background-image:var(--gradient-primary-accessible)] hover:[background-image:var(--gradient-primary-hover)]',
         secondary: 'border border-[var(--color-border)] bg-white text-brand-heading hover:bg-purple-50',
         ghost: 'text-brand-heading hover:bg-purple-100',
       },

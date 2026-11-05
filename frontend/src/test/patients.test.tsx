@@ -8,6 +8,7 @@ import { NewPatientPage } from '../features/patients/NewPatientPage'
 import { PatientDetailPage } from '../features/patients/PatientDetailPage'
 import { PatientsListPage } from '../features/patients/PatientsListPage'
 import { AuthContext, type AuthContextValue } from '../auth/AuthContext'
+import { ToastProvider } from '../components/ui/ToastProvider'
 
 function response(status: number, body?: unknown): Response {
   return new Response(body === undefined ? null : JSON.stringify(body), {
@@ -40,11 +41,13 @@ function renderPage(path: string, element: ReactElement) {
     <QueryClientProvider client={client}>
       <AuthContext.Provider value={auth}>
         <MemoryRouter initialEntries={[path]}>
-          <Routes>
-            <Route path="/especialista/pacientes" element={<PatientsListPage />} />
-            <Route path="/especialista/pacientes/nuevo" element={<NewPatientPage />} />
-            <Route path="/especialista/pacientes/:id" element={element} />
-          </Routes>
+          <ToastProvider>
+            <Routes>
+              <Route path="/especialista/pacientes" element={<PatientsListPage />} />
+              <Route path="/especialista/pacientes/nuevo" element={<NewPatientPage />} />
+              <Route path="/especialista/pacientes/:id" element={element} />
+            </Routes>
+          </ToastProvider>
         </MemoryRouter>
       </AuthContext.Provider>
     </QueryClientProvider>,
@@ -171,6 +174,22 @@ describe('pantallas de pacientes', () => {
 
     expect(await screen.findByText('Ingresa una fecha válida, no futura y con edad máxima de 120 años.')).toBeInTheDocument()
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('confirma la creación del paciente en un toast con mascota decorativa', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(response(201, { ...patient, id: 'new-patient' }))))
+    const user = userEvent.setup()
+    renderPage('/especialista/pacientes/nuevo', <p>Paciente creado</p>)
+    await fillPatientForm(user)
+    await user.click(screen.getByRole('button', { name: 'Crear paciente' }))
+
+    const toast = await screen.findByRole('status')
+    expect(toast).toHaveTextContent('Paciente creado. Se envió la contraseña temporal al correo')
+    const mascot = toast.querySelector('img')
+    expect(mascot).not.toBeNull()
+    expect(mascot).toHaveAttribute('alt', '')
+    expect(mascot).toHaveAttribute('aria-hidden', 'true')
+    expect(await screen.findByText('Paciente creado')).toBeInTheDocument()
   })
 
   it('valida que los umbrales estén dentro del rango y que los días sean enteros positivos', async () => {

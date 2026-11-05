@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { AuthContext, type AuthContextValue } from '../auth/AuthContext'
 import { AdminLayout, SpecialistLayout } from '../components/layout/PanelLayout'
+import { ToastProvider } from '../components/ui/ToastProvider'
 
 type PanelRole = 'Administrador' | 'Especialista'
 
@@ -70,11 +71,13 @@ function renderPanel({
     <QueryClientProvider client={client}>
       <AuthContext.Provider value={authFor(role)}>
         <MemoryRouter initialEntries={[path]}>
-          <Routes>
-            <Route element={<Layout />}>
-              <Route path="*" element={<><CurrentPath />{greeting && <p>Hola, {userFor(role)?.nombre?.split(' ')[0]}</p>}</>} />
-            </Route>
-          </Routes>
+          <ToastProvider>
+            <Routes>
+              <Route element={<Layout />}>
+                <Route path="*" element={<><CurrentPath />{greeting && <p>Hola, {userFor(role)?.nombre?.split(' ')[0]}</p>}</>} />
+              </Route>
+            </Routes>
+          </ToastProvider>
         </MemoryRouter>
       </AuthContext.Provider>
     </QueryClientProvider>,

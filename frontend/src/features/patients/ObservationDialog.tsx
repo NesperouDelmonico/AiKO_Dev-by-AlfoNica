@@ -6,6 +6,7 @@ import { Button } from '../../components/ui/Button'
 import { Textarea } from '../../components/ui/Textarea'
 import { Spinner } from '../../components/ui/Spinner'
 import { getErrorMessage } from '../../api/client'
+import { useToast } from '../../components/ui/toastContext'
 
 export function ObservationDialog({ patientId, onClose }: { patientId: string; onClose: () => void }) {
   const [text, setText] = useState('')
@@ -13,14 +14,16 @@ export function ObservationDialog({ patientId, onClose }: { patientId: string; o
   const dialogRef = useRef<HTMLDivElement>(null)
   const textRef = useRef<HTMLTextAreaElement>(null)
   const queryClient = useQueryClient()
+  const { notify } = useToast()
 
   const saveMutation = useMutation({
     mutationFn: (observation: string) => createObservation(patientId, observation),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.patients.observationsList(patientId) })
+      notify({ type: 'success', message: 'Observación registrada.' })
       onClose()
     },
-    onError: (mutationError: unknown) => setError(getErrorMessage(mutationError)),
+    onError: (mutationError: unknown) => notify({ type: 'error', message: getErrorMessage(mutationError) }),
   })
 
   useEffect(() => {

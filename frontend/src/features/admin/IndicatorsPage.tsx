@@ -5,6 +5,7 @@ import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { ErrorState } from '../../components/ui/ErrorState'
+import { PageHeader } from '../../components/ui/PageHeader'
 import { formatDate } from '../../lib/date'
 import { getIndicators, getTrends } from './api'
 
@@ -21,7 +22,7 @@ export function IndicatorsPage() {
   }))
   return (
     <div className="space-y-6">
-      <header><h1 className="mb-1 text-3xl">Indicadores</h1><p className="mb-0 text-sm text-[var(--color-text-muted)]">Mira de un vistazo cómo avanza la plataforma.</p></header>
+      <PageHeader title="Indicadores" description="Mira de un vistazo cómo avanza la plataforma." />
       {indicators.isPending && <div aria-busy="true" aria-label="Cargando indicadores" className="grid gap-4 md:grid-cols-3">{[1, 2, 3].map((n) => <div key={n} className="skeleton-shimmer h-28 animate-pulse rounded-2xl bg-white" />)}</div>}
       {indicators.isError && <ErrorState title="No pudimos cargar los indicadores. Inténtalo de nuevo." message={indicators.error.message} action={<Button variant="secondary" onClick={() => void indicators.refetch()}>Intentar de nuevo</Button>} />}
       {indicators.data && <div className="grid gap-4 md:grid-cols-3">

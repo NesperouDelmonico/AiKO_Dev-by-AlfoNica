@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
@@ -9,6 +9,7 @@ import { ExercisesPage } from '../features/exercises/ExercisesPage'
 import { AlertsPage } from '../features/alerts/AlertsPage'
 import { RouteBuilderPage } from '../features/patients/RouteBuilderPage'
 import { AuthContext, type AuthContextValue } from '../auth/AuthContext'
+import { ToastProvider } from '../components/ui/ToastProvider'
 
 function response(status: number, body?: unknown): Response {
   return new Response(body === undefined ? null : JSON.stringify(body), {
@@ -32,7 +33,9 @@ function renderPage(path: string, routes: Array<{ path: string; element: React.R
     <QueryClientProvider client={client}>
       <AuthContext.Provider value={auth ?? emptyAuth}>
         <MemoryRouter initialEntries={[path]}>
-          <Routes>{routes.map((route) => <Route key={route.path} path={route.path} element={route.element} />)}</Routes>
+          <ToastProvider>
+            <Routes>{routes.map((route) => <Route key={route.path} path={route.path} element={route.element} />)}</Routes>
+          </ToastProvider>
         </MemoryRouter>
       </AuthContext.Provider>
     </QueryClientProvider>,
@@ -58,17 +61,83 @@ describe('fase 3: administración y catálogo', () => {
   it('espera el debounce en la búsqueda de usuarios y presenta badges textuales', async () => {
     const fetchMock = vi.fn<(input: RequestInfo | URL) => Promise<Response>>(() => Promise.resolve(response(200, {
       total: 1, page: 1, limit: 10,
-      data: [{ id: 'u1', nombre: 'Laura Pérez', correo: 'laura@example.com', rol: 'Especialista', estado: true, intentos_fallidos: 0 }],
+      data: [{ id: 'u1', nombre: 'Laura Pérez', correo: 'laura@example.com', rol: 'Especialista', estado: true, intentos_fallidos: 0, fecha_creacion: '2026-03-10T12:00:00Z' }],
     })))
     renderPage('/admin/usuarios', adminRoutes, fetchMock)
-    expect(await screen.findByText('Laura Pérez')).toBeInTheDocument()
-    expect(screen.getByText('Especialista', { selector: 'span' })).toBeInTheDocument()
-    expect(screen.getByText('Activo', { selector: 'span' })).toBeInTheDocument()
+    expect(await screen.findAllByText('Laura Pérez')).toHaveLength(2)
+    expect(screen.getAllByText('Especialista', { selector: 'span' })).toHaveLength(2)
+    expect(screen.getAllByText('Activo', { selector: 'span' })).toHaveLength(2)
+    expect(screen.getAllByText(/Creado/)).toHaveLength(2)
     const before = fetchMock.mock.calls.length
     const user = userEvent.setup()
     await user.type(screen.getByRole('textbox', { name: 'Buscar por nombre o correo' }), 'laura')
     expect(fetchMock.mock.calls.length).toBe(before)
     await waitFor(() => expect(fetchMock.mock.calls.some(([input]) => requestUrl(input).searchParams.get('q') === 'laura')).toBe(true))
+  })
+
+  it('muestra el saludo de Bogotá una sola vez en la pantalla principal', async () => {
+    const fetcher = (input: RequestInfo | URL) => requestUrl(input).pathname.endsWith('/admin/indicadores')
+      ? response(200, { total_usuarios: 12, total_pacientes: 4 })
+      : response(200, { total: 0, page: 1, limit: 10, data: [] })
+    renderPage('/admin/usuarios', adminRoutes, fetcher, { ...emptyAuth, user: { id: 'admin-1', nombre: 'Vero', correo: 'vero@example.com', rol: 'Administrador', estado: true, intentos_fallidos: 0 } })
+    expect(await screen.findByText(/^(Buenos días|Buenas tardes|Buenas noches), Vero$/)).toBeInTheDocument()
+    expect(screen.getAllByText(/^(Buenos días|Buenas tardes|Buenas noches), Vero$/)).toHaveLength(1)
+    expect(await screen.findByText('12')).toBeInTheDocument()
+    expect(screen.getByText('4')).toBeInTheDocument()
+  })
+
+  it('muestra el esqueleto, permite reintentar el resumen y omite datos ausentes', async () => {
+    let resolveIndicators: ((response: Response) => void) | undefined
+    let attempts = 0
+    const fetcher = (input: RequestInfo | URL) => {
+      if (requestUrl(input).pathname.endsWith('/admin/indicadores')) {
+        attempts += 1
+        if (attempts === 1) return new Promise<Response>((resolve) => { resolveIndicators = resolve })
+        return response(200, { total_usuarios: 17 })
+      }
+      return response(200, { total: 0, page: 1, limit: 10, data: [] })
+    }
+    renderPage('/admin/usuarios', adminRoutes, fetcher)
+    expect(screen.getByLabelText('Cargando resumen de usuarios')).toBeInTheDocument()
+    await waitFor(() => expect(resolveIndicators).toBeDefined())
+    await act(async () => { resolveIndicators?.(response(500, { message: 'No disponible' })) })
+    expect(await screen.findByText('No pudimos cargar el resumen de usuarios.')).toBeInTheDocument()
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Intentar de nuevo' }))
+    expect(await screen.findByText('17')).toBeInTheDocument()
+    expect(screen.queryByText('Pacientes')).not.toBeInTheDocument()
+  })
+
+  it('opera el menú de usuario con flechas y Escape y conserva las confirmaciones', async () => {
+    const account = { id: 'u1', nombre: 'Ana Admin', correo: 'ana@example.com', rol: 'Administrador', estado: true, intentos_fallidos: 0 }
+    const fetcher = (input: RequestInfo | URL) => {
+      const url = requestUrl(input)
+      if (url.pathname.endsWith('/admin/indicadores')) return response(200, { total_usuarios: 1, total_pacientes: 0 })
+      if (url.pathname.endsWith('/usuarios/u1/estado')) return response(200, { ...account, estado: false })
+      if (url.pathname.endsWith('/usuarios')) return response(200, { total: 1, page: 1, limit: 10, data: [account] })
+      return response(404, { message: 'No encontrado' })
+    }
+    renderPage('/admin/usuarios', adminRoutes, fetcher)
+    const user = userEvent.setup()
+    const menuButton = (await screen.findAllByRole('button', { name: 'Acciones para Ana Admin' }))[0]
+    if (!menuButton) throw new Error('El menú de acciones del usuario no se renderizó.')
+    await user.click(menuButton)
+    await waitFor(() => expect(screen.getByRole('menuitem', { name: 'Editar' })).toHaveFocus())
+    await user.keyboard('{ArrowDown}{Escape}')
+    expect(menuButton).toHaveFocus()
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+
+    await user.click(menuButton)
+    await waitFor(() => expect(screen.getByRole('menuitem', { name: 'Editar' })).toHaveFocus())
+    await user.keyboard('{ArrowDown}{Enter}')
+    expect(await screen.findByRole('dialog', { name: 'Desactivar usuario' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Desactivar' }))
+    expect(await screen.findByRole('status')).toHaveTextContent('Usuario desactivado correctamente.')
+
+    await user.click(menuButton)
+    await waitFor(() => expect(screen.getByRole('menuitem', { name: 'Editar' })).toHaveFocus())
+    await user.keyboard('{End}{Enter}')
+    expect(await screen.findByRole('dialog', { name: 'Restablecer contraseña' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Cancelar' }))
   })
 
   it.each([
@@ -92,6 +161,43 @@ describe('fase 3: administración y catálogo', () => {
     await user.type(screen.getByLabelText('Correo electrónico'), 'ana@example.com')
     await user.click(screen.getByRole('button', { name: 'Crear cuenta' }))
     expect(await screen.findByText(expected)).toBeInTheDocument()
+  })
+
+  it('muestra la confirmación después de crear una cuenta', async () => {
+    const account = { id: 'user-1', nombre: 'Ana Pérez', cedula: '123456', correo: 'ana@example.com', rol: 'Especialista', estado: true, intentos_fallidos: 0 }
+    const fetcher = (input: RequestInfo | URL) => {
+      const url = requestUrl(input)
+      if (url.pathname.endsWith('/usuarios/especialistas')) return response(201, account)
+      if (url.pathname.endsWith('/usuarios/user-1')) return response(200, account)
+      return response(404, { message: 'No encontrado' })
+    }
+    renderPage('/admin/usuarios/nuevo-especialista', [
+      { path: '/admin/usuarios/nuevo-especialista', element: <AccountFormPage role="Especialista" /> },
+      { path: '/admin/usuarios/:id', element: <EditUserPage /> },
+    ], fetcher)
+    const user = userEvent.setup()
+    await user.type(screen.getByLabelText('Nombre'), account.nombre)
+    await user.type(screen.getByLabelText('Cédula'), account.cedula)
+    await user.type(screen.getByLabelText('Correo electrónico'), account.correo)
+    await user.click(screen.getByRole('button', { name: 'Crear cuenta' }))
+    const successToast = await screen.findByRole('status')
+    expect(successToast).toHaveTextContent('Cuenta creada. Se envió la contraseña temporal al correo.')
+    const mascot = successToast.querySelector('img')
+    expect(mascot).not.toBeNull()
+    expect(mascot).toHaveAttribute('alt', '')
+    expect(mascot).toHaveAttribute('aria-hidden', 'true')
+  })
+
+  it('confirma los cambios al editar un usuario', async () => {
+    const account = { id: 'user-1', nombre: 'Ana Pérez', cedula: '123456', correo: 'ana@example.com', rol: 'Especialista', estado: true, intentos_fallidos: 0 }
+    const fetcher = (input: RequestInfo | URL) => {
+      const url = requestUrl(input)
+      if (url.pathname.endsWith('/usuarios/user-1')) return response(200, account)
+      return response(404, { message: 'No encontrado' })
+    }
+    renderPage('/admin/usuarios/user-1', [{ path: '/admin/usuarios/:id', element: <EditUserPage /> }], fetcher)
+    await userEvent.setup().click(await screen.findByRole('button', { name: 'Guardar cambios' }))
+    expect(await screen.findByRole('status')).toHaveTextContent('Cambios guardados correctamente.')
   })
 
   it('confirma antes de desactivar y muestra el conflicto de último administrador', async () => {
@@ -158,7 +264,37 @@ describe('fase 3: administración y catálogo', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Guardar cambios' }))
     await waitFor(() => expect(seen).toContain('PUT /v1/ejercicios/ex1'))
     expect(sentBody).toMatchObject({ tipo: 'reaccion', parametros: { intentos: 10, tiempo_limite_ms: 1500 } })
-    expect(await within(dialog).findByText('No se puede editar este ejercicio porque está en una ruta activa.')).toBeInTheDocument()
+    expect(await screen.findByRole('alert')).toHaveTextContent('No se puede editar este ejercicio porque está en una ruta activa.')
+  })
+
+  it('confirma la creación y edición de ejercicios', async () => {
+    let exercise: Record<string, unknown> | null = null
+    const fetcher = async (input: RequestInfo | URL) => {
+      const url = requestUrl(input)
+      const method = input instanceof Request ? input.method : 'GET'
+      if (url.pathname.endsWith('/ejercicios') && method === 'GET') return response(200, exercise ? [exercise] : [])
+      if (url.pathname.endsWith('/ejercicios') && method === 'POST') {
+        exercise = { id: 'ex1', nombre: 'Memoria', categoria: 'Velocidad', tipo: 'reaccion', nivel_dificultad: 1, estado: 'Activo', instrucciones: 'Recuerda la secuencia', parametros: { intentos: 10, tiempo_limite_ms: 1500 } }
+        return response(201, exercise)
+      }
+      if (url.pathname.endsWith('/ejercicios/ex1') && method === 'PUT') return response(200, exercise)
+      return response(404, { message: 'No encontrado' })
+    }
+    renderPage('/especialista/ejercicios', [{ path: '/especialista/ejercicios', element: <ExercisesPage /> }], fetcher)
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'Crear ejercicio' }))
+    const createDialog = await screen.findByRole('dialog', { name: 'Crear ejercicio' })
+    await user.type(within(createDialog).getByLabelText('Nombre'), 'Memoria')
+    await user.type(within(createDialog).getByLabelText('Instrucciones'), 'Recuerda la secuencia')
+    await user.click(within(createDialog).getByRole('button', { name: 'Crear ejercicio' }))
+    expect(await screen.findByRole('status')).toHaveTextContent('Ejercicio creado correctamente.')
+
+    await user.click(await screen.findByRole('button', { name: 'Editar' }))
+    const editDialog = await screen.findByRole('dialog', { name: 'Editar ejercicio' })
+    await user.click(within(editDialog).getByRole('button', { name: 'Guardar cambios' }))
+    await waitFor(() => {
+      expect(screen.getAllByRole('status').some((status) => status.textContent?.includes('Ejercicio actualizado correctamente.'))).toBe(true)
+    })
   })
 
   it('abre el diálogo con foco inicial y lo cierra con Escape devolviendo el foco', async () => {
@@ -199,7 +335,9 @@ describe('fase 3: administración y catálogo', () => {
     renderPage('/especialista/ejercicios', [{ path: '/especialista/ejercicios', element: <ExercisesPage /> }], fetcher)
     const user = userEvent.setup()
     await user.click(await screen.findByRole('button', { name: 'Archivar Reacción' }))
-    expect(await screen.findByRole('status')).toHaveTextContent('se archivó')
+    await waitFor(() => {
+      expect(screen.getAllByRole('status').some((status) => status.textContent?.includes('se archivó'))).toBe(true)
+    })
     expect(seen).toContain('PATCH /v1/ejercicios/ex1/archivar')
     expect(await screen.findByText('No encontramos ejercicios con esos filtros.')).toBeInTheDocument()
 
@@ -208,7 +346,9 @@ describe('fase 3: administración y catálogo', () => {
     expect(seen).toContain('GET /v1/ejercicios?archivados=true')
     expect(screen.queryByRole('button', { name: 'Editar' })).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Restaurar' }))
-    expect(await screen.findByRole('status')).toHaveTextContent('volvió a tu catálogo')
+    await waitFor(() => {
+      expect(screen.getAllByRole('status').some((status) => status.textContent?.includes('volvió a tu catálogo'))).toBe(true)
+    })
     expect(seen).toContain('PATCH /v1/ejercicios/ex1/restaurar')
   })
 

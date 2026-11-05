@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Link, useLocation, useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { Plus, Route as RouteIcon, Trophy } from 'lucide-react'
 import { getErrorMessage } from '../../api/client'
 import { queryKeys } from '../../api/queryKeys'
@@ -10,6 +10,7 @@ import { Card } from '../../components/ui/Card'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { ErrorState } from '../../components/ui/ErrorState'
 import { Input } from '../../components/ui/Input'
+import { PageHeader } from '../../components/ui/PageHeader'
 import { Select } from '../../components/ui/Select'
 import { formatDate } from '../../lib/date'
 import { ObservationDialog } from './ObservationDialog'
@@ -100,7 +101,6 @@ function statusBadge(status: PatientAlert['estado']) {
 
 export function PatientDetailPage() {
   const { id = '' } = useParams()
-  const location = useLocation()
   const [observationOpen, setObservationOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [routeTab, setRouteTab] = useState<'activa' | 'historial'>('activa')
@@ -183,26 +183,21 @@ export function PatientDetailPage() {
   }))
   const totalHistoryPages = Math.max(1, Math.ceil((historyQuery.data?.total ?? history.length) / HISTORY_PAGE_SIZE))
   const totalObservationPages = Math.max(1, Math.ceil((observationsQuery.data?.total ?? observations.length) / OBSERVATION_PAGE_SIZE))
-  const notice = (location.state as { notice?: unknown } | null)?.notice
-
   return (
     <div className="space-y-6">
-      {typeof notice === 'string' && (
-        <p role="status" className="rounded-xl bg-[var(--color-success-bg)] p-3 text-sm font-medium text-[var(--color-success-text)]">{notice}</p>
-      )}
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="mb-0 text-3xl">{patient.nombre || 'Paciente'}</h1>
-          <p className="mb-0 mt-1 text-sm text-[var(--color-text-muted)]">Consulta el progreso y seguimiento de {patient.nombre || 'tu paciente'}.</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
+      <PageHeader
+        title={patient.nombre || 'Paciente'}
+        description={`Consulta el progreso y seguimiento de ${patient.nombre || 'tu paciente'}.`}
+        backTo="/especialista/pacientes"
+        backLabel="Volver a mis pacientes"
+        actions={<>
           <Button variant="secondary" onClick={() => setSettingsOpen(true)}>Editar información</Button>
           <Button onClick={() => setObservationOpen(true)}>
             <Plus aria-hidden="true" className="size-4" strokeWidth={1.75} />
             Nueva observación
           </Button>
-        </div>
-      </header>
+        </>}
+      />
 
       <PatientInformation patient={patient} />
 
