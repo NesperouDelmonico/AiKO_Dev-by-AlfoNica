@@ -162,8 +162,9 @@ void main() {
     await tester.tap(find.text('3'));
     await tester.pump();
     expect(find.textContaining('La respuesta era B'), findsOneWidget);
-    expect(find.byIcon(Icons.check_rounded), findsOneWidget);
-    expect(find.byIcon(Icons.close_rounded), findsNWidgets(2));
+    final inOptions = find.byType(OptionTile);
+    expect(find.descendant(of: inOptions, matching: find.byIcon(Icons.check_rounded)), findsOneWidget);
+    expect(find.descendant(of: inOptions, matching: find.byIcon(Icons.close_rounded)), findsNWidgets(2));
     await tester.tap(find.text('TERMINAR'));
     await advance(tester, const Duration(milliseconds: 600));
     expect(result()!.puntaje, 0);
