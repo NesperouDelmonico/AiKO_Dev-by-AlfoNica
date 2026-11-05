@@ -29,6 +29,9 @@ describe('TherapyUseCase.result', () => {
     exercises: jest.fn(),
     exercise: jest.fn(),
     exerciseUsedInRoutes: jest.fn(),
+    workshop: jest.fn(),
+    importCounts: jest.fn(),
+    importedOrigins: jest.fn(),
     specialistIdForUser: jest.fn(),
     patientForUser: jest.fn(),
     patientById: jest.fn(),
@@ -556,6 +559,8 @@ describe('TherapyUseCase.result', () => {
       const done = await useCase.archive('own', true, specialist);
       expect(repository.updateExercise).toHaveBeenLastCalledWith('own', {
         archivadoEn: expect.any(Date),
+        publicado: false,
+        fechaPublicacion: null,
       });
       expect(done.archivado_en).toBeInstanceOf(Date);
       await useCase.archive('archived', true, specialist);
@@ -590,6 +595,164 @@ describe('TherapyUseCase.result', () => {
           rol: UserRole.ESPECIALISTA,
         }),
       ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+  });
+
+  describe('taller de ejercicios', () => {
+    const ana = { sub: 'ana-user', rol: UserRole.ESPECIALISTA };
+    const luis = { sub: 'luis-user', rol: UserRole.ESPECIALISTA };
+    const admin = { sub: 'admin-user', rol: UserRole.ADMINISTRADOR };
+    const base = {
+      categoria: CognitiveCategory.MEMORIA,
+      tipo: GameType.LOGICA,
+      nivelDificultad: 2,
+      instrucciones: 'Resuelve',
+      parametros: {
+        preguntas: [{ enunciado: '2 + 2', opciones: ['3', '4'], correcta: 1 }],
+      },
+      archivadoEn: null,
+      fechaPublicacion: null,
+      origenId: null,
+    };
+    const published = Object.assign(new ExerciseEntity(), base, {
+      id: 'pub',
+      nombre: 'Sumas',
+      estado: ExerciseStatus.ACTIVO,
+      publicado: true,
+      especialista: { id: 'ana-id', usuario: { nombre: 'Ana' } },
+    });
+    const draft = Object.assign(new ExerciseEntity(), base, {
+      id: 'draft',
+      nombre: 'Borrador',
+      estado: ExerciseStatus.ACTIVO,
+      publicado: false,
+      especialista: { id: 'ana-id', usuario: { nombre: 'Ana' } },
+    });
+    const inactive = Object.assign(new ExerciseEntity(), base, {
+      id: 'off',
+      nombre: 'Apagado',
+      estado: ExerciseStatus.DESACTIVADO,
+      publicado: false,
+      especialista: { id: 'ana-id', usuario: { nombre: 'Ana' } },
+    });
+    const byId: Record<string, ExerciseEntity> = {
+      pub: published,
+      draft,
+      off: inactive,
+    };
+    const specialistIds: Record<string, string> = {
+      'ana-user': 'ana-id',
+      'luis-user': 'luis-id',
+    };
+
+    beforeEach(() => {
+      repository.exercise.mockImplementation(async (id) => byId[id] ?? null);
+      repository.specialistIdForUser.mockImplementation(
+        async (user) => specialistIds[user] ?? null,
+      );
+      repository.exerciseOwnedBySpecialist.mockImplementation(
+        async (id, user) => byId[id]?.especialista.id === specialistIds[user],
+      );
+      repository.exerciseUsedInRoutes.mockResolvedValue(false);
+      repository.updateExercise.mockImplementation(async (id, data) =>
+        Object.assign(new ExerciseEntity(), byId[id], data),
+      );
+      repository.importCounts.mockResolvedValue({ pub: 3 });
+      repository.importedOrigins.mockResolvedValue(new Set());
+      repository.workshop.mockResolvedValue({
+        total: 1,
+        page: 1,
+        limit: 20,
+        data: [published],
+      });
+      repository.saveExercise.mockImplementation(async (data) =>
+        Object.assign(new ExerciseEntity(), data, {
+          id: 'copy',
+          fechaCreacion: new Date(),
+          especialista: { id: 'luis-id' },
+        }),
+      );
+    });
+
+    it('publica solo ejercicios propios, activos y no archivados', async () => {
+      const done = await useCase.publish('draft', ana);
+      expect(repository.updateExercise).toHaveBeenLastCalledWith('draft', {
+        publicado: true,
+        fechaPublicacion: expect.any(Date),
+      });
+      expect(done.publicado).toBe(true);
+      await expect(useCase.publish('draft', luis)).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+      await expect(useCase.publish('off', ana)).rejects.toThrow(/Activa/);
+    });
+
+    it('el autor o el administrador lo retiran del taller', async () => {
+      await useCase.unpublish('pub', admin);
+      expect(repository.updateExercise).toHaveBeenLastCalledWith('pub', {
+        publicado: false,
+        fechaPublicacion: null,
+      });
+      await expect(useCase.unpublish('pub', luis)).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+    });
+
+    it('lista el taller con autor, importaciones y si es propio', async () => {
+      const forLuis = await useCase.workshop({ page: 1, limit: 20 }, luis);
+      expect(forLuis.data[0]).toMatchObject({
+        id: 'pub',
+        autor: 'Ana',
+        veces_importado: 3,
+        es_propio: false,
+        ya_importado: false,
+      });
+      const forAna = await useCase.workshop({ page: 1, limit: 20 }, ana);
+      expect(forAna.data[0].es_propio).toBe(true);
+    });
+
+    it('importa como copia propia con el origen', async () => {
+      const copy = await useCase.importFromWorkshop('pub', luis);
+      expect(repository.saveExercise).toHaveBeenCalledWith(
+        expect.objectContaining({
+          nombre: 'Sumas',
+          tipo: GameType.LOGICA,
+          origenId: 'pub',
+          publicado: false,
+          estado: ExerciseStatus.ACTIVO,
+        }),
+        'luis-user',
+      );
+      expect(copy).toMatchObject({ id: 'copy', origen_id: 'pub' });
+    });
+
+    it('no importa lo propio, lo ya importado ni lo que no está publicado', async () => {
+      await expect(useCase.importFromWorkshop('pub', ana)).rejects.toThrow(
+        /ya es tuyo/,
+      );
+      await expect(
+        useCase.importFromWorkshop('draft', luis),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      repository.importedOrigins.mockResolvedValue(new Set(['pub']));
+      await expect(useCase.importFromWorkshop('pub', luis)).rejects.toThrow(
+        /Ya importaste/,
+      );
+      expect(repository.saveExercise).not.toHaveBeenCalled();
+    });
+
+    it('otros especialistas ven el detalle de lo publicado; archivar lo retira', async () => {
+      await expect(useCase.getFor('pub', luis)).resolves.toMatchObject({
+        id: 'pub',
+      });
+      await expect(useCase.getFor('draft', luis)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+      await useCase.archive('pub', true, ana);
+      expect(repository.updateExercise).toHaveBeenLastCalledWith('pub', {
+        archivadoEn: expect.any(Date),
+        publicado: false,
+        fechaPublicacion: null,
+      });
     });
   });
 });

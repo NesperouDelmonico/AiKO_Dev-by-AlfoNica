@@ -19,6 +19,7 @@ tags:
   - name: Pacientes
   - name: Incidencias
   - name: Ejercicios
+  - name: Taller
   - name: Rutas terapéuticas
   - name: Ejecución y resultados
   - name: Gamificación
@@ -859,6 +860,117 @@ paths:
               schema: { $ref: "#/components/schemas/Ejercicio" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+
+  /ejercicios/{id}/publicar:
+    parameters:
+      - { $ref: "#/components/parameters/idPathParam" }
+    patch:
+      tags: [Taller]
+      summary: Publicar un ejercicio propio en el taller
+      description: |
+        Lo muestra a los demás especialistas para que lo importen como copia.
+        Debe estar Activo y no archivado. Idempotente.
+      responses:
+        "200":
+          description: Ejercicio publicado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Ejercicio" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Ejercicio desactivado o archivado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /ejercicios/{id}/retirar:
+    parameters:
+      - { $ref: "#/components/parameters/idPathParam" }
+    patch:
+      tags: [Taller]
+      summary: Retirar un ejercicio del taller (autor o administrador)
+      description: Las copias que ya se importaron no cambian. Idempotente.
+      responses:
+        "200":
+          description: Ejercicio retirado del taller
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Ejercicio" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /taller:
+    get:
+      tags: [Taller]
+      summary: Listar los ejercicios publicados en el taller
+      description: Ejercicios publicados, activos y no archivados de todos los especialistas.
+      parameters:
+        - name: categoria
+          in: query
+          schema: { $ref: "#/components/schemas/CategoriaEjercicio" }
+        - name: tipo
+          in: query
+          schema: { $ref: "#/components/schemas/TipoJuego" }
+        - name: nivel_dificultad
+          in: query
+          schema: { type: integer, minimum: 1 }
+        - name: q
+          in: query
+          description: Busca en el nombre y las instrucciones.
+          schema: { type: string, maxLength: 100 }
+        - { $ref: "#/components/parameters/page" }
+        - { $ref: "#/components/parameters/limit" }
+      responses:
+        "200":
+          description: Página de ejercicios del taller
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total: { type: integer }
+                  page: { type: integer }
+                  limit: { type: integer }
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/EjercicioTaller" }
+
+  /taller/{id}:
+    parameters:
+      - { $ref: "#/components/parameters/idPathParam" }
+    get:
+      tags: [Taller]
+      summary: Ver un ejercicio del taller
+      responses:
+        "200":
+          description: Ejercicio del taller
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EjercicioTaller" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /taller/{id}/importar:
+    parameters:
+      - { $ref: "#/components/parameters/idPathParam" }
+    post:
+      tags: [Taller]
+      summary: Importar un ejercicio del taller como copia propia
+      description: |
+        Crea un ejercicio nuevo en el catálogo del especialista con origen_id apuntando
+        al original. Los cambios posteriores del autor no afectan la copia.
+      responses:
+        "201":
+          description: Copia creada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Ejercicio" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: El ejercicio es propio o ya fue importado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
 
   /ejercicios/{id}/restaurar:
     parameters:
@@ -1883,6 +1995,23 @@ components:
           format: date-time
           nullable: true
           description: Fecha de archivo; null si está en el catálogo.
+        publicado: { type: boolean, description: Visible en el taller. }
+        fecha_publicacion: { type: string, format: date-time, nullable: true }
+        origen_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Ejercicio del taller del que se importó esta copia.
+
+    EjercicioTaller:
+      allOf:
+        - { $ref: "#/components/schemas/Ejercicio" }
+        - type: object
+          properties:
+            autor: { type: string, nullable: true }
+            veces_importado: { type: integer, minimum: 0 }
+            es_propio: { type: boolean }
+            ya_importado: { type: boolean }
 
     Constancia:
       type: object

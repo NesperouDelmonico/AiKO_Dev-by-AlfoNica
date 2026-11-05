@@ -228,7 +228,7 @@ describe('autenticación y cliente API', () => {
     expect(screen.queryByRole('navigation', { name: 'Navegación principal' })).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Abrir menú' }))
     const navigation = within(screen.getByRole('dialog')).getByRole('navigation', { name: 'Navegación principal' })
-    expect(within(navigation).getAllByRole('link').map((link) => link.textContent)).toEqual(['Usuarios', 'Indicadores'])
+    expect(within(navigation).getAllByRole('link').map((link) => link.textContent)).toEqual(['Usuarios', 'Indicadores', 'Taller'])
     expect(screen.queryByRole('link', { name: /pacientes|historial|ruta clínica/i })).not.toBeInTheDocument()
     await user.click(screen.getAllByRole('button', { name: 'Acciones para Paciente Uno' })[0]!)
     expect(screen.getByRole('menuitem', { name: 'Editar' })).toBeInTheDocument()

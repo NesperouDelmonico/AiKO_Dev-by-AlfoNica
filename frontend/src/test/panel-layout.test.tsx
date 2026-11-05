@@ -106,8 +106,9 @@ describe('layout del panel', () => {
     expect(within(drawer).getByRole('link', { name: 'Mis pacientes' })).toHaveAttribute('aria-current', 'page')
     expect(within(drawer).getByRole('link', { name: 'Alertas' })).toBeInTheDocument()
     expect(within(drawer).getByRole('link', { name: 'Ejercicios' })).toBeInTheDocument()
+    expect(within(drawer).getByRole('link', { name: 'Taller' })).toBeInTheDocument()
     await user.tab({ shift: true })
-    expect(within(drawer).getByRole('link', { name: 'Ejercicios' })).toHaveFocus()
+    expect(within(drawer).getByRole('link', { name: 'Taller' })).toHaveFocus()
 
     await user.keyboard('{Escape}')
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()

@@ -184,6 +184,28 @@ export class ResultsQueryDto {
   limit = 20;
 }
 
+export class WorkshopQueryDto extends ResultsQueryDto {
+  @ApiPropertyOptional({ enum: CognitiveCategory })
+  @IsOptional()
+  @IsEnum(CognitiveCategory)
+  categoria?: CognitiveCategory;
+  @ApiPropertyOptional({ enum: GameType })
+  @IsOptional()
+  @IsEnum(GameType)
+  tipo?: GameType;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  nivel_dificultad?: number;
+  @ApiPropertyOptional({ description: 'Busca en nombre e instrucciones' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  q?: string;
+}
+
 export class RoutesQueryDto extends ResultsQueryDto {
   @ApiPropertyOptional({ enum: RouteStatus })
   @IsOptional()

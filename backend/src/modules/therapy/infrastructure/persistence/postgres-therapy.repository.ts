@@ -25,6 +25,7 @@ import {
 import type {
   ExerciseFilters,
   TherapyRepositoryPort,
+  WorkshopFilters,
 } from '../../domain/ports/therapy.repository.port';
 
 @Injectable()
@@ -43,6 +44,61 @@ export class PostgresTherapyRepository implements TherapyRepositoryPort {
     @InjectRepository(SpecialistEntity)
     private readonly specialists: Repository<SpecialistEntity>,
   ) {}
+  async workshop(filters: WorkshopFilters) {
+    const query = this.ex
+      .createQueryBuilder('exercise')
+      .leftJoinAndSelect('exercise.especialista', 'specialist')
+      .leftJoinAndSelect('specialist.usuario', 'user')
+      .where('exercise.publicado = true')
+      .andWhere('exercise.estado = :estado', { estado: ExerciseStatus.ACTIVO })
+      .andWhere('exercise.archivadoEn IS NULL');
+    if (filters.categoria)
+      query.andWhere('exercise.categoria = :categoria', {
+        categoria: filters.categoria,
+      });
+    if (filters.tipo)
+      query.andWhere('exercise.tipo = :tipo', { tipo: filters.tipo });
+    if (filters.nivelDificultad)
+      query.andWhere('exercise.nivelDificultad = :nivel', {
+        nivel: filters.nivelDificultad,
+      });
+    if (filters.q?.trim())
+      query.andWhere(
+        '(exercise.nombre ILIKE :q OR exercise.instrucciones ILIKE :q)',
+        { q: `%${filters.q.trim().replace(/[%_\\]/g, '\\$&')}%` },
+      );
+    const [data, total] = await query
+      .orderBy('exercise.fechaPublicacion', 'DESC', 'NULLS LAST')
+      .addOrderBy('exercise.fechaCreacion', 'DESC')
+      .skip((filters.page - 1) * filters.limit)
+      .take(filters.limit)
+      .getManyAndCount();
+    return { total, page: filters.page, limit: filters.limit, data };
+  }
+  async importCounts(originIds: string[]) {
+    if (!originIds.length) return {};
+    const rows = await this.ex
+      .createQueryBuilder('exercise')
+      .select('exercise.origenId', 'origen')
+      .addSelect('COUNT(*)', 'total')
+      .where('exercise.origenId IN (:...ids)', { ids: originIds })
+      .groupBy('exercise.origenId')
+      .getRawMany<{ origen: string; total: string }>();
+    return Object.fromEntries(
+      rows.map((row) => [row.origen, Number(row.total)]),
+    );
+  }
+  async importedOrigins(specialistUserId: string, originIds: string[]) {
+    if (!originIds.length) return new Set<string>();
+    const rows = await this.ex.find({
+      where: {
+        origenId: In(originIds),
+        especialista: { usuario: { id: specialistUserId } },
+      },
+      select: { id: true, origenId: true },
+    });
+    return new Set(rows.map((row) => row.origenId!));
+  }
   exercises(filters: ExerciseFilters) {
     const { especialistaUserId, archivados, ...columns } = filters;
     const where: FindOptionsWhere<ExerciseEntity> = {};

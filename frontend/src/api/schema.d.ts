@@ -1608,6 +1608,253 @@ export interface paths {
         };
         trace?: never;
     };
+    "/ejercicios/{id}/publicar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPathParam"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Publicar un ejercicio propio en el taller
+         * @description Lo muestra a los demás especialistas para que lo importen como copia.
+         *     Debe estar Activo y no archivado. Idempotente.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPathParam"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Ejercicio publicado */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Ejercicio"];
+                    };
+                };
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                /** @description Ejercicio desactivado o archivado */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/ejercicios/{id}/retirar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPathParam"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Retirar un ejercicio del taller (autor o administrador)
+         * @description Las copias que ya se importaron no cambian. Idempotente.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPathParam"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Ejercicio retirado del taller */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Ejercicio"];
+                    };
+                };
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        trace?: never;
+    };
+    "/taller": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Listar los ejercicios publicados en el taller
+         * @description Ejercicios publicados, activos y no archivados de todos los especialistas.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    categoria?: components["schemas"]["CategoriaEjercicio"];
+                    tipo?: components["schemas"]["TipoJuego"];
+                    nivel_dificultad?: number;
+                    /** @description Busca en el nombre y las instrucciones. */
+                    q?: string;
+                    page?: components["parameters"]["page"];
+                    limit?: components["parameters"]["limit"];
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Página de ejercicios del taller */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            total?: number;
+                            page?: number;
+                            limit?: number;
+                            data?: components["schemas"]["EjercicioTaller"][];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/taller/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPathParam"];
+            };
+            cookie?: never;
+        };
+        /** Ver un ejercicio del taller */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPathParam"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Ejercicio del taller */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EjercicioTaller"];
+                    };
+                };
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/taller/{id}/importar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPathParam"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Importar un ejercicio del taller como copia propia
+         * @description Crea un ejercicio nuevo en el catálogo del especialista con origen_id apuntando
+         *     al original. Los cambios posteriores del autor no afectan la copia.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPathParam"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Copia creada */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Ejercicio"];
+                    };
+                };
+                404: components["responses"]["NotFound"];
+                /** @description El ejercicio es propio o ya fue importado */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/ejercicios/{id}/restaurar": {
         parameters: {
             query?: never;
@@ -3299,6 +3546,21 @@ export interface components {
              * @description Fecha de archivo; null si está en el catálogo.
              */
             archivado_en?: string | null;
+            /** @description Visible en el taller. */
+            publicado?: boolean;
+            /** Format: date-time */
+            fecha_publicacion?: string | null;
+            /**
+             * Format: uuid
+             * @description Ejercicio del taller del que se importó esta copia.
+             */
+            origen_id?: string | null;
+        };
+        EjercicioTaller: components["schemas"]["Ejercicio"] & {
+            autor?: string | null;
+            veces_importado?: number;
+            es_propio?: boolean;
+            ya_importado?: boolean;
         };
         Constancia: {
             /** @example 2026-10 */

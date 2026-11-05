@@ -79,4 +79,15 @@ export class ExerciseEntity {
   /** Archivado: oculto en el catálogo; las rutas que ya lo usan siguen. */
   @Column({ type: 'timestamp', name: 'archivado_en', nullable: true })
   archivadoEn!: Date | null;
+
+  /** Visible en el taller para que otros especialistas lo importen. */
+  @Column({ type: 'boolean', default: false })
+  publicado!: boolean;
+
+  @Column({ type: 'timestamp', name: 'fecha_publicacion', nullable: true })
+  fechaPublicacion!: Date | null;
+
+  /** Ejercicio del taller del que se importó esta copia. */
+  @Column({ type: 'uuid', name: 'origen_id', nullable: true })
+  origenId!: string | null;
 }

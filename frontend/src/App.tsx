@@ -20,6 +20,7 @@ const AccountFormPage = lazy(() => import('./features/admin/AccountFormPage').th
 const EditUserPage = lazy(() => import('./features/admin/AccountFormPage').then((module) => ({ default: module.EditUserPage })))
 const IndicatorsPage = lazy(() => import('./features/admin/IndicatorsPage').then((module) => ({ default: module.IndicatorsPage })))
 const ExercisesPage = lazy(() => import('./features/exercises/ExercisesPage').then((module) => ({ default: module.ExercisesPage })))
+const WorkshopPage = lazy(() => import('./features/workshop/WorkshopPage').then((module) => ({ default: module.WorkshopPage })))
 const AlertsPage = lazy(() => import('./features/alerts/AlertsPage').then((module) => ({ default: module.AlertsPage })))
 
 const queryClient = new QueryClient({
@@ -62,6 +63,7 @@ export function AppRoutes() {
                 <Route path=":id" element={<EditUserPage />} />
               </Route>
               <Route path="indicadores" element={<IndicatorsPage />} />
+              <Route path="taller" element={<WorkshopPage moderation />} />
             </Route>
           </Route>
         </Route>
@@ -75,6 +77,7 @@ export function AppRoutes() {
               <Route path="pacientes/:id" element={<PatientDetailPage />} />
               <Route path="alertas" element={<AlertsPage />} />
               <Route path="ejercicios" element={<ExercisesPage />} />
+              <Route path="taller" element={<WorkshopPage />} />
             </Route>
           </Route>
         </Route>

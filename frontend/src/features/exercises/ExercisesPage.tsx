@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Archive, ArchiveRestore, Plus } from 'lucide-react'
+import { Archive, ArchiveRestore, Plus, Store, Undo2 } from 'lucide-react'
 import { apiClient, getErrorMessage, requireResponse } from '../../api/client'
 import { queryKeys } from '../../api/queryKeys'
 import { Badge } from '../../components/ui/Badge'
@@ -57,6 +57,26 @@ export function ExercisesPage() {
         : `"${exercise.nombre}" se archivó. Las rutas que ya lo usan siguen igual; puedes restaurarlo desde Archivados.` })
     } catch (error) { notify({ type: 'error', message: getErrorMessage(error) }) }
   }
+  const share = useMutation({
+    mutationFn: async ({ id, publish }: { id: string; publish: boolean }) => {
+      const result = publish
+        ? await apiClient.PATCH('/ejercicios/{id}/publicar', { params: { path: { id } } })
+        : await apiClient.PATCH('/ejercicios/{id}/retirar', { params: { path: { id } } })
+      return requireResponse(result.data, result.response)
+    },
+    onSuccess: () => Promise.all([
+      client.invalidateQueries({ queryKey: queryKeys.exercises.all }),
+      client.invalidateQueries({ queryKey: queryKeys.workshop.all }),
+    ]),
+  })
+  async function changeShare(exercise: Exercise, publish: boolean) {
+    try {
+      await share.mutateAsync({ id: exercise.id!, publish })
+      notify({ type: 'success', message: publish
+        ? `"${exercise.nombre}" ya está en el taller: otros especialistas pueden importarlo.`
+        : `"${exercise.nombre}" se retiró del taller. Las copias ya importadas no cambian.` })
+    } catch (error) { notify({ type: 'error', message: getErrorMessage(error) }) }
+  }
   const toggle = useMutation({
     mutationFn: async ({ id, estado }: { id: string; estado: ExerciseState }) => {
       const result = await apiClient.PATCH('/ejercicios/{id}/estado', { params: { path: { id } }, body: { estado } })
@@ -92,7 +112,7 @@ export function ExercisesPage() {
           <div key={exercise.id ?? i} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--color-border)] p-4">
             <div><h2 className="mb-1 text-base">{exercise.nombre || '—'}</h2><p className="mb-2 text-sm text-[var(--color-text-muted)]">{gameTypeLabel(exercise.tipo)} · {exercise.categoria || '—'} · Nivel {exercise.nivel_dificultad ?? '—'}</p>{exercise.archivado_en
                 ? <Badge variant="neutral">Archivado</Badge>
-                : <Badge variant={exercise.estado === 'Activo' ? 'success' : 'attention'}>{exercise.estado || 'Estado no disponible'}</Badge>}</div>
+                : <span className="flex flex-wrap gap-2"><Badge variant={exercise.estado === 'Activo' ? 'success' : 'attention'}>{exercise.estado || 'Estado no disponible'}</Badge>{exercise.publicado && <Badge variant="pending">En el taller</Badge>}{exercise.origen_id && <Badge variant="neutral">Importado del taller</Badge>}</span>}</div>
             {exercise.archivado_en
               ? <div className="flex gap-2">{exercise.id && <Button size="sm" variant="secondary" disabled={archive.isPending} onClick={() => void changeArchive(exercise, true)}><ArchiveRestore aria-hidden="true" className="size-4" />Restaurar</Button>}</div>
                       : <div className="flex flex-wrap gap-2"><Button size="sm" variant="secondary" onClick={() => setEditing(exercise)}>Editar</Button>{exercise.id && <Button size="sm" variant="secondary" disabled={toggle.isPending} onClick={async () => {
@@ -101,7 +121,9 @@ export function ExercisesPage() {
                           await toggle.mutateAsync({ id: exercise.id!, estado: nextState })
                           notify({ type: 'success', message: `Ejercicio ${nextState === 'Activo' ? 'activado' : 'desactivado'} correctamente.` })
                         } catch (error) { notify({ type: 'error', message: getErrorMessage(error) }) }
-                      }}>{exercise.estado === 'Activo' ? 'Desactivar' : 'Activar'}</Button>}{exercise.id && <Button size="sm" variant="secondary" aria-label={`Archivar ${exercise.nombre ?? 'ejercicio'}`} disabled={archive.isPending} onClick={() => void changeArchive(exercise, false)}><Archive aria-hidden="true" className="size-4" />Archivar</Button>}</div>}
+                      }}>{exercise.estado === 'Activo' ? 'Desactivar' : 'Activar'}</Button>}{exercise.id && (exercise.publicado
+                        ? <Button size="sm" variant="secondary" aria-label={`Retirar ${exercise.nombre ?? 'ejercicio'} del taller`} disabled={share.isPending} onClick={() => void changeShare(exercise, false)}><Undo2 aria-hidden="true" className="size-4" />Retirar del taller</Button>
+                        : <Button size="sm" variant="secondary" aria-label={`Publicar ${exercise.nombre ?? 'ejercicio'} en el taller`} disabled={share.isPending || exercise.estado !== 'Activo'} title={exercise.estado !== 'Activo' ? 'Activa el ejercicio para publicarlo' : undefined} onClick={() => void changeShare(exercise, true)}><Store aria-hidden="true" className="size-4" />Publicar en el taller</Button>)}{exercise.id && <Button size="sm" variant="secondary" aria-label={`Archivar ${exercise.nombre ?? 'ejercicio'}`} disabled={archive.isPending} onClick={() => void changeArchive(exercise, false)}><Archive aria-hidden="true" className="size-4" />Archivar</Button>}</div>}
           </div>
         ))}</div>
       </Card>

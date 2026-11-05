@@ -30,6 +30,7 @@ import {
   ResultsQueryDto,
   RoutesQueryDto,
   UpdateExerciseDto,
+  WorkshopQueryDto,
 } from '../../application/dto/therapy.dto';
 @ApiTags('Ejercicios', 'Rutas terapéuticas', 'Ejecución y resultados')
 @ApiBearerAuth('bearerAuth')
@@ -63,6 +64,46 @@ export class TherapyController {
     @CurrentAuthUser() user: { sub: string; rol: UserRole },
   ) {
     return this.use.archive(id, true, user);
+  }
+  @Patch('ejercicios/:id/publicar')
+  @Roles(UserRole.ESPECIALISTA, UserRole.ADMINISTRADOR)
+  publish(
+    @Param('id') id: string,
+    @CurrentAuthUser() user: { sub: string; rol: UserRole },
+  ) {
+    return this.use.publish(id, user);
+  }
+  @Patch('ejercicios/:id/retirar')
+  @Roles(UserRole.ESPECIALISTA, UserRole.ADMINISTRADOR)
+  unpublish(
+    @Param('id') id: string,
+    @CurrentAuthUser() user: { sub: string; rol: UserRole },
+  ) {
+    return this.use.unpublish(id, user);
+  }
+  @Get('taller')
+  @Roles(UserRole.ESPECIALISTA, UserRole.ADMINISTRADOR)
+  workshop(
+    @Query() query: WorkshopQueryDto,
+    @CurrentAuthUser() user: { sub: string; rol: UserRole },
+  ) {
+    return this.use.workshop(query, user);
+  }
+  @Get('taller/:id')
+  @Roles(UserRole.ESPECIALISTA, UserRole.ADMINISTRADOR)
+  workshopItem(
+    @Param('id') id: string,
+    @CurrentAuthUser() user: { sub: string; rol: UserRole },
+  ) {
+    return this.use.workshopItem(id, user);
+  }
+  @Post('taller/:id/importar')
+  @Roles(UserRole.ESPECIALISTA)
+  importFromWorkshop(
+    @Param('id') id: string,
+    @CurrentAuthUser() user: { sub: string; rol: UserRole },
+  ) {
+    return this.use.importFromWorkshop(id, user);
   }
   @Patch('ejercicios/:id/restaurar')
   @Roles(UserRole.ESPECIALISTA, UserRole.ADMINISTRADOR)

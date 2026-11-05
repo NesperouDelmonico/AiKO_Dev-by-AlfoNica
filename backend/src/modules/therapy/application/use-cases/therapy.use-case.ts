@@ -37,6 +37,7 @@ import type {
   ExerciseStatusDto,
   ResultDto,
   UpdateExerciseDto,
+  WorkshopQueryDto,
 } from '../dto/therapy.dto';
 
 type Actor = { sub: string; rol: UserRole };
@@ -141,6 +142,7 @@ export class TherapyUseCase {
     if (actor.rol === UserRole.ADMINISTRADOR) return exercise;
     if (actor.rol === UserRole.ESPECIALISTA) {
       if (
+        this.inWorkshop(exercise) ||
         (await this.repository.exerciseOwnedBySpecialist(id, actor.sub)) ||
         (await this.repository.exerciseUsedInRoutes(id, {
           especialistaUserId: actor.sub,
@@ -169,9 +171,175 @@ export class TherapyUseCase {
     if (Boolean(exercise.archivado_en) === archived) return exercise;
     const updated = await this.repository.updateExercise(id, {
       archivadoEn: archived ? new Date() : null,
+      // Un ejercicio archivado sale del taller.
+      ...(archived ? { publicado: false, fechaPublicacion: null } : {}),
     });
     if (!updated) throw new NotFoundException('Ejercicio no encontrado');
     return this.exerciseResponse(updated);
+  }
+
+  // ------------------------------------------------------------------ Taller
+
+  private inWorkshop(exercise: {
+    publicado?: boolean;
+    estado?: ExerciseStatus;
+    archivado_en?: Date | null;
+  }) {
+    return (
+      exercise.publicado === true &&
+      exercise.estado === ExerciseStatus.ACTIVO &&
+      !exercise.archivado_en
+    );
+  }
+
+  /** Publica en el taller un ejercicio propio, activo y no archivado. */
+  async publish(id: string, actor: Actor) {
+    const exercise = await this.get(id);
+    await this.assertExerciseOwner(exercise.id, actor);
+    if (exercise.archivado_en) {
+      throw new ConflictException(
+        'Restaura el ejercicio antes de publicarlo en el taller',
+      );
+    }
+    if (exercise.estado !== ExerciseStatus.ACTIVO) {
+      throw new ConflictException(
+        'Activa el ejercicio antes de publicarlo en el taller',
+      );
+    }
+    if (exercise.publicado) return exercise;
+    const updated = await this.repository.updateExercise(id, {
+      publicado: true,
+      fechaPublicacion: new Date(),
+    });
+    if (!updated) throw new NotFoundException('Ejercicio no encontrado');
+    return this.exerciseResponse(updated);
+  }
+
+  /** Retira del taller: el autor o un administrador (moderación). */
+  async unpublish(id: string, actor: Actor) {
+    const exercise = await this.get(id);
+    await this.assertExerciseOwner(exercise.id, actor);
+    if (!exercise.publicado) return exercise;
+    const updated = await this.repository.updateExercise(id, {
+      publicado: false,
+      fechaPublicacion: null,
+    });
+    if (!updated) throw new NotFoundException('Ejercicio no encontrado');
+    return this.exerciseResponse(updated);
+  }
+
+  /** Ejercicios del taller con autor, importaciones y estado para quien consulta. */
+  async workshop(query: WorkshopQueryDto, actor: Actor) {
+    const result = await this.repository.workshop({
+      categoria: query.categoria,
+      tipo: query.tipo,
+      nivelDificultad: query.nivel_dificultad,
+      q: query.q,
+      page: query.page,
+      limit: query.limit,
+    });
+    const ids = result.data.map((exercise) => exercise.id);
+    const [counts, imported] = await Promise.all([
+      this.repository.importCounts(ids),
+      actor.rol === UserRole.ESPECIALISTA
+        ? this.repository.importedOrigins(actor.sub, ids)
+        : Promise.resolve(new Set<string>()),
+    ]);
+    const mySpecialistId =
+      actor.rol === UserRole.ESPECIALISTA
+        ? await this.repository.specialistIdForUser(actor.sub)
+        : null;
+    return {
+      total: result.total,
+      page: result.page,
+      limit: result.limit,
+      data: result.data.map((exercise) =>
+        this.workshopResponse(exercise, {
+          imports: counts[exercise.id] ?? 0,
+          own: exercise.especialista?.id === mySpecialistId,
+          imported: imported.has(exercise.id),
+        }),
+      ),
+    };
+  }
+
+  async workshopItem(id: string, actor: Actor) {
+    const exercise = await this.repository.exercise(id);
+    if (!exercise || !this.inWorkshop(this.exerciseResponse(exercise))) {
+      throw new NotFoundException('Ejercicio no disponible en el taller');
+    }
+    const [counts, imported, mySpecialistId] = await Promise.all([
+      this.repository.importCounts([id]),
+      actor.rol === UserRole.ESPECIALISTA
+        ? this.repository.importedOrigins(actor.sub, [id])
+        : Promise.resolve(new Set<string>()),
+      actor.rol === UserRole.ESPECIALISTA
+        ? this.repository.specialistIdForUser(actor.sub)
+        : Promise.resolve(null),
+    ]);
+    return this.workshopResponse(exercise, {
+      imports: counts[id] ?? 0,
+      own: exercise.especialista?.id === mySpecialistId,
+      imported: imported.has(id),
+    });
+  }
+
+  /**
+   * Importa como copia propia: el autor puede seguir editando el original
+   * sin afectar las rutas de quien lo importó. Las imágenes se comparten
+   * (no se modifican nunca, solo se reemplazan por otras).
+   */
+  async importFromWorkshop(id: string, actor: Actor) {
+    const source = await this.repository.exercise(id);
+    if (!source || !this.inWorkshop(this.exerciseResponse(source))) {
+      throw new NotFoundException('Ejercicio no disponible en el taller');
+    }
+    const mySpecialistId = await this.repository.specialistIdForUser(actor.sub);
+    if (!mySpecialistId) {
+      throw new ForbiddenException(
+        'Solo los especialistas importan ejercicios',
+      );
+    }
+    if (source.especialista?.id === mySpecialistId) {
+      throw new ConflictException('Este ejercicio ya es tuyo');
+    }
+    if ((await this.repository.importedOrigins(actor.sub, [id])).has(id)) {
+      throw new ConflictException(
+        'Ya importaste este ejercicio; búscalo en tu catálogo (o en Archivados)',
+      );
+    }
+    const copy = await this.repository.saveExercise(
+      {
+        nombre: source.nombre,
+        categoria: source.categoria,
+        tipo: source.tipo,
+        nivelDificultad: source.nivelDificultad,
+        instrucciones: source.instrucciones,
+        parametros: await this.parameters(source.tipo, source.parametros),
+        estado: ExerciseStatus.ACTIVO,
+        origenId: source.id,
+        publicado: false,
+      },
+      actor.sub,
+    );
+    return this.exerciseResponse(copy);
+  }
+
+  private workshopResponse(
+    exercise: ExerciseEntity,
+    extra: { imports: number; own: boolean; imported: boolean },
+  ) {
+    const base = this.exerciseResponse(exercise);
+    return {
+      ...base,
+      autor: exercise.especialista?.usuario?.nombre ?? null,
+      veces_importado: extra.imports,
+      vecesImportado: extra.imports,
+      es_propio: extra.own,
+      esPropio: extra.own,
+      ya_importado: extra.imported,
+      yaImportado: extra.imported,
+    };
   }
 
   async update(id: string, data: UpdateExerciseDto, actor: Actor) {
@@ -662,6 +830,11 @@ export class TherapyUseCase {
       fechaCreacion: exercise.fechaCreacion,
       archivado_en: exercise.archivadoEn ?? null,
       archivadoEn: exercise.archivadoEn ?? null,
+      publicado: exercise.publicado ?? false,
+      fecha_publicacion: exercise.fechaPublicacion ?? null,
+      fechaPublicacion: exercise.fechaPublicacion ?? null,
+      origen_id: exercise.origenId ?? null,
+      origenId: exercise.origenId ?? null,
     };
   }
 

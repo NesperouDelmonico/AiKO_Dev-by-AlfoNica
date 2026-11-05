@@ -10,6 +10,7 @@ import {
   LogOut,
   Menu,
   Search,
+  Store,
   Users,
   X,
 } from 'lucide-react'
@@ -29,11 +30,13 @@ const navigation: Record<PanelRole, NavigationItem[]> = {
   admin: [
     { to: '/admin/usuarios', label: 'Usuarios', icon: Users },
     { to: '/admin/indicadores', label: 'Indicadores', icon: Activity },
+    { to: '/admin/taller', label: 'Taller', icon: Store },
   ],
   specialist: [
     { to: '/especialista/pacientes', label: 'Mis pacientes', icon: Users },
     { to: '/especialista/alertas', label: 'Alertas', icon: Bell },
     { to: '/especialista/ejercicios', label: 'Ejercicios', icon: Dumbbell },
+    { to: '/especialista/taller', label: 'Taller', icon: Store },
   ],
 }
 
