@@ -60,7 +60,14 @@ jobs:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: |
           if [ -n "$GOOGLE_SERVICES_JSON" ]; then
-            echo "$GOOGLE_SERVICES_JSON" | base64 -d > android/app/google-services.json
+            # Acepta el JSON tal cual o codificado en base64.
+          if printf '%s' "$GOOGLE_SERVICES_JSON" | grep -q '^[[:space:]]*{'; then
+            printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
+          else
+            printf '%s' "$GOOGLE_SERVICES_JSON" | base64 -d > android/app/google-services.json
+          fi
+          python3 -c "import json; json.load(open('android/app/google-services.json'))" \
+            || { echo "::error::GOOGLE_SERVICES_JSON no es un JSON válido (ni en texto ni en base64)."; exit 1; }
             echo "Firebase activado"
           else
             echo "::notice::Sin el secreto GOOGLE_SERVICES_JSON el APK se compila sin notificaciones push."
