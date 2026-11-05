@@ -112,8 +112,10 @@ class _FindImageGameScreenState extends State<FindImageGameScreen> {
     _stopwatch
       ..reset()
       ..start();
+    var ticks = 0;
     _timer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
-      final left = widget.tiempoLimiteMs - _stopwatch.elapsedMilliseconds;
+      ticks++;
+      final left = widget.tiempoLimiteMs - ticks * 100;
       if (left <= 0) {
         _resolve(null);
       } else {
