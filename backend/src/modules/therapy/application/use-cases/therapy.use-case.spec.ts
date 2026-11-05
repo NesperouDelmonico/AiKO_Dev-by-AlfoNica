@@ -145,6 +145,35 @@ describe('TherapyUseCase.result', () => {
     expect(gamification.onExerciseCompleted).not.toHaveBeenCalled();
   });
 
+  it('guarda los dibujos del paciente y rechaza los que no existen', async () => {
+    const drawing = '6b3f0f1e-6a4b-4c1e-9b2a-1d2e3f4a5b6c';
+    const images = { missing: jest.fn().mockResolvedValue([]) };
+    const withImages = new TherapyUseCase(
+      repository,
+      config,
+      gamification,
+      images as never,
+    );
+    await withImages.result(
+      route.id,
+      item.id,
+      { puntaje: 80, aciertos: 4, dibujos: [drawing, drawing] },
+      'patient-user',
+    );
+    expect(repository.saveResult.mock.calls[0][2].dibujos).toEqual([drawing]);
+    images.missing.mockResolvedValue([drawing]);
+    repository.saveResult.mockClear();
+    await expect(
+      withImages.result(
+        route.id,
+        item.id,
+        { puntaje: 80, aciertos: 4, dibujos: [drawing] },
+        'patient-user',
+      ),
+    ).rejects.toThrow(/Dibujos no encontrados/);
+    expect(repository.saveResult).not.toHaveBeenCalled();
+  });
+
   it('pasa al repositorio un resultado exitoso con avance habilitado', async () => {
     await useCase.result(
       route.id,
@@ -277,10 +306,10 @@ describe('TherapyUseCase.result', () => {
       expect(repository.saveExercise).not.toHaveBeenCalled();
     });
 
-    it('deduce el tipo de la categoría y respeta el tipo elegido', async () => {
+    it('deduce el juego y la clasificación, y rechaza combinaciones inválidas', async () => {
       await useCase.create(
         {
-          nombre: 'Reacción',
+          nombre: 'Colores',
           categoria: CognitiveCategory.VELOCIDAD,
           nivel_dificultad: 1,
           instrucciones: 'Toca rápido',
@@ -289,32 +318,52 @@ describe('TherapyUseCase.result', () => {
         'specialist-user',
       );
       expect(repository.saveExercise).toHaveBeenLastCalledWith(
-        expect.objectContaining({ tipo: GameType.REACCION }),
+        expect.objectContaining({
+          tipo: GameType.TOQUE_COLOR,
+          categoria: CognitiveCategory.VELOCIDAD,
+        }),
         'specialist-user',
       );
+      // Sin categoría: se toma la del juego.
       await useCase.create(
         {
-          nombre: 'Problemas',
-          categoria: CognitiveCategory.ATENCION,
-          tipo: GameType.LOGICA,
+          nombre: 'Secuencia',
+          tipo: GameType.MEMORIA_SECUENCIAS,
           nivel_dificultad: 1,
-          instrucciones: 'Elige la respuesta',
-          parametros: {
-            preguntas: [
-              {
-                enunciado: '¿Cuánto es 2 + 2?',
-                opciones: ['3', '4'],
-                correcta: 1,
-              },
-            ],
-          },
+          instrucciones: 'Repite la secuencia',
+          parametros: {},
         },
         'specialist-user',
       );
       expect(repository.saveExercise).toHaveBeenLastCalledWith(
-        expect.objectContaining({ tipo: GameType.LOGICA }),
+        expect.objectContaining({ categoria: CognitiveCategory.MEMORIA }),
         'specialist-user',
       );
+      await expect(
+        useCase.create(
+          {
+            nombre: 'Lógica',
+            categoria: CognitiveCategory.MEMORIA,
+            tipo: GameType.LOGICA,
+            nivel_dificultad: 1,
+            instrucciones: 'Elige',
+            parametros: {},
+          },
+          'specialist-user',
+        ),
+      ).rejects.toThrow(/clasificación Atención/);
+      await expect(
+        useCase.create(
+          {
+            nombre: 'Viejo',
+            tipo: GameType.REACCION,
+            nivel_dificultad: 1,
+            instrucciones: 'Toca',
+            parametros: {},
+          },
+          'specialist-user',
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
     });
 
     it('rechaza imágenes que no existen', async () => {
@@ -329,12 +378,12 @@ describe('TherapyUseCase.result', () => {
         withImages.create(
           {
             nombre: 'Palabras',
-            categoria: CognitiveCategory.MEMORIA,
+            categoria: CognitiveCategory.ATENCION,
             tipo: GameType.COMPLETAR_PALABRAS,
             nivel_dificultad: 1,
             instrucciones: 'Completa',
             parametros: {
-              frase: 'El gato duerme',
+              palabras: ['gato'],
               imagen_id: '6b3f0f1e-6a4b-4c1e-9b2a-1d2e3f4a5b6c',
             },
           },
@@ -346,17 +395,17 @@ describe('TherapyUseCase.result', () => {
     it('guarda los parámetros completos al crear', async () => {
       await useCase.create(
         {
-          nombre: 'Reacción',
-          categoria: CognitiveCategory.VELOCIDAD,
+          nombre: 'Busca',
+          tipo: GameType.BUSCA_IMAGEN,
           nivel_dificultad: 1,
-          instrucciones: 'Toca rápido',
-          parametros: { intentos: 12 },
+          instrucciones: 'Encuentra la imagen',
+          parametros: { rondas: 12 },
         },
         'specialist-user',
       );
       expect(repository.saveExercise).toHaveBeenCalledWith(
         expect.objectContaining({
-          parametros: { intentos: 12, tiempo_limite_ms: 1500 },
+          parametros: { rondas: 12, cuadricula: 9, tiempo_limite_ms: 6000 },
         }),
         'specialist-user',
       );

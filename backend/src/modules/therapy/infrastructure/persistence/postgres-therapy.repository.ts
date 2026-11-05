@@ -479,6 +479,7 @@ export class PostgresTherapyRepository implements TherapyRepositoryPort {
       aciertos: number;
       xpGanado: number;
       xpPorNivel: number;
+      dibujos?: string[] | null;
     },
     shouldAdvance = true,
   ) {
@@ -532,6 +533,7 @@ export class PostgresTherapyRepository implements TherapyRepositoryPort {
           tiempoReaccionMs: data.tiempoReaccionMs,
           aciertos: data.aciertos,
           xpGanado: data.xpGanado,
+          dibujos: data.dibujos?.length ? data.dibujos : null,
         }),
       );
       await manager

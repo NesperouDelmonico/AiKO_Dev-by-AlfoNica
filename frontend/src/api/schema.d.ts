@@ -1371,18 +1371,22 @@ export interface paths {
                 content: {
                     "application/json": {
                         nombre: string;
-                        categoria: components["schemas"]["CategoriaEjercicio"];
+                        categoria?: components["schemas"]["CategoriaEjercicio"];
                         tipo?: components["schemas"]["TipoJuego"];
                         nivel_dificultad: number;
                         instrucciones: string;
                         /**
                          * @description Según el tipo de juego (se completan valores por defecto):
-                         *     atencion_sostenida: duracion_segundos 30–180 (60), intervalo_ms 600–3000 (1500).
-                         *     memoria_secuencias: longitud_inicial 2–8 (3), longitud_maxima ≤ 9 y ≥ longitud_inicial (6), tiempo_visualizacion_ms 500–3000 (1000).
-                         *     reaccion: intentos 5–30 (10), tiempo_limite_ms 300–3000 (1500).
-                         *     completar_palabras: frase (2–120 caracteres, máx. 12 palabras), imagen_id opcional, letras_ocultas 1–4 (2), duracion_segundos 60–600 (300).
-                         *     recordar_imagenes: imagenes [{ imagen_id, respuestas: [palabras clave] }] (1–6), tiempo_visualizacion_segundos 3–30 (8).
-                         *     logica: preguntas [{ enunciado, imagen_id opcional, opciones (2–6), correcta (índice) }] (1–10).
+                         *     Atención
+                         *     completar_palabras: palabras (1–15, una palabra con solo letras), frases (0–5, de 2 a 12 palabras), imagen_id opcional, letras_faltantes 1–4 (2), intentos 1–10 (3), duracion_segundos 60–900 (300).
+                         *     logica: preguntas [{ enunciado, imagen_id opcional, opciones (2–6), correcta (índice) }] (1–10), duracion_segundos 60–900 (300).
+                         *     Memoria
+                         *     recordar_imagenes: imagenes [{ imagen_id, respuestas: [palabras clave] }] (2–8; respuestas obligatorias en modo nombrar), modo nombrar|relacionar (nombrar), dibujar (true), tiempo_visualizacion_segundos 5–30 (8), duracion_segundos 60–900 (300).
+                         *     memoria_secuencias (secuencia de colores): botones 3–9 (4), rondas 3–12 (6), intentos 1–5 (3), tiempo_respuesta_segundos 5–60 (15).
+                         *     Velocidad
+                         *     toque_color: rondas 5–40 (15), colores 3–6 (4), tiempo_limite_ms 800–5000 (2500), interferencia (false).
+                         *     busca_imagen: rondas 5–30 (10), cuadricula 4|6|9|12|16 (9), tiempo_limite_ms 1500–15000 (6000).
+                         *     atencion_sostenida y reaccion están retirados.
                          */
                         parametros: {
                             [key: string]: unknown;
@@ -1475,12 +1479,16 @@ export interface paths {
                         instrucciones?: string;
                         /**
                          * @description Según el tipo de juego (se completan valores por defecto):
-                         *     atencion_sostenida: duracion_segundos 30–180 (60), intervalo_ms 600–3000 (1500).
-                         *     memoria_secuencias: longitud_inicial 2–8 (3), longitud_maxima ≤ 9 y ≥ longitud_inicial (6), tiempo_visualizacion_ms 500–3000 (1000).
-                         *     reaccion: intentos 5–30 (10), tiempo_limite_ms 300–3000 (1500).
-                         *     completar_palabras: frase (2–120 caracteres, máx. 12 palabras), imagen_id opcional, letras_ocultas 1–4 (2), duracion_segundos 60–600 (300).
-                         *     recordar_imagenes: imagenes [{ imagen_id, respuestas: [palabras clave] }] (1–6), tiempo_visualizacion_segundos 3–30 (8).
-                         *     logica: preguntas [{ enunciado, imagen_id opcional, opciones (2–6), correcta (índice) }] (1–10).
+                         *     Atención
+                         *     completar_palabras: palabras (1–15, una palabra con solo letras), frases (0–5, de 2 a 12 palabras), imagen_id opcional, letras_faltantes 1–4 (2), intentos 1–10 (3), duracion_segundos 60–900 (300).
+                         *     logica: preguntas [{ enunciado, imagen_id opcional, opciones (2–6), correcta (índice) }] (1–10), duracion_segundos 60–900 (300).
+                         *     Memoria
+                         *     recordar_imagenes: imagenes [{ imagen_id, respuestas: [palabras clave] }] (2–8; respuestas obligatorias en modo nombrar), modo nombrar|relacionar (nombrar), dibujar (true), tiempo_visualizacion_segundos 5–30 (8), duracion_segundos 60–900 (300).
+                         *     memoria_secuencias (secuencia de colores): botones 3–9 (4), rondas 3–12 (6), intentos 1–5 (3), tiempo_respuesta_segundos 5–60 (15).
+                         *     Velocidad
+                         *     toque_color: rondas 5–40 (15), colores 3–6 (4), tiempo_limite_ms 800–5000 (2500), interferencia (false).
+                         *     busca_imagen: rondas 5–30 (10), cuadricula 4|6|9|12|16 (9), tiempo_limite_ms 1500–15000 (6000).
+                         *     atencion_sostenida y reaccion están retirados.
                          */
                         parametros?: {
                             [key: string]: unknown;
@@ -2392,6 +2400,8 @@ export interface paths {
                         puntaje: number;
                         tiempo_reaccion_ms?: number | null;
                         aciertos: number;
+                        /** @description Ids de imágenes (POST /imagenes) con los dibujos del paciente. */
+                        dibujos?: string[];
                     };
                 };
             };
@@ -3397,10 +3407,12 @@ export interface components {
          */
         CategoriaEjercicio: "Atención" | "Memoria" | "Velocidad";
         /**
-         * @description Mini-juego de la app móvil; si no se envía, se deduce de la categoría
+         * @description Mini-juego de la app móvil. Cada juego pertenece a una sola clasificación:
+         *     Atención (completar_palabras, logica), Memoria (recordar_imagenes, memoria_secuencias)
+         *     y Velocidad (toque_color, busca_imagen). atencion_sostenida y reaccion están retirados.
          * @enum {string}
          */
-        TipoJuego: "atencion_sostenida" | "memoria_secuencias" | "reaccion" | "completar_palabras" | "recordar_imagenes" | "logica";
+        TipoJuego: "atencion_sostenida" | "memoria_secuencias" | "reaccion" | "completar_palabras" | "recordar_imagenes" | "logica" | "toque_color" | "busca_imagen";
         /** @description Día habilitado; el siguiente día se habilita al día calendario siguiente (hora Colombia) */
         AgendaRuta: {
             dia_actual?: number;
@@ -3616,6 +3628,9 @@ export interface components {
             fecha?: string;
             ejercicio_nombre?: string;
             categoria?: components["schemas"]["CategoriaEjercicio"];
+            tipo?: components["schemas"]["TipoJuego"];
+            /** @description Dibujos del paciente (ids de imagen) */
+            dibujos?: string[];
             retroalimentacion?: string;
             insignias_obtenidas?: components["schemas"]["Insignia"][];
         };

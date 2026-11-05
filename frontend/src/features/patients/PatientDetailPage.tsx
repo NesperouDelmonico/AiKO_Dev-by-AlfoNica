@@ -2,7 +2,7 @@ import { lazy, Suspense, useCallback, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
 import { Plus, Route as RouteIcon, Trophy } from 'lucide-react'
-import { getErrorMessage } from '../../api/client'
+import { getErrorMessage, imageUrl } from '../../api/client'
 import { queryKeys } from '../../api/queryKeys'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
@@ -13,6 +13,7 @@ import { Input } from '../../components/ui/Input'
 import { PageHeader } from '../../components/ui/PageHeader'
 import { Select } from '../../components/ui/Select'
 import { formatDate } from '../../lib/date'
+import { gameTypeLabel } from '../exercises/exerciseTypes'
 import { ObservationDialog } from './ObservationDialog'
 import { getActiveRoute, getAchievements, getAlerts, getDomainProgress, getExercises, getHistory, getObservations, getPatient, getRouteHistory, getRouteProgress, getTemporalProgress, isApiStatus } from './api'
 import { QueryError, SectionSkeleton } from './PatientStates'
@@ -364,18 +365,24 @@ export function PatientDetailPage() {
           {history.length > 0 && (
             <>
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[760px] border-collapse text-left text-sm">
+                <table className="w-full min-w-[860px] border-collapse text-left text-sm">
                   <thead><tr className="border-b border-[var(--color-border)] text-xs text-[var(--color-text-muted)]">
-                    <th scope="col" className="p-3">Ejercicio</th><th scope="col" className="p-3">Categoría</th><th scope="col" className="p-3">Puntaje</th><th scope="col" className="p-3">Aciertos</th><th scope="col" className="p-3">Tiempo de reacción</th><th scope="col" className="p-3">XP</th><th scope="col" className="p-3">Fecha</th>
+                    <th scope="col" className="p-3">Ejercicio</th><th scope="col" className="p-3">Categoría</th><th scope="col" className="p-3">Puntaje</th><th scope="col" className="p-3">Aciertos</th><th scope="col" className="p-3">Tiempo de reacción</th><th scope="col" className="p-3">XP</th><th scope="col" className="p-3">Dibujos</th><th scope="col" className="p-3">Fecha</th>
                   </tr></thead>
                   <tbody>{history.map((attempt) => (
                     <tr key={attempt.id} className="border-b border-purple-100 last:border-0">
                       <td className="p-3 font-medium text-brand-heading">{attempt.ejercicio_nombre || '—'}{attempt.xp_ganado === 0 && <span className="ml-2"><Badge variant="attention">No aprobado</Badge></span>}</td>
-                      <td className="p-3">{attempt.categoria || '—'}</td>
+                      <td className="p-3">{attempt.categoria || '—'}{attempt.tipo && <span className="block text-xs text-[var(--color-text-muted)]">{gameTypeLabel(attempt.tipo)}</span>}</td>
                       <td className="p-3">{attempt.puntaje == null ? '—' : `${numberFormat.format(attempt.puntaje)}%`}</td>
                       <td className="p-3">{textOrDash(attempt.aciertos)}</td>
                       <td className="p-3">{attempt.tiempo_reaccion_ms == null ? '—' : `${numberFormat.format(attempt.tiempo_reaccion_ms)} ms`}</td>
                       <td className="p-3">{textOrDash(attempt.xp_ganado)}</td>
+                      <td className="p-3">{attempt.dibujos?.length
+                        ? <span className="flex flex-wrap gap-1">{attempt.dibujos.map((drawing, i) => (
+                          <a key={drawing} href={imageUrl(drawing)} target="_blank" rel="noreferrer" aria-label={`Ver dibujo ${i + 1} de ${attempt.ejercicio_nombre ?? 'ejercicio'}`}>
+                            <img src={imageUrl(drawing)} alt="" loading="lazy" className="h-12 w-12 rounded-lg border border-[var(--color-border)] bg-white object-contain" />
+                          </a>))}</span>
+                        : '—'}</td>
                       <td className="p-3">{attempt.fecha ? formatDate(attempt.fecha, { dateStyle: 'short', timeStyle: 'short' }) : '—'}</td>
                     </tr>
                   ))}</tbody>

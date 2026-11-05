@@ -3,22 +3,34 @@ import { formToParams, paramsToForm } from '../features/exercises/exerciseTypes'
 import { copyDay, daysLostOnResize, emptyDays, planToSteps, resizePlan } from '../features/patients/routePlan'
 
 describe('parámetros por tipo', () => {
-  it('convierte completar palabras con minutos a segundos', () => {
-    const form = { ...paramsToForm('completar_palabras', undefined), frase: ' El gato duerme ', duracion_minutos: '4' }
+  it('convierte completar palabras: palabras y frases por línea, minutos a segundos', () => {
+    const form = { ...paramsToForm('completar_palabras', undefined), palabras: ' casa \n\nmanzana', frases: 'El gato  duerme', duracion_minutos: '4' }
     expect(formToParams('completar_palabras', form)).toEqual({
       ok: true,
-      params: { frase: 'El gato duerme', imagen_id: null, letras_ocultas: 2, duracion_segundos: 240 },
+      params: { palabras: ['casa', 'manzana'], frases: ['El gato duerme'], imagen_id: null, letras_faltantes: 2, intentos: 3, duracion_segundos: 240 },
+    })
+    expect(formToParams('completar_palabras', { ...form, palabras: 'el gato' })).toMatchObject({ ok: false })
+  })
+
+  it('recordar imágenes: exige imagen y nombres en modo nombrar, no en relacionar', () => {
+    const base = paramsToForm('recordar_imagenes', undefined)
+    expect(base.tarjetas).toHaveLength(2)
+    expect(formToParams('recordar_imagenes', base)).toMatchObject({ ok: false })
+    const form = { ...base, tarjetas: [{ imagen_id: 'a', respuestas: 'perro, cachorro ,' }, { imagen_id: 'b', respuestas: '' }] }
+    expect(formToParams('recordar_imagenes', form)).toMatchObject({ ok: false })
+    expect(formToParams('recordar_imagenes', { ...form, modo: 'relacionar', dibujar: false })).toEqual({
+      ok: true,
+      params: {
+        imagenes: [{ imagen_id: 'a', respuestas: ['perro', 'cachorro'] }, { imagen_id: 'b', respuestas: [] }],
+        modo: 'relacionar', dibujar: false, tiempo_visualizacion_segundos: 8, duracion_segundos: 300,
+      },
     })
   })
 
-  it('separa palabras clave y exige imagen en recordar imágenes', () => {
-    const base = paramsToForm('recordar_imagenes', undefined)
-    expect(formToParams('recordar_imagenes', base)).toMatchObject({ ok: false })
-    const form = { ...base, tarjetas: [{ imagen_id: 'img', respuestas: 'perro, cachorro ,' }] }
-    expect(formToParams('recordar_imagenes', form)).toEqual({
-      ok: true,
-      params: { imagenes: [{ imagen_id: 'img', respuestas: ['perro', 'cachorro'] }], tiempo_visualizacion_segundos: 8 },
-    })
+  it('juegos de velocidad y secuencia usan sus valores por defecto', () => {
+    expect(formToParams('memoria_secuencias', paramsToForm('memoria_secuencias', undefined))).toEqual({ ok: true, params: { botones: 4, rondas: 6, intentos: 3, tiempo_respuesta_segundos: 15 } })
+    expect(formToParams('toque_color', paramsToForm('toque_color', { interferencia: true }))).toEqual({ ok: true, params: { rondas: 15, colores: 4, tiempo_limite_ms: 2500, interferencia: true } })
+    expect(formToParams('busca_imagen', paramsToForm('busca_imagen', { cuadricula: 12 }))).toEqual({ ok: true, params: { rondas: 10, tiempo_limite_ms: 6000, cuadricula: 12 } })
   })
 
   it('reconstruye el formulario de lógica desde parámetros guardados', () => {

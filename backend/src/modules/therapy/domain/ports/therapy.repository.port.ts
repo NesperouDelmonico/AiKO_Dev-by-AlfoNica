@@ -104,6 +104,7 @@ export interface TherapyRepositoryPort {
       aciertos: number;
       xpGanado: number;
       xpPorNivel: number;
+      dibujos?: string[] | null;
     },
     shouldAdvance?: boolean,
   ): Promise<ExerciseResultEntity>;

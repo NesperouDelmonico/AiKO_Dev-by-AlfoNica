@@ -17,13 +17,13 @@ import { useToast } from '../../components/ui/toastContext'
 import type { components } from '../../api/schema'
 import { ParamsEditor } from './ParamsEditor'
 import {
-  DEFAULT_TYPE_BY_CATEGORY, formToParams, GAME_TYPES, gameTypeLabel, paramsToForm, type GameType,
+  CATEGORIES, categoryOf, DEFAULT_TYPE_BY_CATEGORY, formToParams, GAME_TYPES, gamesOf, gameTypeLabel, paramsToForm, type GameType,
 } from './exerciseTypes'
 
 type Exercise = components['schemas']['Ejercicio']
 type Category = components['schemas']['CategoriaEjercicio']
 type ExerciseState = components['schemas']['EstadoEjercicio']
-const categories: Category[] = ['Atención', 'Memoria', 'Velocidad']
+const categories = CATEGORIES
 
 export function ExercisesPage() {
   const client = useQueryClient()
@@ -96,7 +96,7 @@ export function ExercisesPage() {
           ))}
         </div>
         <div className="mb-5 grid gap-3 sm:grid-cols-2">
-          <label htmlFor="exercise-category" className="text-sm font-semibold">Categoría
+          <label htmlFor="exercise-category" className="text-sm font-semibold">Clasificación
             <Select id="exercise-category" className="mt-1" value={category} onChange={(e) => setCategory(e.target.value as Category | '')}><option value="">Todas</option>{categories.map((value) => <option key={value}>{value}</option>)}</Select>
           </label>
           <label htmlFor="exercise-state" className="text-sm font-semibold">Estado
@@ -108,7 +108,12 @@ export function ExercisesPage() {
         {query.isSuccess && items.length === 0 && (archived
           ? <EmptyState title="No tienes ejercicios archivados." description="Archiva los que ya no uses para mantener ordenado tu catálogo." />
           : <EmptyState title="No encontramos ejercicios con esos filtros." description="Prueba con otros o crea uno." />)}
-        <div className="list-stagger space-y-3">{items.map((exercise, i) => (
+        <div className="space-y-6">{categories.filter((value) => !category || value === category).map((group) => {
+          const groupItems = items.filter((exercise) => (categoryOf(exercise.tipo) ?? exercise.categoria) === group)
+          if (groupItems.length === 0) return null
+          return <section key={group} aria-labelledby={`group-${group}`} className="space-y-3">
+            <h2 id={`group-${group}`} className="mb-0 text-sm font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">{group} · {groupItems.length}</h2>
+            <div className="list-stagger space-y-3">{groupItems.map((exercise, i) => (
           <div key={exercise.id ?? i} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--color-border)] p-4">
             <div><h2 className="mb-1 text-base">{exercise.nombre || '—'}</h2><p className="mb-2 text-sm text-[var(--color-text-muted)]">{gameTypeLabel(exercise.tipo)} · {exercise.categoria || '—'} · Nivel {exercise.nivel_dificultad ?? '—'}</p>{exercise.archivado_en
                 ? <Badge variant="neutral">Archivado</Badge>
@@ -125,7 +130,9 @@ export function ExercisesPage() {
                         ? <Button size="sm" variant="secondary" aria-label={`Retirar ${exercise.nombre ?? 'ejercicio'} del taller`} disabled={share.isPending} onClick={() => void changeShare(exercise, false)}><Undo2 aria-hidden="true" className="size-4" />Retirar del taller</Button>
                         : <Button size="sm" variant="secondary" aria-label={`Publicar ${exercise.nombre ?? 'ejercicio'} en el taller`} disabled={share.isPending || exercise.estado !== 'Activo'} title={exercise.estado !== 'Activo' ? 'Activa el ejercicio para publicarlo' : undefined} onClick={() => void changeShare(exercise, true)}><Store aria-hidden="true" className="size-4" />Publicar en el taller</Button>)}{exercise.id && <Button size="sm" variant="secondary" aria-label={`Archivar ${exercise.nombre ?? 'ejercicio'}`} disabled={archive.isPending} onClick={() => void changeArchive(exercise, false)}><Archive aria-hidden="true" className="size-4" />Archivar</Button>}</div>}
           </div>
-        ))}</div>
+            ))}</div>
+          </section>
+        })}</div>
       </Card>
       {editing && <ExerciseDialog key={editing === 'new' ? 'new' : editing.id} exercise={editing === 'new' ? null : editing} onClose={() => setEditing(null)} onSaved={async () => {
         await client.invalidateQueries({ queryKey: queryKeys.exercises.all })
@@ -143,8 +150,9 @@ function ExerciseDialog({ exercise, onClose, onSaved }: {
 }) {
   const { notify } = useToast()
   const [nombre, setNombre] = useState(exercise?.nombre ?? '')
-  const [categoria, setCategoria] = useState<Category>(exercise?.categoria ?? 'Velocidad')
-  const [tipo, setTipo] = useState<GameType>(exercise?.tipo ?? (exercise?.categoria ? DEFAULT_TYPE_BY_CATEGORY[exercise.categoria] : 'reaccion'))
+  const initialType: GameType = exercise?.tipo && categoryOf(exercise.tipo) ? exercise.tipo : DEFAULT_TYPE_BY_CATEGORY[exercise?.categoria ?? 'Atención']
+  const [categoria, setCategoria] = useState<Category>(categoryOf(initialType)!)
+  const [tipo, setTipo] = useState<GameType>(initialType)
   const [level, setLevel] = useState(String(exercise?.nivel_dificultad ?? 1))
   const [instructions, setInstructions] = useState(exercise?.instrucciones ?? '')
   const [paramsForm, setParamsForm] = useState(() => paramsToForm(tipo, exercise?.parametros))
@@ -178,15 +186,20 @@ function ExerciseDialog({ exercise, onClose, onSaved }: {
   return <Dialog title={exercise ? 'Editar ejercicio' : 'Crear ejercicio'} onClose={onClose}>
     <form className="space-y-3" onSubmit={(event) => void submit(event)} noValidate>
       <label className="block text-sm font-semibold" htmlFor="exercise-name">Nombre<Input id="exercise-name" value={nombre} onChange={(e) => setNombre(e.target.value)} required className="mt-1" /></label>
-      <label className="block text-sm font-semibold" htmlFor="exercise-type">Tipo de juego<Select id="exercise-type" value={tipo} onChange={(e) => {
+      <label className="block text-sm font-semibold" htmlFor="exercise-cat">Clasificación<Select id="exercise-cat" value={categoria} onChange={(e) => {
+        const next = e.target.value as Category
+        setCategoria(next)
+        const game = DEFAULT_TYPE_BY_CATEGORY[next]
+        setTipo(game)
+        setParamsForm(paramsToForm(game, undefined))
+      }} className="mt-1">{categories.map((value) => <option key={value}>{value}</option>)}</Select></label>
+      <label className="block text-sm font-semibold" htmlFor="exercise-type">Juego<Select id="exercise-type" value={tipo} onChange={(e) => {
         const next = e.target.value as GameType
         setTipo(next)
         setParamsForm(paramsToForm(next, undefined))
-        if (!exercise) setCategoria(GAME_TYPES.find((item) => item.value === next)?.category ?? categoria)
-      }} className="mt-1">{GAME_TYPES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</Select>
+      }} className="mt-1">{gamesOf(categoria).map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</Select>
         <span className="mt-1 block text-xs font-normal text-[var(--color-text-muted)]">{GAME_TYPES.find((item) => item.value === tipo)?.hint}</span>
       </label>
-      <label className="block text-sm font-semibold" htmlFor="exercise-cat">Categoría cognitiva<Select id="exercise-cat" value={categoria} onChange={(e) => setCategoria(e.target.value as Category)} className="mt-1">{categories.map((value) => <option key={value}>{value}</option>)}</Select></label>
       <label className="block text-sm font-semibold" htmlFor="exercise-level">Nivel de dificultad<Input id="exercise-level" type="number" min="1" step="1" value={level} onChange={(e) => setLevel(e.target.value)} required className="mt-1" /></label>
       <label className="block text-sm font-semibold" htmlFor="exercise-instructions">Instrucciones<Textarea id="exercise-instructions" value={instructions} onChange={(e) => setInstructions(e.target.value)} required className="mt-1" /></label>
       <ParamsEditor type={tipo} form={paramsForm} onChange={setParamsForm} />

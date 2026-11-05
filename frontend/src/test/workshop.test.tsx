@@ -54,15 +54,18 @@ const logic = {
   es_propio: false, ya_importado: false,
   parametros: { preguntas: [{ enunciado: '¿Cuánto es 2 + 2?', opciones: ['3', '4'], correcta: 1 }] },
 }
-const mine = { ...logic, id: 'w2', nombre: 'Mi reacción', tipo: 'reaccion', autor: 'Yo', veces_importado: 0, es_propio: true, parametros: { intentos: 10, tiempo_limite_ms: 1500 } }
+const mine = { ...logic, id: 'w2', nombre: 'Mi reacción', categoria: 'Velocidad', tipo: 'toque_color', autor: 'Yo', veces_importado: 0, es_propio: true, parametros: { rondas: 15, colores: 4, tiempo_limite_ms: 2500, interferencia: false } }
 
 afterEach(() => vi.unstubAllGlobals())
 
 describe('taller de ejercicios', () => {
   it('resume los parámetros de cada tipo de juego', () => {
-    expect(parameterSummary(logic as never).lines).toEqual(['1 pregunta', '1. ¿Cuánto es 2 + 2?'])
-    expect(parameterSummary({ tipo: 'recordar_imagenes', parametros: { imagenes: [{ imagen_id: 'a' }, { imagen_id: 'b' }], tiempo_visualizacion_segundos: 8 } } as never))
-      .toEqual({ lines: ['2 imágenes para recordar', '8 s para memorizar'], images: ['a', 'b'] })
+    expect(parameterSummary({ ...logic, parametros: { ...logic.parametros, duracion_segundos: 300 } } as never).lines).toEqual(['1 pregunta · tiempo total 5 min', '1. ¿Cuánto es 2 + 2?'])
+    expect(parameterSummary({ tipo: 'recordar_imagenes', parametros: { imagenes: [{ imagen_id: 'a' }, { imagen_id: 'b' }], modo: 'nombrar', dibujar: true, tiempo_visualizacion_segundos: 8, duracion_segundos: 300 } } as never))
+      .toEqual({ lines: ['2 imágenes para nombrar', '8 s visibles · tiempo total 5 min', 'Al final dibuja lo que recuerda'], images: ['a', 'b'] })
+    expect(parameterSummary({ tipo: 'completar_palabras', parametros: { palabras: ['casa', 'sol'], frases: [], letras_faltantes: 2, intentos: 3, duracion_segundos: 240 } } as never).lines)
+      .toEqual(['Palabras: casa, sol', '2 letras faltantes · 3 intentos', 'Tiempo total: 4 min'])
+    expect(parameterSummary(mine as never).lines).toEqual(['15 rondas con 4 colores', '2500 ms por ronda'])
   })
 
   it('el especialista ve la vista previa e importa como copia', async () => {

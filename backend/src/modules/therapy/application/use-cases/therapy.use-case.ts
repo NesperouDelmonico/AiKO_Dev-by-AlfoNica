@@ -11,6 +11,8 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'node:crypto';
 import {
+  CATEGORY_BY_GAME_TYPE,
+  CognitiveCategory,
   DEFAULT_GAME_TYPE,
   ExerciseEntity,
   ExerciseStatus,
@@ -110,11 +112,14 @@ export class TherapyUseCase {
   }
 
   async create(data: CreateExerciseDto, specialistUserId: string) {
-    const tipo = data.tipo ?? DEFAULT_GAME_TYPE[data.categoria];
+    if (!data.tipo && !data.categoria) {
+      throw new BadRequestException('Elige el juego del ejercicio');
+    }
+    const tipo = data.tipo ?? DEFAULT_GAME_TYPE[data.categoria!];
     const exercise = await this.repository.saveExercise(
       {
         nombre: data.nombre,
-        categoria: data.categoria,
+        categoria: this.categoryFor(tipo, data.categoria),
         tipo,
         nivelDificultad: data.nivel_dificultad,
         instrucciones: data.instrucciones,
@@ -176,6 +181,23 @@ export class TherapyUseCase {
     });
     if (!updated) throw new NotFoundException('Ejercicio no encontrado');
     return this.exerciseResponse(updated);
+  }
+
+  /**
+   * Cada juego pertenece a una sola clasificación (Atención, Memoria o
+   * Velocidad); si se indica otra, se rechaza.
+   */
+  private categoryFor(tipo: GameType, requested?: CognitiveCategory) {
+    const category = CATEGORY_BY_GAME_TYPE[tipo];
+    if (!category) {
+      throw new BadRequestException(`El juego "${tipo}" ya no está disponible`);
+    }
+    if (requested && requested !== category) {
+      throw new BadRequestException(
+        `El juego elegido pertenece a la clasificación ${category}`,
+      );
+    }
+    return category;
   }
 
   // ------------------------------------------------------------------ Taller
@@ -355,7 +377,9 @@ export class TherapyUseCase {
         : await this.parameters(tipo, data.parametros ?? exercise.parametros);
     const updated = await this.repository.updateExercise(id, {
       ...(data.nombre === undefined ? {} : { nombre: data.nombre }),
-      ...(data.categoria === undefined ? {} : { categoria: data.categoria }),
+      ...(data.categoria === undefined && data.tipo === undefined
+        ? {}
+        : { categoria: this.categoryFor(tipo, data.categoria) }),
       ...(data.tipo === undefined ? {} : { tipo: data.tipo }),
       ...(data.nivel_dificultad === undefined
         ? {}
@@ -696,6 +720,13 @@ export class TherapyUseCase {
       Math.round(data.puntaje / precisionDivisor + speedFactor * speedBonusMax),
     );
     const shouldAdvance = data.puntaje >= minimumScore;
+    const dibujos = [...new Set(data.dibujos ?? [])];
+    const missingDrawings = (await this.images?.missing(dibujos)) ?? [];
+    if (missingDrawings.length) {
+      throw new BadRequestException(
+        `Dibujos no encontrados: ${missingDrawings.join(', ')}`,
+      );
+    }
     const result = await this.repository.saveResult(
       routeExerciseId,
       patient.id,
@@ -705,6 +736,7 @@ export class TherapyUseCase {
         aciertos: data.aciertos,
         xpGanado: shouldAdvance ? xpGanado : 0,
         xpPorNivel,
+        dibujos,
       },
       shouldAdvance,
     );
@@ -892,6 +924,8 @@ export class TherapyUseCase {
       ejercicio_nombre: exercise?.nombre ?? null,
       ejercicioNombre: exercise?.nombre ?? null,
       categoria: exercise?.categoria ?? null,
+      tipo: exercise?.tipo ?? null,
+      dibujos: result.dibujos ?? [],
     };
   }
 

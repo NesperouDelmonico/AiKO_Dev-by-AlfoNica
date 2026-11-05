@@ -32,12 +32,16 @@ export class CreateExerciseDto {
   @MinLength(3)
   @MaxLength(100)
   nombre!: string;
-  @ApiProperty({ enum: CognitiveCategory })
+  @ApiPropertyOptional({
+    enum: CognitiveCategory,
+    description: 'Se deduce del juego; si se envía debe coincidir',
+  })
+  @IsOptional()
   @IsEnum(CognitiveCategory)
-  categoria!: CognitiveCategory;
+  categoria?: CognitiveCategory;
   @ApiPropertyOptional({
     enum: GameType,
-    description: 'Mini-juego; por defecto se deduce de la categoría',
+    description: 'Mini-juego; si falta, el juego por defecto de la categoría',
   })
   @IsOptional()
   @IsEnum(GameType)
@@ -130,6 +134,15 @@ export class ResultDto {
   @ApiPropertyOptional() @IsOptional() @IsInt() @Min(0) tiempo_reaccion_ms?:
     number | null;
   @ApiProperty() @IsInt() @Min(0) aciertos!: number;
+  @ApiPropertyOptional({
+    type: [String],
+    description: 'Ids de imágenes con los dibujos del paciente (máx. 8)',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(8)
+  @IsUUID('all', { each: true })
+  dibujos?: string[];
 }
 export class ExerciseQueryDto {
   @ApiPropertyOptional({ enum: CognitiveCategory })
