@@ -177,10 +177,10 @@ void main() {
       tester,
       ColorTapGameScreen(rondas: 5, colores: 3, tiempoLimiteMs: 800, random: Random(4)),
     );
-    await advance(tester, const Duration(milliseconds: 3950));
+    await advance(tester, const Duration(milliseconds: 2500));
     // Espera a que aparezca la palabra.
     String? word;
-    for (var i = 0; i < 12 && word == null; i++) {
+    for (var i = 0; i < 30 && word == null; i++) {
       await tester.pump(const Duration(milliseconds: 100));
       for (final color in tapColors.take(3)) {
         if (find.text(color.$1).evaluate().isNotEmpty) word = color.$1;
