@@ -60,15 +60,34 @@ jobs:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: |
           if [ -n "$GOOGLE_SERVICES_JSON" ]; then
-            # Acepta el JSON tal cual o codificado en base64.
-          if printf '%s' "$GOOGLE_SERVICES_JSON" | grep -q '^[[:space:]]*{'; then
-            printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
-          else
-            printf '%s' "$GOOGLE_SERVICES_JSON" | base64 -d > android/app/google-services.json
-          fi
-          python3 -c "import json; json.load(open('android/app/google-services.json'))" \
-            || { echo "::error::GOOGLE_SERVICES_JSON no es un JSON válido (ni en texto ni en base64)."; exit 1; }
-            echo "Firebase activado"
+            # Acepta el JSON tal cual o en base64 (con o sin saltos de línea,
+            # comillas o BOM). Si no se puede leer, se compila sin push.
+          python3 - <<'PY'
+          import base64, binascii, json, os, sys
+          raw = os.environ["GOOGLE_SERVICES_JSON"].strip().lstrip("\ufeff").strip("'\"").strip()
+          def parse(text):
+              try:
+                  data = json.loads(text)
+                  return data if isinstance(data, dict) and "project_info" in data else None
+              except ValueError:
+                  return None
+          data = parse(raw)
+          if data is None:
+              compact = "".join(raw.split())
+              for decode in (base64.b64decode, base64.urlsafe_b64decode):
+                  try:
+                      data = parse(decode(compact + "=" * (-len(compact) % 4)).decode("utf-8-sig"))
+                  except (binascii.Error, ValueError):
+                      data = None
+                  if data:
+                      break
+          if data is None:
+              print("::warning::GOOGLE_SERVICES_JSON no es un google-services.json válido (ni en texto ni en base64). El APK se compila sin notificaciones push.")
+              sys.exit(0)
+          with open("android/app/google-services.json", "w") as f:
+              json.dump(data, f)
+          print("Firebase activado")
+          PY
           else
             echo "::notice::Sin el secreto GOOGLE_SERVICES_JSON el APK se compila sin notificaciones push."
           fi
