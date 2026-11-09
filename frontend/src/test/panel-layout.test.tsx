@@ -89,6 +89,18 @@ afterEach(() => {
 })
 
 describe('layout del panel', () => {
+  it('alinea la barra y deja el menú de usuario como último control', () => {
+    renderPanel({ role: 'Especialista' })
+
+    const header = screen.getByRole('banner')
+    const userMenu = screen.getByRole('button', { name: 'Menú de usuario: Ana Pérez' })
+    const headerButtons = header.querySelectorAll('button')
+    const rightGroup = header.firstElementChild?.lastElementChild
+
+    expect(rightGroup).toHaveClass('ml-auto')
+    expect(headerButtons.item(headerButtons.length - 1)).toBe(userMenu)
+  })
+
   it('no monta una barra lateral fija y el cajón especialista abre, cierra y devuelve el foco', async () => {
     const user = userEvent.setup()
     renderPanel({ role: 'Especialista' })
