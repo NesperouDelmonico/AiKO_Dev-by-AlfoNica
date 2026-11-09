@@ -73,7 +73,7 @@ void main() {
         ]
       },
     });
-    expect(exercise.tipo, Exercise.reaction);
+    expect(exercise.tipo, Exercise.colorTap);
     expect(exercise.paramObjects('preguntas').single['enunciado'], '¿2+2?');
 
     final agenda = RouteAgenda.fromJson(

@@ -1,0 +1,31 @@
+name: Recordatorios y alertas
+
+# Vercel (plan gratuito) solo permite crons diarios: este flujo llama cada
+# 15 minutos al endpoint que envía los recordatorios push a la hora que eligió
+# cada paciente. Los duplicados los evita el backend (reminderSentSince).
+#
+# Secretos del repositorio:
+#   AIKO_API_URL  → https://ai-ko-dev-by-alfo-nica.vercel.app/v1
+#   CRON_SECRET   → el mismo valor de la variable CRON_SECRET en Vercel
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+jobs:
+  recordatorios:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Enviar recordatorios
+        env:
+          API: ${{ secrets.AIKO_API_URL }}
+          SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$API" ] || [ -z "$SECRET" ]; then
+            echo "::notice::Faltan los secretos AIKO_API_URL o CRON_SECRET; no se envía nada."
+            exit 0
+          fi
+          # Ventana de 30 min: cubre los retrasos de GitHub entre ejecuciones.
+          curl --fail-with-body -sS -H "Authorization: Bearer $SECRET" \
+            "$API/cron/send-reminders?window=30"

@@ -37,6 +37,9 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
+          # Misma versión que el equipo de desarrollo (macOS 13 no corre
+          # Flutter 3.38+). Al subirla, regenerar android/ con esa versión.
+          flutter-version: "3.35.7"
           channel: stable
           cache: true
 
@@ -50,6 +53,44 @@ jobs:
           grep -q 'android.permission.INTERNET' "$MANIFEST" || \
             sed -i 's#<application#<uses-permission android:name="android.permission.INTERNET"/>\n    <application#' "$MANIFEST"
           sed -i 's#android:label="aiko_mobile"#android:label="AiKO"#' "$MANIFEST"
+
+      - name: Configuración de Firebase
+        # google-services.json no se versiona (repo público): viene del secreto.
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -n "$GOOGLE_SERVICES_JSON" ]; then
+            # Acepta el JSON tal cual o en base64 (con o sin saltos de línea,
+            # comillas o BOM). Si no se puede leer, se compila sin push.
+          python3 - <<'PY'
+          import base64, binascii, json, os, sys
+          raw = os.environ["GOOGLE_SERVICES_JSON"].strip().lstrip("\ufeff").strip("'\"").strip()
+          def parse(text):
+              try:
+                  data = json.loads(text)
+                  return data if isinstance(data, dict) and "project_info" in data else None
+              except ValueError:
+                  return None
+          data = parse(raw)
+          if data is None:
+              compact = "".join(raw.split())
+              for decode in (base64.b64decode, base64.urlsafe_b64decode):
+                  try:
+                      data = parse(decode(compact + "=" * (-len(compact) % 4)).decode("utf-8-sig"))
+                  except (binascii.Error, ValueError):
+                      data = None
+                  if data:
+                      break
+          if data is None:
+              print("::warning::GOOGLE_SERVICES_JSON no es un google-services.json válido (ni en texto ni en base64). El APK se compila sin notificaciones push.")
+              sys.exit(0)
+          with open("android/app/google-services.json", "w") as f:
+              json.dump(data, f)
+          print("Firebase activado")
+          PY
+          else
+            echo "::notice::Sin el secreto GOOGLE_SERVICES_JSON el APK se compila sin notificaciones push."
+          fi
 
       - run: flutter pub get
 
@@ -70,7 +111,17 @@ jobs:
           exit $status
 
       - name: Pruebas
-        run: flutter test --reporter github
+        # Las pruebas que fallan se publican como anotaciones.
+        run: |
+          set +e
+          flutter test --reporter expanded > test.txt 2>&1
+          status=$?
+          cat test.txt
+          if [ $status -ne 0 ]; then
+            grep -E -A3 "\[E\]|Expected:|Actual:|Which:|^The following" test.txt | grep -v "^--$" \
+              | head -40 | sed 's/^/::error title=Prueba fallida::/'
+          fi
+          exit $status
 
       - name: Compilar APK
         run: |

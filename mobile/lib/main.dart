@@ -3,9 +3,10 @@ import 'package:provider/provider.dart';
 
 import 'core/api_client.dart';
 import 'core/app_settings.dart';
+import 'core/push.dart';
 import 'core/session.dart';
 import 'core/theme.dart';
-import 'features/auth/login_screen.dart';
+import 'features/auth/welcome_screen.dart';
 import 'features/shell/app_shell.dart';
 import 'widgets/mascot.dart';
 
@@ -24,13 +25,46 @@ void main() {
   );
 }
 
-class AikoApp extends StatelessWidget {
+class AikoApp extends StatefulWidget {
   const AikoApp({super.key});
+
+  @override
+  State<AikoApp> createState() => _AikoAppState();
+}
+
+class _AikoAppState extends State<AikoApp> {
+  final _navigator = GlobalKey<NavigatorState>();
+  final _messenger = GlobalKey<ScaffoldMessengerState>();
+  late final PushService _push = PushService(context.read<Session>(), _messenger);
+  bool? _wasAuthenticated;
+
+  /// Al iniciar o cerrar sesión se vuelve a la raíz: el inicio de sesión
+  /// (u otra pantalla abierta) no queda encima del Inicio o la Bienvenida.
+  void _onSession(Session session) {
+    if (!session.ready) return;
+    final now = session.isAuthenticated;
+    if (_wasAuthenticated != now) {
+      // Notificaciones: registra el teléfono con sesión y lo quita al salir.
+      if (now) {
+        _push.start();
+      } else if (_wasAuthenticated == true) {
+        _push.stop();
+      }
+    }
+    if (_wasAuthenticated != null && _wasAuthenticated != now) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _navigator.currentState?.popUntil((route) => route.isFirst),
+      );
+    }
+    _wasAuthenticated = now;
+  }
 
   @override
   Widget build(BuildContext context) {
     final settings = context.watch<AppSettings>();
     return MaterialApp(
+      navigatorKey: _navigator,
+      scaffoldMessengerKey: _messenger,
       title: 'AiKO',
       debugShowCheckedModeBanner: false,
       theme: buildAikoTheme(),
@@ -47,14 +81,18 @@ class AikoApp extends StatelessWidget {
         );
       },
       home: Consumer<Session>(
-        builder: (_, session, __) => AnimatedSwitcher(
-          duration: const Duration(milliseconds: 450),
-          child: !session.ready
-              ? const _Splash(key: ValueKey('splash'))
-              : session.isAuthenticated
-                  ? const AppShell(key: ValueKey('shell'))
-                  : const LoginScreen(key: ValueKey('login')),
-        ),
+        builder: (_, session, __) {
+          _onSession(session);
+          // Arranque → Bienvenida → Inicio de sesión (o Inicio si ya hay sesión).
+          return AnimatedSwitcher(
+            duration: const Duration(milliseconds: 450),
+            child: !session.ready
+                ? const _Splash(key: ValueKey('splash'))
+                : session.isAuthenticated
+                    ? const AppShell(key: ValueKey('shell'))
+                    : const WelcomeScreen(key: ValueKey('welcome')),
+          );
+        },
       ),
     );
   }

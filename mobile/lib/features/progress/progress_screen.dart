@@ -11,6 +11,8 @@ import '../../core/theme.dart';
 import '../../widgets/mascot.dart';
 import '../../widgets/motion.dart';
 import '../shell/app_shell.dart';
+import 'achievements_screen.dart';
+import 'consistency_calendar.dart';
 import 'progress_repository.dart';
 
 /// Seguimiento: nivel y XP, progreso por área, evolución, insignias e
@@ -108,6 +110,18 @@ class _ProgressScreenState extends State<ProgressScreen>
                   const _Title('Tu progreso'),
                   FadeSlideIn(child: _LevelCard(nivel: data.nivel, xp: data.xp)),
                   const SizedBox(height: 22),
+                  if (data.consistency != null) ...[
+                    const _Section('Mi constancia'),
+                    FadeSlideIn(
+                      delay: const Duration(milliseconds: 60),
+                      child: ConsistencyCalendar(
+                        initial: data.consistency!,
+                        load: (month) => _repository.consistency(
+                            context.read<Session>().pacienteId!, month),
+                      ),
+                    ),
+                    const SizedBox(height: 22),
+                  ],
                   const _Section('Tus áreas'),
                   FadeSlideIn(
                     delay: const Duration(milliseconds: 100),
@@ -124,6 +138,16 @@ class _ProgressScreenState extends State<ProgressScreen>
                   FadeSlideIn(
                     delay: const Duration(milliseconds: 240),
                     child: _Badges(catalog: data.catalog, earned: data.earned),
+                  ),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                        builder: (_) => AchievementsScreen(data: data),
+                      )),
+                      icon: const Icon(Icons.emoji_events_rounded),
+                      label: const Text('Mis logros'),
+                    ),
                   ),
                   const SizedBox(height: 22),
                   const _Section('Últimos intentos'),
@@ -576,7 +600,7 @@ class _Badges extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _BadgeIcon(got: got, size: 84),
+            BadgeArt(name: badge.nombre, got: got, size: 84),
             const SizedBox(height: 12),
             Text(badge.nombre,
                 textAlign: TextAlign.center,
@@ -620,7 +644,7 @@ class _Badges extends StatelessWidget {
                   width: 96,
                   child: Column(
                     children: [
-                      _BadgeIcon(got: got),
+                      BadgeArt(name: badge.nombre, got: got),
                       const SizedBox(height: 6),
                       Text(badge.nombre,
                           textAlign: TextAlign.center,
@@ -637,39 +661,6 @@ class _Badges extends StatelessWidget {
             );
           }),
       ],
-    );
-  }
-}
-
-class _BadgeIcon extends StatelessWidget {
-  const _BadgeIcon({required this.got, this.size = 64});
-
-  final bool got;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: size,
-      width: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: got
-            ? const RadialGradient(colors: [Color(0xFFFFE680), AikoColors.star])
-            : null,
-        color: got ? null : const Color(0xFFE6E1EF),
-        boxShadow: [
-          BoxShadow(
-            color: got ? AikoColors.starDeep : const Color(0xFFCFC8DC),
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Icon(
-        got ? Icons.military_tech_rounded : Icons.lock_rounded,
-        size: size * 0.5,
-        color: got ? const Color(0xFF8A5A00) : const Color(0xFFA59EB8),
-      ),
     );
   }
 }

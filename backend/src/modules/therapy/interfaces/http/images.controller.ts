@@ -17,7 +17,8 @@ export class ImagesController {
 
   @Post()
   @ApiBearerAuth('bearerAuth')
-  @Roles(UserRole.ESPECIALISTA, UserRole.ADMINISTRADOR)
+  // El paciente sube los dibujos de Recordar imágenes.
+  @Roles(UserRole.ESPECIALISTA, UserRole.ADMINISTRADOR, UserRole.PACIENTE)
   upload(
     @Body() body: UploadImageDto,
     @CurrentAuthUser() user: { sub: string },

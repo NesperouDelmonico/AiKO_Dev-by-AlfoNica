@@ -40,15 +40,28 @@ class _AppShellState extends State<AppShell>
     SettingsScreen(),
   ];
 
+  @override
+  void initState() {
+    super.initState();
+    // También reacciona si otra pantalla cambia la pestaña (p. ej. "Ver mi
+    // progreso" al terminar la rutina).
+    _tab.addListener(_onTabChanged);
+  }
+
+  void _onTabChanged() {
+    if (!mounted) return;
+    setState(() {});
+    if (!reduceMotion(context)) _fade.forward(from: 0);
+  }
+
   void _select(int index) {
     if (index == _tab.value) return;
-    setState(() => _tab.value = index);
-    if (reduceMotion(context)) return;
-    _fade.forward(from: 0);
+    _tab.value = index;
   }
 
   @override
   void dispose() {
+    _tab.removeListener(_onTabChanged);
     _fade.dispose();
     _tab.dispose();
     super.dispose();

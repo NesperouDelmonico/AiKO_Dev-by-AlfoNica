@@ -5,37 +5,60 @@ import 'theme.dart';
 
 /// Ícono, nombre y explicación breve de cada mini-juego.
 class GameStyle {
-  const GameStyle(this.icon, this.label, this.howTo, this.color);
+  const GameStyle(this.icon, this.label, this.howTo, this.color, [this.category = '']);
 
   final IconData icon;
   final String label;
   final String howTo;
   final Color color;
 
+  /// Clasificación cognitiva: Atención, Memoria o Velocidad.
+  final String category;
+
+  static const categories = ['Atención', 'Memoria', 'Velocidad'];
+
   static const _styles = {
-    Exercise.reaction: GameStyle(
-      Icons.bolt_rounded,
-      'Reacción rápida',
-      'Mira la pantalla y toca el círculo apenas aparezca. Si tocas antes, ese intento no cuenta.',
-      AikoColors.sky,
-    ),
     Exercise.completeWords: GameStyle(
       Icons.spellcheck_rounded,
       'Completar palabras',
-      'Arrastra las letras que faltan a su casilla (o tócalas). Si es una frase, al final ordena las palabras.',
+      'Arrastra (o toca) las fichas de letras para completar cada palabra. Después vienen frases.',
       AikoColors.violetBright,
-    ),
-    Exercise.rememberImages: GameStyle(
-      Icons.style_rounded,
-      'Recordar imágenes',
-      'Mira las tarjetas con atención. Cuando se volteen, escribe qué había en cada una.',
-      AikoColors.mint,
+      'Atención',
     ),
     Exercise.logic: GameStyle(
       Icons.calculate_rounded,
       'Lógica matemática',
-      'Lee el problema con calma, elige una respuesta y pulsa Comprobar.',
+      'Lee el problema con calma y toca la respuesta. La correcta se pinta de verde.',
       Color(0xFFE07B39),
+      'Atención',
+    ),
+    Exercise.rememberImages: GameStyle(
+      Icons.style_rounded,
+      'Recordar imágenes',
+      'Mira las imágenes unos segundos. Cuando se oculten, nómbralas o ubícalas y luego dibuja lo que recuerdes.',
+      Color(0xFFE0739C),
+      'Memoria',
+    ),
+    Exercise.colorSequence: GameStyle(
+      Icons.music_note_rounded,
+      'Secuencia de colores',
+      'Los botones se iluminan con una nota. Repite la secuencia; en cada ronda se agrega uno más.',
+      AikoColors.mint,
+      'Memoria',
+    ),
+    Exercise.colorTap: GameStyle(
+      Icons.palette_rounded,
+      'Toque de color',
+      'Aparece el nombre de un color: toca rápido el botón de ese color.',
+      AikoColors.sky,
+      'Velocidad',
+    ),
+    Exercise.findImage: GameStyle(
+      Icons.image_search_rounded,
+      'Busca la imagen',
+      'Mira la figura de arriba y encuéntrala lo más rápido que puedas en la cuadrícula.',
+      Color(0xFFE9A23B),
+      'Velocidad',
     ),
   };
 
@@ -50,6 +73,10 @@ class GameStyle {
 
   /// Tipos que ya tienen juego en la app.
   static List<String> get playableTypes => _styles.keys.toList();
+
+  /// Juegos de una clasificación.
+  static List<String> typesOf(String category) =>
+      [for (final e in _styles.entries) if (e.value.category == category) e.key];
 }
 
 /// Colores de cada día del camino (se repiten en ciclo).

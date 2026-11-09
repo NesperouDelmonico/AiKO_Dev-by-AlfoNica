@@ -1371,18 +1371,22 @@ export interface paths {
                 content: {
                     "application/json": {
                         nombre: string;
-                        categoria: components["schemas"]["CategoriaEjercicio"];
+                        categoria?: components["schemas"]["CategoriaEjercicio"];
                         tipo?: components["schemas"]["TipoJuego"];
                         nivel_dificultad: number;
                         instrucciones: string;
                         /**
                          * @description Según el tipo de juego (se completan valores por defecto):
-                         *     atencion_sostenida: duracion_segundos 30–180 (60), intervalo_ms 600–3000 (1500).
-                         *     memoria_secuencias: longitud_inicial 2–8 (3), longitud_maxima ≤ 9 y ≥ longitud_inicial (6), tiempo_visualizacion_ms 500–3000 (1000).
-                         *     reaccion: intentos 5–30 (10), tiempo_limite_ms 300–3000 (1500).
-                         *     completar_palabras: frase (2–120 caracteres, máx. 12 palabras), imagen_id opcional, letras_ocultas 1–4 (2), duracion_segundos 60–600 (300).
-                         *     recordar_imagenes: imagenes [{ imagen_id, respuestas: [palabras clave] }] (1–6), tiempo_visualizacion_segundos 3–30 (8).
-                         *     logica: preguntas [{ enunciado, imagen_id opcional, opciones (2–6), correcta (índice) }] (1–10).
+                         *     Atención
+                         *     completar_palabras: palabras (1–15, una palabra con solo letras), frases (0–5, de 2 a 12 palabras), imagen_id opcional, letras_faltantes 1–4 (2), intentos 1–10 (3), duracion_segundos 60–900 (300).
+                         *     logica: preguntas [{ enunciado, imagen_id opcional, opciones (2–6), correcta (índice) }] (1–10), duracion_segundos 60–900 (300).
+                         *     Memoria
+                         *     recordar_imagenes: imagenes [{ imagen_id, respuestas: [palabras clave] }] (2–8; respuestas obligatorias en modo nombrar), modo nombrar|relacionar (nombrar), dibujar (true), tiempo_visualizacion_segundos 5–30 (8), duracion_segundos 60–900 (300).
+                         *     memoria_secuencias (secuencia de colores): botones 3–9 (4), rondas 3–12 (6), intentos 1–5 (3), tiempo_respuesta_segundos 5–60 (15).
+                         *     Velocidad
+                         *     toque_color: rondas 5–40 (15), colores 3–6 (4), tiempo_limite_ms 800–5000 (2500), interferencia (false).
+                         *     busca_imagen: rondas 5–30 (10), cuadricula 4|6|9|12|16 (9), tiempo_limite_ms 1500–15000 (6000).
+                         *     atencion_sostenida y reaccion están retirados.
                          */
                         parametros: {
                             [key: string]: unknown;
@@ -1475,12 +1479,16 @@ export interface paths {
                         instrucciones?: string;
                         /**
                          * @description Según el tipo de juego (se completan valores por defecto):
-                         *     atencion_sostenida: duracion_segundos 30–180 (60), intervalo_ms 600–3000 (1500).
-                         *     memoria_secuencias: longitud_inicial 2–8 (3), longitud_maxima ≤ 9 y ≥ longitud_inicial (6), tiempo_visualizacion_ms 500–3000 (1000).
-                         *     reaccion: intentos 5–30 (10), tiempo_limite_ms 300–3000 (1500).
-                         *     completar_palabras: frase (2–120 caracteres, máx. 12 palabras), imagen_id opcional, letras_ocultas 1–4 (2), duracion_segundos 60–600 (300).
-                         *     recordar_imagenes: imagenes [{ imagen_id, respuestas: [palabras clave] }] (1–6), tiempo_visualizacion_segundos 3–30 (8).
-                         *     logica: preguntas [{ enunciado, imagen_id opcional, opciones (2–6), correcta (índice) }] (1–10).
+                         *     Atención
+                         *     completar_palabras: palabras (1–15, una palabra con solo letras), frases (0–5, de 2 a 12 palabras), imagen_id opcional, letras_faltantes 1–4 (2), intentos 1–10 (3), duracion_segundos 60–900 (300).
+                         *     logica: preguntas [{ enunciado, imagen_id opcional, opciones (2–6), correcta (índice) }] (1–10), duracion_segundos 60–900 (300).
+                         *     Memoria
+                         *     recordar_imagenes: imagenes [{ imagen_id, respuestas: [palabras clave] }] (2–8; respuestas obligatorias en modo nombrar), modo nombrar|relacionar (nombrar), dibujar (true), tiempo_visualizacion_segundos 5–30 (8), duracion_segundos 60–900 (300).
+                         *     memoria_secuencias (secuencia de colores): botones 3–9 (4), rondas 3–12 (6), intentos 1–5 (3), tiempo_respuesta_segundos 5–60 (15).
+                         *     Velocidad
+                         *     toque_color: rondas 5–40 (15), colores 3–6 (4), tiempo_limite_ms 800–5000 (2500), interferencia (false).
+                         *     busca_imagen: rondas 5–30 (10), cuadricula 4|6|9|12|16 (9), tiempo_limite_ms 1500–15000 (6000).
+                         *     atencion_sostenida y reaccion están retirados.
                          */
                         parametros?: {
                             [key: string]: unknown;
@@ -1606,6 +1614,253 @@ export interface paths {
                 404: components["responses"]["NotFound"];
             };
         };
+        trace?: never;
+    };
+    "/ejercicios/{id}/publicar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPathParam"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Publicar un ejercicio propio en el taller
+         * @description Lo muestra a los demás especialistas para que lo importen como copia.
+         *     Debe estar Activo y no archivado. Idempotente.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPathParam"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Ejercicio publicado */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Ejercicio"];
+                    };
+                };
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                /** @description Ejercicio desactivado o archivado */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/ejercicios/{id}/retirar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPathParam"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Retirar un ejercicio del taller (autor o administrador)
+         * @description Las copias que ya se importaron no cambian. Idempotente.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPathParam"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Ejercicio retirado del taller */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Ejercicio"];
+                    };
+                };
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        trace?: never;
+    };
+    "/taller": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Listar los ejercicios publicados en el taller
+         * @description Ejercicios publicados, activos y no archivados de todos los especialistas.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    categoria?: components["schemas"]["CategoriaEjercicio"];
+                    tipo?: components["schemas"]["TipoJuego"];
+                    nivel_dificultad?: number;
+                    /** @description Busca en el nombre y las instrucciones. */
+                    q?: string;
+                    page?: components["parameters"]["page"];
+                    limit?: components["parameters"]["limit"];
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Página de ejercicios del taller */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            total?: number;
+                            page?: number;
+                            limit?: number;
+                            data?: components["schemas"]["EjercicioTaller"][];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/taller/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPathParam"];
+            };
+            cookie?: never;
+        };
+        /** Ver un ejercicio del taller */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPathParam"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Ejercicio del taller */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EjercicioTaller"];
+                    };
+                };
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/taller/{id}/importar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPathParam"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Importar un ejercicio del taller como copia propia
+         * @description Crea un ejercicio nuevo en el catálogo del especialista con origen_id apuntando
+         *     al original. Los cambios posteriores del autor no afectan la copia.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPathParam"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Copia creada */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Ejercicio"];
+                    };
+                };
+                404: components["responses"]["NotFound"];
+                /** @description El ejercicio es propio o ya fue importado */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/ejercicios/{id}/restaurar": {
@@ -2145,6 +2400,8 @@ export interface paths {
                         puntaje: number;
                         tiempo_reaccion_ms?: number | null;
                         aciertos: number;
+                        /** @description Ids de imágenes (POST /imagenes) con los dibujos del paciente. */
+                        dibujos?: string[];
                     };
                 };
             };
@@ -2374,6 +2631,55 @@ export interface paths {
                         };
                     };
                 };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pacientes/{id}/constancia": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPathParam"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Calendario de constancia del paciente
+         * @description Días (hora Colombia) con al menos un ejercicio realizado en el mes, racha
+         *     actual (termina hoy o ayer), mejor racha e intentos de la semana (lunes a domingo).
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Mes YYYY-MM; por defecto el actual. */
+                    mes?: string;
+                };
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPathParam"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Constancia del mes */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Constancia"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                403: components["responses"]["Forbidden"];
             };
         };
         put?: never;
@@ -3101,10 +3407,12 @@ export interface components {
          */
         CategoriaEjercicio: "Atención" | "Memoria" | "Velocidad";
         /**
-         * @description Mini-juego de la app móvil; si no se envía, se deduce de la categoría
+         * @description Mini-juego de la app móvil. Cada juego pertenece a una sola clasificación:
+         *     Atención (completar_palabras, logica), Memoria (recordar_imagenes, memoria_secuencias)
+         *     y Velocidad (toque_color, busca_imagen). atencion_sostenida y reaccion están retirados.
          * @enum {string}
          */
-        TipoJuego: "atencion_sostenida" | "memoria_secuencias" | "reaccion" | "completar_palabras" | "recordar_imagenes" | "logica";
+        TipoJuego: "atencion_sostenida" | "memoria_secuencias" | "reaccion" | "completar_palabras" | "recordar_imagenes" | "logica" | "toque_color" | "busca_imagen";
         /** @description Día habilitado; el siguiente día se habilita al día calendario siguiente (hora Colombia) */
         AgendaRuta: {
             dia_actual?: number;
@@ -3250,6 +3558,32 @@ export interface components {
              * @description Fecha de archivo; null si está en el catálogo.
              */
             archivado_en?: string | null;
+            /** @description Visible en el taller. */
+            publicado?: boolean;
+            /** Format: date-time */
+            fecha_publicacion?: string | null;
+            /**
+             * Format: uuid
+             * @description Ejercicio del taller del que se importó esta copia.
+             */
+            origen_id?: string | null;
+        };
+        EjercicioTaller: components["schemas"]["Ejercicio"] & {
+            autor?: string | null;
+            veces_importado?: number;
+            es_propio?: boolean;
+            ya_importado?: boolean;
+        };
+        Constancia: {
+            /** @example 2026-10 */
+            mes?: string;
+            /** Format: date */
+            hoy?: string;
+            dias_activos?: string[];
+            racha_actual?: number;
+            mejor_racha?: number;
+            ejercicios_semana?: number;
+            dias_activos_total?: number;
         };
         RutaTerapeutica: {
             /** Format: uuid */
@@ -3294,6 +3628,9 @@ export interface components {
             fecha?: string;
             ejercicio_nombre?: string;
             categoria?: components["schemas"]["CategoriaEjercicio"];
+            tipo?: components["schemas"]["TipoJuego"];
+            /** @description Dibujos del paciente (ids de imagen) */
+            dibujos?: string[];
             retroalimentacion?: string;
             insignias_obtenidas?: components["schemas"]["Insignia"][];
         };

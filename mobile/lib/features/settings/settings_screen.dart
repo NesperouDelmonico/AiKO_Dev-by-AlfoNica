@@ -8,7 +8,9 @@ import '../../core/session.dart';
 import '../../core/theme.dart';
 import '../../widgets/mascot.dart';
 import '../../widgets/motion.dart';
+import '../../widgets/aiko_avatar.dart';
 import 'change_password_screen.dart';
+import 'personalize_screen.dart';
 
 const appVersion = '0.2.0';
 
@@ -54,6 +56,19 @@ class SettingsScreen extends StatelessWidget {
                   style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900)),
             ),
             FadeSlideIn(child: _ProfileCard(user: user)),
+            const SizedBox(height: 12),
+            _Group(children: [
+              ListTile(
+                leading: const AikoAvatar(size: 40),
+                title: const Text('Personaliza a AiKO',
+                    style: TextStyle(fontWeight: FontWeight.w800)),
+                subtitle: Text(settings.accessory.label),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(builder: (_) => const PersonalizeScreen()),
+                ),
+              ),
+            ]),
             const SizedBox(height: 22),
             const _Section('Accesibilidad'),
             _Group(children: [
@@ -193,8 +208,7 @@ class _ProfileCard extends StatelessWidget {
               color: Colors.white.withValues(alpha: 0.2),
               shape: BoxShape.circle,
             ),
-            child: const AikoMascot(
-                size: 58, color: AikoColors.lilac, earColor: AikoColors.lilacSoft),
+            child: const AikoAvatar(size: 58),
           ),
           const SizedBox(width: 14),
           Expanded(

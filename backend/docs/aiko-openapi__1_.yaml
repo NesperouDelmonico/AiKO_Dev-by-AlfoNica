@@ -19,6 +19,7 @@ tags:
   - name: Pacientes
   - name: Incidencias
   - name: Ejercicios
+  - name: Taller
   - name: Rutas terapéuticas
   - name: Ejecución y resultados
   - name: Gamificación
@@ -649,7 +650,7 @@ paths:
   /imagenes:
     post:
       tags: [Imágenes]
-      summary: Subir imagen de ejercicio (PNG o JPG, máx. 1,5 MB)
+      summary: Subir imagen de ejercicio o dibujo del paciente (PNG o JPG, máx. 1,5 MB)
       requestBody:
         required: true
         content:
@@ -735,7 +736,7 @@ paths:
           application/json:
             schema:
               type: object
-              required: [nombre, categoria, nivel_dificultad, instrucciones, parametros]
+              required: [nombre, nivel_dificultad, instrucciones, parametros]
               properties:
                 nombre: { type: string, maxLength: 150 }
                 categoria: { $ref: "#/components/schemas/CategoriaEjercicio" }
@@ -747,12 +748,16 @@ paths:
                   additionalProperties: true
                   description: |
                     Según el tipo de juego (se completan valores por defecto):
-                    atencion_sostenida: duracion_segundos 30–180 (60), intervalo_ms 600–3000 (1500).
-                    memoria_secuencias: longitud_inicial 2–8 (3), longitud_maxima ≤ 9 y ≥ longitud_inicial (6), tiempo_visualizacion_ms 500–3000 (1000).
-                    reaccion: intentos 5–30 (10), tiempo_limite_ms 300–3000 (1500).
-                    completar_palabras: frase (2–120 caracteres, máx. 12 palabras), imagen_id opcional, letras_ocultas 1–4 (2), duracion_segundos 60–600 (300).
-                    recordar_imagenes: imagenes [{ imagen_id, respuestas: [palabras clave] }] (1–6), tiempo_visualizacion_segundos 3–30 (8).
-                    logica: preguntas [{ enunciado, imagen_id opcional, opciones (2–6), correcta (índice) }] (1–10).
+                    Atención
+                    completar_palabras: palabras (1–15, una palabra con solo letras), frases (0–5, de 2 a 12 palabras), imagen_id opcional, letras_faltantes 1–4 (2), intentos 1–10 (3), duracion_segundos 60–900 (300).
+                    logica: preguntas [{ enunciado, imagen_id opcional, opciones (2–6), correcta (índice) }] (1–10), duracion_segundos 60–900 (300).
+                    Memoria
+                    recordar_imagenes: imagenes [{ imagen_id, respuestas: [palabras clave] }] (2–8; respuestas obligatorias en modo nombrar), modo nombrar|relacionar (nombrar), dibujar (true), tiempo_visualizacion_segundos 5–30 (8), duracion_segundos 60–900 (300).
+                    memoria_secuencias (secuencia de colores): botones 3–9 (4), rondas 3–12 (6), intentos 1–5 (3), tiempo_respuesta_segundos 5–60 (15).
+                    Velocidad
+                    toque_color: rondas 5–40 (15), colores 3–6 (4), tiempo_limite_ms 800–5000 (2500), interferencia (false).
+                    busca_imagen: rondas 5–30 (10), cuadricula 4|6|9|12|16 (9), tiempo_limite_ms 1500–15000 (6000).
+                    atencion_sostenida y reaccion están retirados.
       responses:
         "201":
           description: Ejercicio creado
@@ -802,12 +807,16 @@ paths:
                   additionalProperties: true
                   description: |
                     Según el tipo de juego (se completan valores por defecto):
-                    atencion_sostenida: duracion_segundos 30–180 (60), intervalo_ms 600–3000 (1500).
-                    memoria_secuencias: longitud_inicial 2–8 (3), longitud_maxima ≤ 9 y ≥ longitud_inicial (6), tiempo_visualizacion_ms 500–3000 (1000).
-                    reaccion: intentos 5–30 (10), tiempo_limite_ms 300–3000 (1500).
-                    completar_palabras: frase (2–120 caracteres, máx. 12 palabras), imagen_id opcional, letras_ocultas 1–4 (2), duracion_segundos 60–600 (300).
-                    recordar_imagenes: imagenes [{ imagen_id, respuestas: [palabras clave] }] (1–6), tiempo_visualizacion_segundos 3–30 (8).
-                    logica: preguntas [{ enunciado, imagen_id opcional, opciones (2–6), correcta (índice) }] (1–10).
+                    Atención
+                    completar_palabras: palabras (1–15, una palabra con solo letras), frases (0–5, de 2 a 12 palabras), imagen_id opcional, letras_faltantes 1–4 (2), intentos 1–10 (3), duracion_segundos 60–900 (300).
+                    logica: preguntas [{ enunciado, imagen_id opcional, opciones (2–6), correcta (índice) }] (1–10), duracion_segundos 60–900 (300).
+                    Memoria
+                    recordar_imagenes: imagenes [{ imagen_id, respuestas: [palabras clave] }] (2–8; respuestas obligatorias en modo nombrar), modo nombrar|relacionar (nombrar), dibujar (true), tiempo_visualizacion_segundos 5–30 (8), duracion_segundos 60–900 (300).
+                    memoria_secuencias (secuencia de colores): botones 3–9 (4), rondas 3–12 (6), intentos 1–5 (3), tiempo_respuesta_segundos 5–60 (15).
+                    Velocidad
+                    toque_color: rondas 5–40 (15), colores 3–6 (4), tiempo_limite_ms 800–5000 (2500), interferencia (false).
+                    busca_imagen: rondas 5–30 (10), cuadricula 4|6|9|12|16 (9), tiempo_limite_ms 1500–15000 (6000).
+                    atencion_sostenida y reaccion están retirados.
       responses:
         "200":
           description: Ejercicio actualizado
@@ -859,6 +868,117 @@ paths:
               schema: { $ref: "#/components/schemas/Ejercicio" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+
+  /ejercicios/{id}/publicar:
+    parameters:
+      - { $ref: "#/components/parameters/idPathParam" }
+    patch:
+      tags: [Taller]
+      summary: Publicar un ejercicio propio en el taller
+      description: |
+        Lo muestra a los demás especialistas para que lo importen como copia.
+        Debe estar Activo y no archivado. Idempotente.
+      responses:
+        "200":
+          description: Ejercicio publicado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Ejercicio" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Ejercicio desactivado o archivado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /ejercicios/{id}/retirar:
+    parameters:
+      - { $ref: "#/components/parameters/idPathParam" }
+    patch:
+      tags: [Taller]
+      summary: Retirar un ejercicio del taller (autor o administrador)
+      description: Las copias que ya se importaron no cambian. Idempotente.
+      responses:
+        "200":
+          description: Ejercicio retirado del taller
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Ejercicio" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /taller:
+    get:
+      tags: [Taller]
+      summary: Listar los ejercicios publicados en el taller
+      description: Ejercicios publicados, activos y no archivados de todos los especialistas.
+      parameters:
+        - name: categoria
+          in: query
+          schema: { $ref: "#/components/schemas/CategoriaEjercicio" }
+        - name: tipo
+          in: query
+          schema: { $ref: "#/components/schemas/TipoJuego" }
+        - name: nivel_dificultad
+          in: query
+          schema: { type: integer, minimum: 1 }
+        - name: q
+          in: query
+          description: Busca en el nombre y las instrucciones.
+          schema: { type: string, maxLength: 100 }
+        - { $ref: "#/components/parameters/page" }
+        - { $ref: "#/components/parameters/limit" }
+      responses:
+        "200":
+          description: Página de ejercicios del taller
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total: { type: integer }
+                  page: { type: integer }
+                  limit: { type: integer }
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/EjercicioTaller" }
+
+  /taller/{id}:
+    parameters:
+      - { $ref: "#/components/parameters/idPathParam" }
+    get:
+      tags: [Taller]
+      summary: Ver un ejercicio del taller
+      responses:
+        "200":
+          description: Ejercicio del taller
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EjercicioTaller" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /taller/{id}/importar:
+    parameters:
+      - { $ref: "#/components/parameters/idPathParam" }
+    post:
+      tags: [Taller]
+      summary: Importar un ejercicio del taller como copia propia
+      description: |
+        Crea un ejercicio nuevo en el catálogo del especialista con origen_id apuntando
+        al original. Los cambios posteriores del autor no afectan la copia.
+      responses:
+        "201":
+          description: Copia creada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Ejercicio" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: El ejercicio es propio o ya fue importado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
 
   /ejercicios/{id}/restaurar:
     parameters:
@@ -1144,6 +1264,11 @@ paths:
                 puntaje: { type: integer, minimum: 0 }
                 tiempo_reaccion_ms: { type: integer, minimum: 0, nullable: true }
                 aciertos: { type: integer, minimum: 0 }
+                dibujos:
+                  type: array
+                  maxItems: 8
+                  description: Ids de imágenes (POST /imagenes) con los dibujos del paciente.
+                  items: { type: string, format: uuid }
       responses:
         "201":
           description: Resultado guardado, incluye retroalimentación (RF-019)
@@ -1274,6 +1399,29 @@ paths:
                         fecha: { type: string, format: date }
                         valor: { type: number, format: float }
                   aviso: { type: string, nullable: true }
+
+  /pacientes/{id}/constancia:
+    parameters:
+      - { $ref: "#/components/parameters/idPathParam" }
+    get:
+      tags: [Ejecución y resultados]
+      summary: Calendario de constancia del paciente
+      description: |
+        Días (hora Colombia) con al menos un ejercicio realizado en el mes, racha
+        actual (termina hoy o ayer), mejor racha e intentos de la semana (lunes a domingo).
+      parameters:
+        - name: mes
+          in: query
+          description: Mes YYYY-MM; por defecto el actual.
+          schema: { type: string, pattern: "^\\d{4}-(0[1-9]|1[0-2])$", example: "2026-10" }
+      responses:
+        "200":
+          description: Constancia del mes
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Constancia" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
 
   # ============================================================
   # MÓDULO: GAMIFICACIÓN
@@ -1694,8 +1842,11 @@ components:
 
     TipoJuego:
       type: string
-      description: Mini-juego de la app móvil; si no se envía, se deduce de la categoría
-      enum: [atencion_sostenida, memoria_secuencias, reaccion, completar_palabras, recordar_imagenes, logica]
+      description: |
+        Mini-juego de la app móvil. Cada juego pertenece a una sola clasificación:
+        Atención (completar_palabras, logica), Memoria (recordar_imagenes, memoria_secuencias)
+        y Velocidad (toque_color, busca_imagen). atencion_sostenida y reaccion están retirados.
+      enum: [atencion_sostenida, memoria_secuencias, reaccion, completar_palabras, recordar_imagenes, logica, toque_color, busca_imagen]
 
     AgendaRuta:
       type: object
@@ -1860,6 +2011,36 @@ components:
           format: date-time
           nullable: true
           description: Fecha de archivo; null si está en el catálogo.
+        publicado: { type: boolean, description: Visible en el taller. }
+        fecha_publicacion: { type: string, format: date-time, nullable: true }
+        origen_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Ejercicio del taller del que se importó esta copia.
+
+    EjercicioTaller:
+      allOf:
+        - { $ref: "#/components/schemas/Ejercicio" }
+        - type: object
+          properties:
+            autor: { type: string, nullable: true }
+            veces_importado: { type: integer, minimum: 0 }
+            es_propio: { type: boolean }
+            ya_importado: { type: boolean }
+
+    Constancia:
+      type: object
+      properties:
+        mes: { type: string, example: "2026-10" }
+        hoy: { type: string, format: date }
+        dias_activos:
+          type: array
+          items: { type: string, format: date }
+        racha_actual: { type: integer, minimum: 0 }
+        mejor_racha: { type: integer, minimum: 0 }
+        ejercicios_semana: { type: integer, minimum: 0 }
+        dias_activos_total: { type: integer, minimum: 0 }
 
     RutaTerapeutica:
       type: object
@@ -1900,6 +2081,11 @@ components:
         fecha: { type: string, format: date-time }
         ejercicio_nombre: { type: string }
         categoria: { $ref: "#/components/schemas/CategoriaEjercicio" }
+        tipo: { $ref: "#/components/schemas/TipoJuego" }
+        dibujos:
+          type: array
+          description: Dibujos del paciente (ids de imagen)
+          items: { type: string, format: uuid }
         retroalimentacion: { type: string }
         insignias_obtenidas:
           type: array

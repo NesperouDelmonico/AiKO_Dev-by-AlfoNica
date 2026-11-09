@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import '../../core/api_client.dart';
 import 'game_outcome.dart';
 
@@ -26,10 +28,25 @@ class ResultsRepository {
     required String routeExerciseId,
     required GameOutcome outcome,
   }) async {
+    // Los dibujos se suben primero; si uno falla, el resultado se envía
+    // igual (el puntaje no depende del dibujo).
+    final drawingIds = <String>[];
+    for (final png in outcome.dibujos.take(8)) {
+      try {
+        final uploaded = await _api.post('/imagenes', {
+          'tipo_mime': 'image/png',
+          'datos': base64Encode(png),
+        });
+        final id = uploaded is Map ? uploaded['id'] as String? : null;
+        if (id != null) drawingIds.add(id);
+      } on ApiException {
+        // Se omite ese dibujo.
+      }
+    }
     try {
       final data = await _api.post(
         '/rutas/$routeId/ejercicios/$routeExerciseId/resultados',
-        outcome.toJson(),
+        outcome.toJson(dibujoIds: drawingIds),
       );
       final json = Map<String, dynamic>.from(data as Map);
       return SubmitResult(

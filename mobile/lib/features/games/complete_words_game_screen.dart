@@ -8,22 +8,39 @@ import 'game_outcome.dart';
 import 'game_shell.dart';
 import 'word_puzzle.dart';
 
-/// Completar palabras: primero se arrastran las letras que faltan en cada
-/// palabra; si es una frase, luego se arrastran las palabras para ordenarla.
-/// También se puede tocar una ficha para ponerla en la siguiente casilla
-/// (útil si arrastrar cuesta).
+/// Mensajes de ánimo al completar cada palabra o frase.
+const cheerMessages = [
+  '¡Excelente!',
+  '¡Muy bien!',
+  '¡Lo lograste!',
+  '¡Sigue así!',
+  '¡Qué buena memoria!',
+  '¡Perfecto!',
+  '¡Vas genial!',
+];
+
+/// Completar palabras: primero palabras sueltas y luego frases. En cada
+/// una faltan letras que se completan con fichas tipo scrabble (arrastrar
+/// o tocar). Hay un número de intentos (errores permitidos) y un tiempo
+/// total; al completar cada palabra aparece un mensaje de ánimo.
 class CompleteWordsGameScreen extends StatefulWidget {
   const CompleteWordsGameScreen({
     super.key,
-    required this.frase,
-    required this.letrasOcultas,
+    required this.palabras,
+    this.frases = const [],
+    required this.letrasFaltantes,
+    required this.intentos,
     required this.duracionSegundos,
     this.imagenId,
     this.random,
   });
 
-  final String frase;
-  final int letrasOcultas;
+  final List<String> palabras;
+  final List<String> frases;
+  final int letrasFaltantes;
+
+  /// Errores permitidos en toda la partida.
+  final int intentos;
   final int duracionSegundos;
   final String? imagenId;
   final Random? random;
@@ -33,38 +50,61 @@ class CompleteWordsGameScreen extends StatefulWidget {
       _CompleteWordsGameScreenState();
 }
 
+class _Item {
+  _Item(this.text, this.words, this.isPhrase);
+  final String text;
+  final List<PuzzleWord> words;
+  final bool isPhrase;
+
+  /// Huecos en orden: (palabra, posición).
+  late final List<(int, int)> blanks = [
+    for (var w = 0; w < words.length; w++)
+      for (final p in words[w].hidden) (w, p),
+  ];
+
+  late final List<LetterTile> bank = () {
+    var id = 0;
+    final tiles = [
+      for (final word in words)
+        for (final tile in word.bank) LetterTile(id++, tile.char),
+    ];
+    return tiles;
+  }();
+}
+
 class _CompleteWordsGameScreenState extends State<CompleteWordsGameScreen> {
   late final Random _random = widget.random ?? Random();
-  late final List<PuzzleWord> _words =
-      buildPuzzle(widget.frase, widget.letrasOcultas, _random);
-  late final List<String> _texts = _words.map((w) => w.text).toList();
-  late final bool _hasSentence = _words.length > 1;
-  late final int _total = _words.fold<int>(0, (n, w) => n + w.hidden.length) +
-      (_hasSentence ? _words.length : 0);
+  late final List<_Item> _items = [
+    for (final w in widget.palabras)
+      _Item(w, buildPuzzle(w, widget.letrasFaltantes, _random), false),
+    for (final f in widget.frases)
+      _Item(f, buildPuzzle(f, max(1, widget.letrasFaltantes - 1), _random), true),
+  ]..removeWhere((item) => item.blanks.isEmpty);
+  late final int _total = _items.fold(0, (n, item) => n + item.blanks.length);
+  late final List<LetterTile> _shuffledBank =
+      List.of(_items.isEmpty ? <LetterTile>[] : _items.first.bank)..shuffle(_random);
+
   final _clock = Stopwatch()..start();
   Timer? _ticker;
   late int _remaining = widget.duracionSegundos;
 
-  int _wordIndex = 0;
-  // Letras puestas en la palabra actual: posición → letra.
-  final Map<int, String> _filled = {};
+  int _index = 0;
+  final Map<(int, int), String> _filled = {};
   final Set<int> _usedTiles = {};
-  // Etapa de la frase.
-  bool _sentenceStage = false;
-  late final List<int> _chipOrder =
-      shuffledOrder(_words.length, _random, _texts);
-  final List<int?> _sentence = [];
-  final Set<int> _usedChips = {};
-
   int _placed = 0;
   int _errors = 0;
+  int _completed = 0;
   String? _hint;
+  String? _cheer;
   bool _done = false;
 
   @override
   void initState() {
     super.initState();
-    _skipWordsWithoutBlanks();
+    if (_items.isEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _finish());
+      return;
+    }
     _ticker = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_remaining <= 1) {
         timer.cancel();
@@ -81,95 +121,63 @@ class _CompleteWordsGameScreenState extends State<CompleteWordsGameScreen> {
     super.dispose();
   }
 
-  PuzzleWord get _word => _words[_wordIndex];
+  _Item get _item => _items[_index];
+  int get _livesLeft => max(0, widget.intentos - _errors);
 
-  void _skipWordsWithoutBlanks() {
-    while (!_sentenceStage && _wordIndex < _words.length && _word.hidden.isEmpty) {
-      _advanceWord(silent: true);
-    }
-  }
-
-  // ----- Etapa 1: letras -------------------------------------------------
-
-  void _placeLetter(LetterTile tile, int position) {
-    if (_done || _filled.containsKey(position)) return;
-    final expected = _word.chars[position];
+  void _place(LetterTile tile, (int, int) blank) {
+    if (_done || _cheer != null || _filled.containsKey(blank)) return;
+    final expected = _item.words[blank.$1].chars[blank.$2];
     if (tile.char.toLowerCase() == expected.toLowerCase()) {
       setState(() {
-        _filled[position] = expected;
+        _filled[blank] = expected;
         _usedTiles.add(tile.id);
         _placed++;
         _hint = null;
       });
-      if (_filled.length == _word.hidden.length) {
-        Future.delayed(const Duration(milliseconds: 600), () {
-          if (mounted && !_done) setState(() => _advanceWord());
-        });
-      }
+      if (_filled.length == _item.blanks.length) _itemDone();
     } else {
       setState(() {
         _errors++;
-        _hint = 'Esa letra no va ahí. Prueba otra.';
+        _hint = _livesLeft == 0
+            ? 'Se acabaron los intentos.'
+            : 'Esa letra no va ahí. Te quedan $_livesLeft '
+                '${_livesLeft == 1 ? 'intento' : 'intentos'}.';
       });
+      if (_livesLeft == 0) {
+        Future.delayed(const Duration(milliseconds: 900), _finish);
+      }
     }
   }
 
-  void _tapLetter(LetterTile tile) {
-    final next = _word.hidden.firstWhere(
-      (position) => !_filled.containsKey(position),
-      orElse: () => -1,
+  void _tap(LetterTile tile) {
+    final next = _item.blanks.firstWhere(
+      (b) => !_filled.containsKey(b),
+      orElse: () => (-1, -1),
     );
-    if (next >= 0) _placeLetter(tile, next);
+    if (next.$1 >= 0) _place(tile, next);
   }
 
-  void _advanceWord({bool silent = false}) {
-    _filled.clear();
-    _usedTiles.clear();
-    _hint = null;
-    _wordIndex++;
-    if (_wordIndex >= _words.length) {
-      if (_hasSentence) {
-        _sentenceStage = true;
-        _sentence
-          ..clear()
-          ..addAll(List.filled(_words.length, null));
-      } else {
-        // Se termina fuera de setState.
-        WidgetsBinding.instance.addPostFrameCallback((_) => _finish());
+  void _itemDone() {
+    _completed++;
+    setState(() => _cheer = cheerMessages[_random.nextInt(cheerMessages.length)]);
+    Future.delayed(const Duration(milliseconds: 1300), () {
+      if (!mounted || _done) return;
+      if (_index + 1 >= _items.length) {
+        _finish();
+        return;
       }
-      return;
-    }
-    if (!silent) _skipWordsWithoutBlanks();
-  }
-
-  // ----- Etapa 2: frase --------------------------------------------------
-
-  void _placeWord(int wordIndex, int slot) {
-    if (_done || _sentence[slot] != null) return;
-    if (_texts[wordIndex] == _texts[slot]) {
       setState(() {
-        _sentence[slot] = wordIndex;
-        _usedChips.add(wordIndex);
-        _placed++;
+        _index++;
+        _filled.clear();
+        _usedTiles.clear();
+        _cheer = null;
         _hint = null;
+        _shuffledBank
+          ..clear()
+          ..addAll(List.of(_item.bank)..shuffle(_random));
       });
-      if (!_sentence.contains(null)) {
-        Future.delayed(const Duration(milliseconds: 700), _finish);
-      }
-    } else {
-      setState(() {
-        _errors++;
-        _hint = 'Esa palabra no va en ese lugar.';
-      });
-    }
+    });
   }
-
-  void _tapWord(int wordIndex) {
-    final slot = _sentence.indexOf(null);
-    if (slot >= 0) _placeWord(wordIndex, slot);
-  }
-
-  // ----------------------------------------------------------------------
 
   void _finish() {
     if (_done || !mounted) return;
@@ -177,8 +185,8 @@ class _CompleteWordsGameScreenState extends State<CompleteWordsGameScreen> {
     _done = true;
     Navigator.of(context).pop(GameOutcome(
       puntaje: puzzleScore(placed: _placed, total: _total, errors: _errors),
-      aciertos: _placed,
-      intentos: _total,
+      aciertos: _completed,
+      intentos: _items.length,
       tiempoReaccionMs:
           _placed == 0 ? null : (_clock.elapsedMilliseconds / _placed).round(),
     ));
@@ -192,266 +200,333 @@ class _CompleteWordsGameScreenState extends State<CompleteWordsGameScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final title = _sentenceStage ? 'Ordena la frase' : 'Completa la palabra';
-    final subtitle = _sentenceStage
-        ? 'Arrastra las palabras a su lugar'
-        : _words.length > 1
-            ? 'Palabra ${min(_wordIndex + 1, _words.length)} de ${_words.length}'
-            : 'Arrastra las letras que faltan';
+    if (_items.isEmpty) return const Scaffold(body: SizedBox.shrink());
+    final item = _item;
     return GameShell(
       progress: _total == 0 ? 1 : _placed / _total,
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+      counter: '${_index + 1}/${_items.length}',
+      title: item.isPhrase ? 'Completa la frase' : 'Completa la palabra',
+      subtitle: 'Arrastra o toca las fichas de letras',
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
+          TimerPill(
+            text: _clockText,
+            semantics: 'Tiempo restante $_clockText',
+            urgent: _remaining <= 20,
+          ),
+          const SizedBox(width: 10),
+          _Lives(left: _livesLeft, total: widget.intentos),
+        ],
+      ),
+      child: Stack(
+        children: [
+          ListView(
+            padding: const EdgeInsets.fromLTRB(20, 6, 20, 28),
             children: [
-              Expanded(
-                child: Text(title,
-                    style: Theme.of(context)
-                        .textTheme
-                        .headlineSmall
-                        ?.copyWith(fontWeight: FontWeight.w800)),
-              ),
-              Semantics(
-                label: 'Tiempo restante $_clockText',
-                excludeSemantics: true,
-                child: Chip(
-                  avatar: const Icon(Icons.timer_rounded, size: 18),
-                  label: Text(_clockText),
+              if (widget.imagenId != null && !item.isPhrase) ...[
+                ExerciseImage(widget.imagenId!, height: 150),
+                const SizedBox(height: 18),
+              ],
+              _board(item),
+              const SizedBox(height: 26),
+              _rack(),
+              if (_hint != null)
+                Semantics(
+                  liveRegion: true,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 16),
+                    child: Text(_hint!,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFFB4582B))),
+                  ),
                 ),
-              ),
             ],
           ),
-          Text(subtitle, style: const TextStyle(color: AikoColors.inkSoft)),
-          const SizedBox(height: 14),
-          if (widget.imagenId != null) ...[
-            ExerciseImage(widget.imagenId!, height: 170),
-            const SizedBox(height: 18),
-          ],
-          if (_sentenceStage) ..._sentenceView() else if (_wordIndex < _words.length) ..._wordView(),
-          if (_hint != null)
-            Semantics(
-              liveRegion: true,
-              child: Padding(
-                padding: const EdgeInsets.only(top: 14),
-                child: Text(_hint!,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFFB4582B))),
-              ),
+          if (_cheer != null) _CheerBanner(text: _cheer!, word: item.text),
+        ],
+      ),
+    );
+  }
+
+  /// Tablero: las palabras con sus huecos.
+  Widget _board(_Item item) {
+    final complete = _filled.length == item.blanks.length;
+    final tileSize = item.isPhrase ? 38.0 : 50.0;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: softCard(),
+      child: Wrap(
+        alignment: WrapAlignment.center,
+        spacing: item.isPhrase ? 16 : 0,
+        runSpacing: 12,
+        children: [
+          for (var w = 0; w < item.words.length; w++)
+            Wrap(
+              spacing: 4,
+              children: [
+                for (var p = 0; p < item.words[w].chars.length; p++)
+                  if (item.words[w].hidden.contains(p))
+                    DragTarget<LetterTile>(
+                      onWillAcceptWithDetails: (_) => !_filled.containsKey((w, p)),
+                      onAcceptWithDetails: (details) => _place(details.data, (w, p)),
+                      builder: (context, candidate, _) => _filled[(w, p)] == null
+                          ? _EmptySlot(size: tileSize, highlighted: candidate.isNotEmpty)
+                          : ScrabbleTile(
+                              letter: _filled[(w, p)]!,
+                              size: tileSize,
+                              success: complete,
+                            ),
+                    )
+                  else
+                    _FixedLetter(item.words[w].chars[p], size: tileSize),
+              ],
             ),
         ],
       ),
     );
   }
 
-  List<Widget> _wordView() {
-    final word = _word;
-    final complete = _filled.length == word.hidden.length;
-    return [
-      Center(
-        child: Wrap(
-          spacing: 6,
-          runSpacing: 8,
-          alignment: WrapAlignment.center,
-          children: [
-            for (var i = 0; i < word.chars.length; i++)
-              word.hidden.contains(i)
-                  ? DragTarget<LetterTile>(
-                      onWillAcceptWithDetails: (_) => !_filled.containsKey(i),
-                      onAcceptWithDetails: (details) =>
-                          _placeLetter(details.data, i),
-                      builder: (context, candidate, _) => _LetterBox(
-                        letter: _filled[i],
-                        highlighted: candidate.isNotEmpty,
-                        success: complete,
-                      ),
-                    )
-                  : _LetterBox(letter: word.chars[i], fixed: true, success: complete),
-          ],
-        ),
+  /// Atril con las fichas disponibles.
+  Widget _rack() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 14, 12, 18),
+      decoration: BoxDecoration(
+        color: const Color(0xFFB98552),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: const [BoxShadow(color: Color(0xFF8A5C32), offset: Offset(0, 5))],
       ),
-      const SizedBox(height: 30),
-      Wrap(
+      child: Wrap(
         spacing: 10,
-        runSpacing: 10,
+        runSpacing: 12,
         alignment: WrapAlignment.center,
         children: [
-          for (final tile in word.bank)
+          for (final tile in _shuffledBank)
             if (!_usedTiles.contains(tile.id))
-              _DraggableChip<LetterTile>(
-                data: tile,
-                label: tile.char,
-                large: true,
-                onTap: () => _tapLetter(tile),
-              ),
+              _DraggableTile(tile: tile, onTap: () => _tap(tile)),
         ],
       ),
-    ];
-  }
-
-  List<Widget> _sentenceView() {
-    return [
-      Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Wrap(
-          spacing: 8,
-          runSpacing: 10,
-          children: [
-            for (var slot = 0; slot < _words.length; slot++)
-              DragTarget<int>(
-                onWillAcceptWithDetails: (_) => _sentence[slot] == null,
-                onAcceptWithDetails: (details) => _placeWord(details.data, slot),
-                builder: (context, candidate, _) {
-                  final placed = _sentence[slot];
-                  return AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    constraints: const BoxConstraints(minWidth: 72, minHeight: 48),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: candidate.isNotEmpty ? AikoColors.lilacSoft : AikoColors.lavenderBg,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: placed == null ? const Color(0xFFDCD6E8) : AikoColors.success,
-                        width: 2,
-                      ),
-                    ),
-                    child: Text(placed == null ? ' ' : _texts[placed],
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-                  );
-                },
-              ),
-          ],
-        ),
-      ),
-      const SizedBox(height: 28),
-      Wrap(
-        spacing: 10,
-        runSpacing: 10,
-        alignment: WrapAlignment.center,
-        children: [
-          for (final index in _chipOrder)
-            if (!_usedChips.contains(index))
-              _DraggableChip<int>(
-                data: index,
-                label: _texts[index],
-                onTap: () => _tapWord(index),
-              ),
-        ],
-      ),
-    ];
+    );
   }
 }
 
-/// Casilla de una letra: fija, vacía (hueco para soltar) o ya completada.
-class _LetterBox extends StatelessWidget {
-  const _LetterBox({
-    this.letter,
-    this.fixed = false,
-    this.highlighted = false,
+/// Puntos de cada letra en el scrabble en español (solo decorativo).
+int scrabblePoints(String letter) {
+  const points = {
+    'a': 1, 'e': 1, 'o': 1, 'i': 1, 's': 1, 'n': 1, 'l': 1, 'r': 1, 'u': 1, 't': 1,
+    'd': 2, 'g': 2, 'c': 3, 'b': 3, 'm': 3, 'p': 3, 'h': 4, 'f': 4, 'v': 4, 'y': 4,
+    'q': 5, 'j': 8, 'ñ': 8, 'x': 8, 'z': 10, 'k': 10, 'w': 10,
+  };
+  const plain = {'á': 'a', 'é': 'e', 'í': 'i', 'ó': 'o', 'ú': 'u', 'ü': 'u'};
+  final lower = letter.toLowerCase();
+  return points[plain[lower] ?? lower] ?? 1;
+}
+
+/// Ficha de madera estilo scrabble.
+class ScrabbleTile extends StatelessWidget {
+  const ScrabbleTile({
+    super.key,
+    required this.letter,
+    this.size = 54,
+    this.lifted = false,
     this.success = false,
   });
 
-  final String? letter;
-  final bool fixed;
-  final bool highlighted;
+  final String letter;
+  final double size;
+  final bool lifted;
   final bool success;
 
   @override
   Widget build(BuildContext context) {
-    final empty = letter == null;
-    return Semantics(
-      label: empty ? 'Letra que falta' : 'Letra $letter',
-      excludeSemantics: true,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        width: 46,
-        height: 56,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: highlighted
-              ? AikoColors.lilacSoft
-              : fixed
-                  ? Colors.transparent
-                  : Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: fixed
-              ? null
-              : Border.all(
-                  color: success
-                      ? AikoColors.success
-                      : empty
-                          ? AikoColors.lilac
-                          : AikoColors.violet,
-                  width: 2,
-                ),
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: success
+              ? const [Color(0xFFE3F7EC), Color(0xFFBFE8D2)]
+              : const [Color(0xFFFFF1CF), Color(0xFFF2D59A)],
         ),
-        child: Text(letter ?? '',
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.w800,
-              color: fixed ? AikoColors.ink : AikoColors.violet,
-            )),
+        borderRadius: BorderRadius.circular(size * 0.18),
+        border: Border.all(
+            color: success ? AikoColors.success : const Color(0xFFD9B26F), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: lifted
+                ? Colors.black.withValues(alpha: 0.25)
+                : (success ? const Color(0xFF7CC4A0) : const Color(0xFFC79A55)),
+            offset: Offset(0, lifted ? 8 : 3),
+            blurRadius: lifted ? 14 : 0,
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          Center(
+            child: Text(letter.toUpperCase(),
+                style: TextStyle(
+                    fontSize: size * 0.5,
+                    fontWeight: FontWeight.w900,
+                    color: const Color(0xFF4A3220))),
+          ),
+          Positioned(
+            right: size * 0.1,
+            bottom: size * 0.05,
+            child: Text('${scrabblePoints(letter)}',
+                style: TextStyle(
+                    fontSize: size * 0.2,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF7A5A3A))),
+          ),
+        ],
       ),
     );
   }
 }
 
-/// Ficha que se puede arrastrar o tocar.
-class _DraggableChip<T extends Object> extends StatelessWidget {
-  const _DraggableChip({
-    required this.data,
-    required this.label,
-    required this.onTap,
-    this.large = false,
-  });
-
-  final T data;
-  final String label;
-  final VoidCallback onTap;
-  final bool large;
-
-  Widget _chip({bool ghost = false, bool lifted = false}) => Container(
-        constraints: BoxConstraints(minWidth: large ? 56 : 64, minHeight: 52),
-        padding: EdgeInsets.symmetric(horizontal: large ? 14 : 16, vertical: 10),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: ghost ? const Color(0xFFEDEAF3) : Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFFDCD6E8), width: 2),
-          boxShadow: ghost
-              ? null
-              : [
-                  BoxShadow(
-                    color: lifted ? AikoColors.violet.withValues(alpha: 0.25) : const Color(0xFFDCD6E8),
-                    offset: Offset(0, lifted ? 6 : 3),
-                    blurRadius: lifted ? 12 : 0,
-                  ),
-                ],
-        ),
-        child: Text(ghost ? '' : label,
-            style: TextStyle(fontSize: large ? 26 : 18, fontWeight: FontWeight.w700, color: AikoColors.ink)),
-      );
+class _FixedLetter extends StatelessWidget {
+  const _FixedLetter(this.letter, {required this.size});
+  final String letter;
+  final double size;
 
   @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: 'Ficha $label. Toca para ponerla o arrástrala.',
-      excludeSemantics: true,
-      child: Draggable<T>(
-        data: data,
-        feedback: Material(color: Colors.transparent, child: _chip(lifted: true)),
-        childWhenDragging: _chip(ghost: true),
-        child: GestureDetector(onTap: onTap, child: _chip()),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Semantics(
+        label: 'Letra $letter',
+        excludeSemantics: true,
+        child: SizedBox(
+          width: size * 0.82,
+          height: size,
+          child: Center(
+            child: Text(letter.toUpperCase(),
+                style: TextStyle(
+                    fontSize: size * 0.56, fontWeight: FontWeight.w900, color: AikoColors.ink)),
+          ),
+        ),
+      );
+}
+
+class _EmptySlot extends StatelessWidget {
+  const _EmptySlot({required this.size, required this.highlighted});
+  final double size;
+  final bool highlighted;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+        label: 'Letra que falta',
+        excludeSemantics: true,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            color: highlighted ? AikoColors.lilacSoft : const Color(0xFFF6F2FC),
+            borderRadius: BorderRadius.circular(size * 0.18),
+            border: Border.all(
+                color: highlighted ? AikoColors.violet : AikoColors.lilac, width: 2),
+          ),
+        ),
+      );
+}
+
+class _DraggableTile extends StatelessWidget {
+  const _DraggableTile({required this.tile, required this.onTap});
+  final LetterTile tile;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+        button: true,
+        label: 'Ficha ${tile.char}. Toca para ponerla o arrástrala.',
+        excludeSemantics: true,
+        child: Draggable<LetterTile>(
+          data: tile,
+          feedback: Material(
+              color: Colors.transparent,
+              child: ScrabbleTile(letter: tile.char, size: 60, lifted: true)),
+          childWhenDragging: Opacity(opacity: 0.25, child: ScrabbleTile(letter: tile.char)),
+          child: GestureDetector(onTap: onTap, child: ScrabbleTile(letter: tile.char)),
+        ),
+      );
+}
+
+/// Corazones con los intentos que quedan.
+class _Lives extends StatelessWidget {
+  const _Lives({required this.left, required this.total});
+  final int left;
+  final int total;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+        label: 'Te quedan $left de $total intentos',
+        excludeSemantics: true,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: softCard(radius: 30),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (var i = 0; i < min(total, 5); i++)
+                Icon(i < left ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                    size: 20, color: const Color(0xFFE0739C)),
+              if (total > 5)
+                Padding(
+                  padding: const EdgeInsets.only(left: 4),
+                  child: Text('$left',
+                      style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFFE0739C))),
+                ),
+            ],
+          ),
+        ),
+      );
+}
+
+/// Mensaje de ánimo que aparece al completar una palabra.
+class _CheerBanner extends StatelessWidget {
+  const _CheerBanner({required this.text, required this.word});
+  final String text;
+  final String word;
+
+  @override
+  Widget build(BuildContext context) => Positioned.fill(
+        child: IgnorePointer(
+          child: Center(
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0.6, end: 1),
+              duration: const Duration(milliseconds: 380),
+              curve: Curves.easeOutBack,
+              builder: (context, scale, child) => Transform.scale(scale: scale, child: child),
+              child: Semantics(
+                liveRegion: true,
+                label: '$text Completaste $word',
+                excludeSemantics: true,
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 32),
+                  padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
+                  decoration: softCard(color: const Color(0xFFDDF3EA), radius: 28, border: AikoColors.success),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.star_rounded, color: AikoColors.star, size: 44),
+                      Text(text,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900)),
+                      const SizedBox(height: 4),
+                      Text(word,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontSize: 17, color: AikoColors.inkSoft, fontWeight: FontWeight.w700)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
 }

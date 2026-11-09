@@ -29,6 +29,9 @@ describe('TherapyUseCase.result', () => {
     exercises: jest.fn(),
     exercise: jest.fn(),
     exerciseUsedInRoutes: jest.fn(),
+    workshop: jest.fn(),
+    importCounts: jest.fn(),
+    importedOrigins: jest.fn(),
     specialistIdForUser: jest.fn(),
     patientForUser: jest.fn(),
     patientById: jest.fn(),
@@ -53,6 +56,7 @@ describe('TherapyUseCase.result', () => {
     replaceRouteExercise: jest.fn(),
     saveResult: jest.fn(),
     results: jest.fn(),
+    resultDates: jest.fn(),
     resultsPage: jest.fn(),
     routesHistory: jest.fn(),
     domainProgress: jest.fn(),
@@ -139,6 +143,35 @@ describe('TherapyUseCase.result', () => {
       false,
     );
     expect(gamification.onExerciseCompleted).not.toHaveBeenCalled();
+  });
+
+  it('guarda los dibujos del paciente y rechaza los que no existen', async () => {
+    const drawing = '6b3f0f1e-6a4b-4c1e-9b2a-1d2e3f4a5b6c';
+    const images = { missing: jest.fn().mockResolvedValue([]) };
+    const withImages = new TherapyUseCase(
+      repository,
+      config,
+      gamification,
+      images as never,
+    );
+    await withImages.result(
+      route.id,
+      item.id,
+      { puntaje: 80, aciertos: 4, dibujos: [drawing, drawing] },
+      'patient-user',
+    );
+    expect(repository.saveResult.mock.calls[0][2].dibujos).toEqual([drawing]);
+    images.missing.mockResolvedValue([drawing]);
+    repository.saveResult.mockClear();
+    await expect(
+      withImages.result(
+        route.id,
+        item.id,
+        { puntaje: 80, aciertos: 4, dibujos: [drawing] },
+        'patient-user',
+      ),
+    ).rejects.toThrow(/Dibujos no encontrados/);
+    expect(repository.saveResult).not.toHaveBeenCalled();
   });
 
   it('pasa al repositorio un resultado exitoso con avance habilitado', async () => {
@@ -273,10 +306,10 @@ describe('TherapyUseCase.result', () => {
       expect(repository.saveExercise).not.toHaveBeenCalled();
     });
 
-    it('deduce el tipo de la categoría y respeta el tipo elegido', async () => {
+    it('deduce el juego y la clasificación, y rechaza combinaciones inválidas', async () => {
       await useCase.create(
         {
-          nombre: 'Reacción',
+          nombre: 'Colores',
           categoria: CognitiveCategory.VELOCIDAD,
           nivel_dificultad: 1,
           instrucciones: 'Toca rápido',
@@ -285,32 +318,52 @@ describe('TherapyUseCase.result', () => {
         'specialist-user',
       );
       expect(repository.saveExercise).toHaveBeenLastCalledWith(
-        expect.objectContaining({ tipo: GameType.REACCION }),
+        expect.objectContaining({
+          tipo: GameType.TOQUE_COLOR,
+          categoria: CognitiveCategory.VELOCIDAD,
+        }),
         'specialist-user',
       );
+      // Sin categoría: se toma la del juego.
       await useCase.create(
         {
-          nombre: 'Problemas',
-          categoria: CognitiveCategory.ATENCION,
-          tipo: GameType.LOGICA,
+          nombre: 'Secuencia',
+          tipo: GameType.MEMORIA_SECUENCIAS,
           nivel_dificultad: 1,
-          instrucciones: 'Elige la respuesta',
-          parametros: {
-            preguntas: [
-              {
-                enunciado: '¿Cuánto es 2 + 2?',
-                opciones: ['3', '4'],
-                correcta: 1,
-              },
-            ],
-          },
+          instrucciones: 'Repite la secuencia',
+          parametros: {},
         },
         'specialist-user',
       );
       expect(repository.saveExercise).toHaveBeenLastCalledWith(
-        expect.objectContaining({ tipo: GameType.LOGICA }),
+        expect.objectContaining({ categoria: CognitiveCategory.MEMORIA }),
         'specialist-user',
       );
+      await expect(
+        useCase.create(
+          {
+            nombre: 'Lógica',
+            categoria: CognitiveCategory.MEMORIA,
+            tipo: GameType.LOGICA,
+            nivel_dificultad: 1,
+            instrucciones: 'Elige',
+            parametros: {},
+          },
+          'specialist-user',
+        ),
+      ).rejects.toThrow(/clasificación Atención/);
+      await expect(
+        useCase.create(
+          {
+            nombre: 'Viejo',
+            tipo: GameType.REACCION,
+            nivel_dificultad: 1,
+            instrucciones: 'Toca',
+            parametros: {},
+          },
+          'specialist-user',
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
     });
 
     it('rechaza imágenes que no existen', async () => {
@@ -325,12 +378,12 @@ describe('TherapyUseCase.result', () => {
         withImages.create(
           {
             nombre: 'Palabras',
-            categoria: CognitiveCategory.MEMORIA,
+            categoria: CognitiveCategory.ATENCION,
             tipo: GameType.COMPLETAR_PALABRAS,
             nivel_dificultad: 1,
             instrucciones: 'Completa',
             parametros: {
-              frase: 'El gato duerme',
+              palabras: ['gato'],
               imagen_id: '6b3f0f1e-6a4b-4c1e-9b2a-1d2e3f4a5b6c',
             },
           },
@@ -342,17 +395,17 @@ describe('TherapyUseCase.result', () => {
     it('guarda los parámetros completos al crear', async () => {
       await useCase.create(
         {
-          nombre: 'Reacción',
-          categoria: CognitiveCategory.VELOCIDAD,
+          nombre: 'Busca',
+          tipo: GameType.BUSCA_IMAGEN,
           nivel_dificultad: 1,
-          instrucciones: 'Toca rápido',
-          parametros: { intentos: 12 },
+          instrucciones: 'Encuentra la imagen',
+          parametros: { rondas: 12 },
         },
         'specialist-user',
       );
       expect(repository.saveExercise).toHaveBeenCalledWith(
         expect.objectContaining({
-          parametros: { intentos: 12, tiempo_limite_ms: 1500 },
+          parametros: { rondas: 12, cuadricula: 9, tiempo_limite_ms: 6000 },
         }),
         'specialist-user',
       );
@@ -555,6 +608,8 @@ describe('TherapyUseCase.result', () => {
       const done = await useCase.archive('own', true, specialist);
       expect(repository.updateExercise).toHaveBeenLastCalledWith('own', {
         archivadoEn: expect.any(Date),
+        publicado: false,
+        fechaPublicacion: null,
       });
       expect(done.archivado_en).toBeInstanceOf(Date);
       await useCase.archive('archived', true, specialist);
@@ -564,6 +619,189 @@ describe('TherapyUseCase.result', () => {
         archivadoEn: null,
       });
       expect(restored.archivado_en).toBeNull();
+    });
+  });
+
+  describe('constancia', () => {
+    it('agrupa los resultados del paciente y exige acceso', async () => {
+      repository.resultDates.mockResolvedValue([
+        new Date('2026-10-27T17:00:00Z'),
+        new Date('2026-10-28T17:00:00Z'),
+      ]);
+      repository.patientAssignedToSpecialist.mockResolvedValue(true);
+      const result = await useCase.consistency('patient-id', '2026-10', {
+        sub: 'specialist-user',
+        rol: UserRole.ESPECIALISTA,
+      });
+      expect(result.mes).toBe('2026-10');
+      expect(result.dias_activos).toEqual(['2026-10-27', '2026-10-28']);
+      expect(repository.resultDates).toHaveBeenCalledWith('patient-id');
+
+      repository.patientAssignedToSpecialist.mockResolvedValue(false);
+      await expect(
+        useCase.consistency('patient-id', undefined, {
+          sub: 'other-specialist',
+          rol: UserRole.ESPECIALISTA,
+        }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+  });
+
+  describe('taller de ejercicios', () => {
+    const ana = { sub: 'ana-user', rol: UserRole.ESPECIALISTA };
+    const luis = { sub: 'luis-user', rol: UserRole.ESPECIALISTA };
+    const admin = { sub: 'admin-user', rol: UserRole.ADMINISTRADOR };
+    const base = {
+      categoria: CognitiveCategory.MEMORIA,
+      tipo: GameType.LOGICA,
+      nivelDificultad: 2,
+      instrucciones: 'Resuelve',
+      parametros: {
+        preguntas: [{ enunciado: '2 + 2', opciones: ['3', '4'], correcta: 1 }],
+      },
+      archivadoEn: null,
+      fechaPublicacion: null,
+      origenId: null,
+    };
+    const published = Object.assign(new ExerciseEntity(), base, {
+      id: 'pub',
+      nombre: 'Sumas',
+      estado: ExerciseStatus.ACTIVO,
+      publicado: true,
+      especialista: { id: 'ana-id', usuario: { nombre: 'Ana' } },
+    });
+    const draft = Object.assign(new ExerciseEntity(), base, {
+      id: 'draft',
+      nombre: 'Borrador',
+      estado: ExerciseStatus.ACTIVO,
+      publicado: false,
+      especialista: { id: 'ana-id', usuario: { nombre: 'Ana' } },
+    });
+    const inactive = Object.assign(new ExerciseEntity(), base, {
+      id: 'off',
+      nombre: 'Apagado',
+      estado: ExerciseStatus.DESACTIVADO,
+      publicado: false,
+      especialista: { id: 'ana-id', usuario: { nombre: 'Ana' } },
+    });
+    const byId: Record<string, ExerciseEntity> = {
+      pub: published,
+      draft,
+      off: inactive,
+    };
+    const specialistIds: Record<string, string> = {
+      'ana-user': 'ana-id',
+      'luis-user': 'luis-id',
+    };
+
+    beforeEach(() => {
+      repository.exercise.mockImplementation(async (id) => byId[id] ?? null);
+      repository.specialistIdForUser.mockImplementation(
+        async (user) => specialistIds[user] ?? null,
+      );
+      repository.exerciseOwnedBySpecialist.mockImplementation(
+        async (id, user) => byId[id]?.especialista.id === specialistIds[user],
+      );
+      repository.exerciseUsedInRoutes.mockResolvedValue(false);
+      repository.updateExercise.mockImplementation(async (id, data) =>
+        Object.assign(new ExerciseEntity(), byId[id], data),
+      );
+      repository.importCounts.mockResolvedValue({ pub: 3 });
+      repository.importedOrigins.mockResolvedValue(new Set());
+      repository.workshop.mockResolvedValue({
+        total: 1,
+        page: 1,
+        limit: 20,
+        data: [published],
+      });
+      repository.saveExercise.mockImplementation(async (data) =>
+        Object.assign(new ExerciseEntity(), data, {
+          id: 'copy',
+          fechaCreacion: new Date(),
+          especialista: { id: 'luis-id' },
+        }),
+      );
+    });
+
+    it('publica solo ejercicios propios, activos y no archivados', async () => {
+      const done = await useCase.publish('draft', ana);
+      expect(repository.updateExercise).toHaveBeenLastCalledWith('draft', {
+        publicado: true,
+        fechaPublicacion: expect.any(Date),
+      });
+      expect(done.publicado).toBe(true);
+      await expect(useCase.publish('draft', luis)).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+      await expect(useCase.publish('off', ana)).rejects.toThrow(/Activa/);
+    });
+
+    it('el autor o el administrador lo retiran del taller', async () => {
+      await useCase.unpublish('pub', admin);
+      expect(repository.updateExercise).toHaveBeenLastCalledWith('pub', {
+        publicado: false,
+        fechaPublicacion: null,
+      });
+      await expect(useCase.unpublish('pub', luis)).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+    });
+
+    it('lista el taller con autor, importaciones y si es propio', async () => {
+      const forLuis = await useCase.workshop({ page: 1, limit: 20 }, luis);
+      expect(forLuis.data[0]).toMatchObject({
+        id: 'pub',
+        autor: 'Ana',
+        veces_importado: 3,
+        es_propio: false,
+        ya_importado: false,
+      });
+      const forAna = await useCase.workshop({ page: 1, limit: 20 }, ana);
+      expect(forAna.data[0].es_propio).toBe(true);
+    });
+
+    it('importa como copia propia con el origen', async () => {
+      const copy = await useCase.importFromWorkshop('pub', luis);
+      expect(repository.saveExercise).toHaveBeenCalledWith(
+        expect.objectContaining({
+          nombre: 'Sumas',
+          tipo: GameType.LOGICA,
+          origenId: 'pub',
+          publicado: false,
+          estado: ExerciseStatus.ACTIVO,
+        }),
+        'luis-user',
+      );
+      expect(copy).toMatchObject({ id: 'copy', origen_id: 'pub' });
+    });
+
+    it('no importa lo propio, lo ya importado ni lo que no está publicado', async () => {
+      await expect(useCase.importFromWorkshop('pub', ana)).rejects.toThrow(
+        /ya es tuyo/,
+      );
+      await expect(
+        useCase.importFromWorkshop('draft', luis),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      repository.importedOrigins.mockResolvedValue(new Set(['pub']));
+      await expect(useCase.importFromWorkshop('pub', luis)).rejects.toThrow(
+        /Ya importaste/,
+      );
+      expect(repository.saveExercise).not.toHaveBeenCalled();
+    });
+
+    it('otros especialistas ven el detalle de lo publicado; archivar lo retira', async () => {
+      await expect(useCase.getFor('pub', luis)).resolves.toMatchObject({
+        id: 'pub',
+      });
+      await expect(useCase.getFor('draft', luis)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+      await useCase.archive('pub', true, ana);
+      expect(repository.updateExercise).toHaveBeenLastCalledWith('pub', {
+        archivadoEn: expect.any(Date),
+        publicado: false,
+        fechaPublicacion: null,
+      });
     });
   });
 });

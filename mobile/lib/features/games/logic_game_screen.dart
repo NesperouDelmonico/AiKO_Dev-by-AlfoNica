@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/theme.dart';
@@ -32,12 +34,18 @@ class LogicQuestion {
   }
 }
 
-/// Lógica matemática: un problema por pantalla con imagen opcional y
-/// respuestas como fichas (A, B, C…). Se elige y se pulsa "Comprobar".
+/// Lógica matemática estilo examen: un problema por pantalla con
+/// respuestas A, B, C… Al tocar una, la correcta se pinta de verde y las
+/// demás de rojo. Hay un tiempo total para toda la partida.
 class LogicGameScreen extends StatefulWidget {
-  const LogicGameScreen({super.key, required this.preguntas});
+  const LogicGameScreen({
+    super.key,
+    required this.preguntas,
+    this.duracionSegundos = 300,
+  });
 
   final List<LogicQuestion> preguntas;
+  final int duracionSegundos;
 
   @override
   State<LogicGameScreen> createState() => _LogicGameScreenState();
@@ -47,33 +55,46 @@ class _LogicGameScreenState extends State<LogicGameScreen> {
   static const _letters = 'ABCDEF';
   final _stopwatch = Stopwatch()..start();
   final List<int> _answerTimes = [];
+  Timer? _ticker;
+  late int _remaining = widget.duracionSegundos;
   int _index = 0;
   int _correct = 0;
-  int? _selected;
-  bool? _wasCorrect; // null mientras no se comprueba
+  int? _selected; // null mientras no responde
+  bool _done = false;
 
   LogicQuestion get _question => widget.preguntas[_index];
 
-  void _check() {
-    final correct = _selected == _question.correcta;
+  @override
+  void initState() {
+    super.initState();
+    _ticker = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_remaining <= 1) {
+        timer.cancel();
+        _finish();
+      } else {
+        setState(() => _remaining--);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    super.dispose();
+  }
+
+  void _answer(int option) {
+    if (_selected != null || _done) return;
     _answerTimes.add(_stopwatch.elapsedMilliseconds);
     setState(() {
-      _wasCorrect = correct;
-      if (correct) _correct++;
+      _selected = option;
+      if (option == _question.correcta) _correct++;
     });
   }
 
   void _next() {
     if (_index + 1 >= widget.preguntas.length) {
-      final total = widget.preguntas.length;
-      Navigator.of(context).pop(GameOutcome(
-        puntaje: ((_correct * 100) / total).round(),
-        aciertos: _correct,
-        intentos: total,
-        tiempoReaccionMs: _answerTimes.isEmpty
-            ? null
-            : (_answerTimes.reduce((a, b) => a + b) / _answerTimes.length).round(),
-      ));
+      _finish();
       return;
     }
     _stopwatch
@@ -82,140 +103,152 @@ class _LogicGameScreenState extends State<LogicGameScreen> {
     setState(() {
       _index++;
       _selected = null;
-      _wasCorrect = null;
     });
+  }
+
+  void _finish() {
+    if (_done || !mounted) return;
+    _done = true;
+    _ticker?.cancel();
+    final total = widget.preguntas.length;
+    Navigator.of(context).pop(GameOutcome(
+      puntaje: ((_correct * 100) / total).round(),
+      aciertos: _correct,
+      intentos: total,
+      tiempoReaccionMs: _answerTimes.isEmpty
+          ? null
+          : (_answerTimes.reduce((a, b) => a + b) / _answerTimes.length).round(),
+    ));
+  }
+
+  String get _clockText {
+    final m = _remaining ~/ 60;
+    final s = (_remaining % 60).toString().padLeft(2, '0');
+    return '$m:$s';
   }
 
   @override
   Widget build(BuildContext context) {
     final question = _question;
-    final checked = _wasCorrect != null;
+    final answered = _selected != null;
+    final right = _selected == question.correcta;
     return GameShell(
-      progress: (_index + (checked ? 1 : 0)) / widget.preguntas.length,
-      bottom: CheckBar(
-        label: checked ? 'CONTINUAR' : 'COMPROBAR',
-        onPressed: checked ? _next : (_selected == null ? null : _check),
-        correct: _wasCorrect,
-        feedback: !checked
-            ? null
-            : _wasCorrect!
-                ? '¡Correcto!'
-                : 'La respuesta era: ${_letters[question.correcta]}. ${question.opciones[question.correcta]}',
+      progress: (_index + (answered ? 1 : 0)) / widget.preguntas.length,
+      title: 'Resuelve el problema',
+      subtitle: 'Lee con calma y toca la respuesta correcta.',
+      counter: '${_index + 1}/${widget.preguntas.length}',
+      trailing: TimerPill(
+        text: _clockText,
+        semantics: 'Tiempo restante $_clockText',
+        urgent: _remaining <= 20,
       ),
+      bottom: answered
+          ? CheckBar(
+              label: _index + 1 >= widget.preguntas.length ? 'TERMINAR' : 'SIGUIENTE',
+              onPressed: _next,
+              correct: right,
+              feedback: right
+                  ? '¡Correcto!'
+                  : 'La respuesta era ${_letters[question.correcta]}. ${question.opciones[question.correcta]}',
+            )
+          : null,
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+        padding: const EdgeInsets.fromLTRB(20, 6, 20, 20),
         children: [
-          Text('Resuelve el problema',
-              style: Theme.of(context)
-                  .textTheme
-                  .headlineSmall
-                  ?.copyWith(fontWeight: FontWeight.w800)),
-          const SizedBox(height: 4),
-          Text('Pregunta ${_index + 1} de ${widget.preguntas.length}',
-              style: const TextStyle(color: AikoColors.inkSoft)),
-          const SizedBox(height: 16),
           if (question.imagenId != null) ...[
             ExerciseImage(question.imagenId!),
             const SizedBox(height: 16),
           ],
           Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: AikoColors.lilacSoft, width: 2),
-            ),
+            padding: const EdgeInsets.all(20),
+            decoration: softCard(),
             child: Text(question.enunciado,
                 style: const TextStyle(fontSize: 19, height: 1.4)),
           ),
-          const SizedBox(height: 22),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            alignment: WrapAlignment.center,
-            children: [
-              for (var i = 0; i < question.opciones.length; i++)
-                _OptionChip(
-                  letter: _letters[i],
-                  text: question.opciones[i],
-                  selected: _selected == i,
-                  state: !checked
-                      ? null
-                      : i == question.correcta
-                          ? true
-                          : (i == _selected ? false : null),
-                  onTap: checked ? null : () => setState(() => _selected = i),
-                ),
-            ],
-          ),
+          const SizedBox(height: 20),
+          for (var i = 0; i < question.opciones.length; i++)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: OptionTile(
+                letter: _letters[i],
+                text: question.opciones[i],
+                state: !answered ? null : i == question.correcta,
+                chosen: _selected == i,
+                onTap: answered ? null : () => _answer(i),
+              ),
+            ),
         ],
       ),
     );
   }
 }
 
-class _OptionChip extends StatelessWidget {
-  const _OptionChip({
+/// Respuesta tipo examen. [state]: null antes de responder; true la
+/// correcta (verde); false las demás (rojo).
+class OptionTile extends StatelessWidget {
+  const OptionTile({
+    super.key,
     required this.letter,
     required this.text,
-    required this.selected,
     required this.state,
     required this.onTap,
+    this.chosen = false,
   });
 
   final String letter;
   final String text;
-  final bool selected;
-
-  /// true = correcta, false = elegida y errada, null = neutral.
   final bool? state;
+  final bool chosen;
   final VoidCallback? onTap;
+
+  static const green = Color(0xFF2F9E73);
+  static const greenSoft = Color(0xFFDDF3EA);
+  static const red = Color(0xFFD9534F);
+  static const redSoft = Color(0xFFFDE2E1);
 
   @override
   Widget build(BuildContext context) {
-    final border = state == true
-        ? AikoColors.success
-        : state == false
-            ? const Color(0xFFE07B39)
-            : selected
-                ? AikoColors.violet
-                : const Color(0xFFDCD6E8);
-    final fill = state == true
-        ? const Color(0xFFDDF3EA)
-        : state == false
-            ? AikoColors.peachSoft
-            : selected
-                ? AikoColors.lilacSoft
-                : Colors.white;
+    final border = state == null ? const Color(0xFFDCD6E8) : (state! ? green : red);
+    final fill = state == null ? Colors.white : (state! ? greenSoft : redSoft);
     return Semantics(
-      button: true,
-      selected: selected,
-      label: 'Opción $letter: $text',
+      button: onTap != null,
+      label: 'Opción $letter: $text'
+          '${state == null ? '' : state! ? ', correcta' : ', incorrecta'}'
+          '${chosen ? ', tu respuesta' : ''}',
       excludeSemantics: true,
       child: GestureDetector(
         onTap: onTap,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          constraints: const BoxConstraints(minHeight: 56, minWidth: 96),
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+          duration: const Duration(milliseconds: 220),
+          constraints: const BoxConstraints(minHeight: 60),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
             color: fill,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: border, width: 2),
-            // Borde inferior grueso tipo botón, sin bordes no uniformes.
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: border, width: chosen ? 3 : 2),
             boxShadow: [BoxShadow(color: border, offset: const Offset(0, 3))],
           ),
           child: Row(
-            mainAxisSize: MainAxisSize.min,
             children: [
-              Text('$letter.',
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w800, color: AikoColors.violet)),
-              const SizedBox(width: 8),
-              Flexible(
+              Container(
+                width: 36,
+                height: 36,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: state == null ? AikoColors.lilacSoft : border,
+                  shape: BoxShape.circle,
+                ),
+                child: state == null
+                    ? Text(letter,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w900, color: AikoColors.violet, fontSize: 17))
+                    : Icon(state! ? Icons.check_rounded : Icons.close_rounded,
+                        color: Colors.white, size: 22),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
                 child: Text(text,
-                    style: const TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.w600)),
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
               ),
             ],
           ),

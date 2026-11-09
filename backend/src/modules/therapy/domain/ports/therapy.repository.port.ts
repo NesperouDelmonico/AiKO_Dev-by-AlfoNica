@@ -15,7 +15,25 @@ export type ExerciseFilters = Partial<
   archivados?: boolean;
 };
 
+export type WorkshopFilters = Partial<
+  Pick<ExerciseEntity, 'categoria' | 'tipo' | 'nivelDificultad'>
+> & { q?: string; page: number; limit: number };
+
 export interface TherapyRepositoryPort {
+  /** Ejercicios publicados, activos y no archivados (taller). */
+  workshop(filters: WorkshopFilters): Promise<{
+    total: number;
+    page: number;
+    limit: number;
+    data: ExerciseEntity[];
+  }>;
+  /** Copias importadas por ejercicio de origen. */
+  importCounts(originIds: string[]): Promise<Record<string, number>>;
+  /** Orígenes que este especialista ya importó (copias propias). */
+  importedOrigins(
+    specialistUserId: string,
+    originIds: string[],
+  ): Promise<Set<string>>;
   exercises(filters: ExerciseFilters): Promise<ExerciseEntity[]>;
   exercise(id: string): Promise<ExerciseEntity | null>;
   /** ¿Aparece el ejercicio en alguna ruta del paciente o de los pacientes del especialista? */
@@ -86,10 +104,13 @@ export interface TherapyRepositoryPort {
       aciertos: number;
       xpGanado: number;
       xpPorNivel: number;
+      dibujos?: string[] | null;
     },
     shouldAdvance?: boolean,
   ): Promise<ExerciseResultEntity>;
   results(patientId: string): Promise<ExerciseResultEntity[]>;
+  /** Fechas de todos los resultados del paciente (calendario de constancia). */
+  resultDates(patientId: string): Promise<Date[]>;
   resultsPage(
     patientId: string,
     page: number,

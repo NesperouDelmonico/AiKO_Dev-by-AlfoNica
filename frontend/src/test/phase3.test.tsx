@@ -237,7 +237,7 @@ describe('fase 3: administración y catálogo', () => {
       const url = requestUrl(input)
       const method = input instanceof Request ? input.method : 'GET'
       seen.push(`${method} ${url.pathname}`)
-      if (url.pathname.endsWith('/ejercicios') && method === 'GET') return response(200, [{ id: 'ex1', nombre: 'Reacción', categoria: 'Velocidad', tipo: 'reaccion', nivel_dificultad: 2, estado: 'Activo', instrucciones: 'Instrucciones', parametros: { intentos: 12 } }])
+      if (url.pathname.endsWith('/ejercicios') && method === 'GET') return response(200, [{ id: 'ex1', nombre: 'Colores', categoria: 'Velocidad', tipo: 'toque_color', nivel_dificultad: 2, estado: 'Activo', instrucciones: 'Instrucciones', parametros: { rondas: 12 } }])
       if (url.pathname.endsWith('/ejercicios/ex1')) {
         sentBody = await requestBody(input)
         return response(409, { statusCode: 409, message: 'Ejercicio en uso activo.' })
@@ -246,15 +246,18 @@ describe('fase 3: administración y catálogo', () => {
     }
     renderPage('/especialista/ejercicios', [{ path: '/especialista/ejercicios', element: <ExercisesPage /> }], fetcher)
     const user = userEvent.setup()
-    expect(await screen.findByText(/Reacción rápida · Velocidad/)).toBeInTheDocument()
+    expect(await screen.findByText(/Toque de color · Velocidad/)).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Editar' }))
     const dialog = await screen.findByRole('dialog', { name: 'Editar ejercicio' })
-    expect(within(dialog).getByLabelText(/^Intentos/)).toHaveValue(12)
-    // Cambiar a lógica exige enunciado.
-    await user.selectOptions(within(dialog).getByLabelText(/Tipo de juego/), 'logica')
+    expect(within(dialog).getByLabelText(/^Rondas/)).toHaveValue(12)
+    // La clasificación filtra los juegos: Atención → Lógica exige enunciado.
+    await user.selectOptions(within(dialog).getByLabelText('Clasificación'), 'Atención')
+    expect(within(dialog).getByRole('option', { name: 'Lógica matemática' })).toBeInTheDocument()
+    expect(within(dialog).queryByRole('option', { name: 'Toque de color' })).not.toBeInTheDocument()
+    await user.selectOptions(within(dialog).getByLabelText(/^Juego/), 'logica')
     await user.click(within(dialog).getByRole('button', { name: 'Guardar cambios' }))
     expect(await within(dialog).findByText('Cada pregunta necesita su enunciado.')).toBeInTheDocument()
-    await user.selectOptions(within(dialog).getByLabelText(/Tipo de juego/), 'reaccion')
+    await user.selectOptions(within(dialog).getByLabelText('Clasificación'), 'Velocidad')
     await user.clear(within(dialog).getByLabelText('Nivel de dificultad'))
     await user.type(within(dialog).getByLabelText('Nivel de dificultad'), '0')
     await user.click(within(dialog).getByRole('button', { name: 'Guardar cambios' }))
@@ -263,7 +266,7 @@ describe('fase 3: administración y catálogo', () => {
     await user.type(within(dialog).getByLabelText('Nivel de dificultad'), '2')
     await user.click(within(dialog).getByRole('button', { name: 'Guardar cambios' }))
     await waitFor(() => expect(seen).toContain('PUT /v1/ejercicios/ex1'))
-    expect(sentBody).toMatchObject({ tipo: 'reaccion', parametros: { intentos: 10, tiempo_limite_ms: 1500 } })
+    expect(sentBody).toMatchObject({ categoria: 'Velocidad', tipo: 'toque_color', parametros: { rondas: 15, colores: 4, tiempo_limite_ms: 2500, interferencia: false } })
     expect(await screen.findByRole('alert')).toHaveTextContent('No se puede editar este ejercicio porque está en una ruta activa.')
   })
 
@@ -274,7 +277,7 @@ describe('fase 3: administración y catálogo', () => {
       const method = input instanceof Request ? input.method : 'GET'
       if (url.pathname.endsWith('/ejercicios') && method === 'GET') return response(200, exercise ? [exercise] : [])
       if (url.pathname.endsWith('/ejercicios') && method === 'POST') {
-        exercise = { id: 'ex1', nombre: 'Memoria', categoria: 'Velocidad', tipo: 'reaccion', nivel_dificultad: 1, estado: 'Activo', instrucciones: 'Recuerda la secuencia', parametros: { intentos: 10, tiempo_limite_ms: 1500 } }
+        exercise = { id: 'ex1', nombre: 'Memoria', categoria: 'Atención', tipo: 'completar_palabras', nivel_dificultad: 1, estado: 'Activo', instrucciones: 'Recuerda la secuencia', parametros: { palabras: ['casa'], frases: [], letras_faltantes: 2, intentos: 3, duracion_segundos: 300 } }
         return response(201, exercise)
       }
       if (url.pathname.endsWith('/ejercicios/ex1') && method === 'PUT') return response(200, exercise)
@@ -286,6 +289,9 @@ describe('fase 3: administración y catálogo', () => {
     const createDialog = await screen.findByRole('dialog', { name: 'Crear ejercicio' })
     await user.type(within(createDialog).getByLabelText('Nombre'), 'Memoria')
     await user.type(within(createDialog).getByLabelText('Instrucciones'), 'Recuerda la secuencia')
+    await user.click(within(createDialog).getByRole('button', { name: 'Crear ejercicio' }))
+    expect(await within(createDialog).findByText('Escribe al menos una palabra (una por línea).')).toBeInTheDocument()
+    await user.type(within(createDialog).getByLabelText(/^Palabras/), 'casa')
     await user.click(within(createDialog).getByRole('button', { name: 'Crear ejercicio' }))
     expect(await screen.findByRole('status')).toHaveTextContent('Ejercicio creado correctamente.')
 
@@ -361,11 +367,18 @@ describe('fase 3: administración y catálogo', () => {
     const user = userEvent.setup()
     await user.click(await screen.findByRole('button', { name: 'Crear ejercicio' }))
     const dialog = await screen.findByRole('dialog', { name: 'Crear ejercicio' })
-    expect(within(dialog).getByText('Parámetros')).toBeInTheDocument()
-    expect(within(dialog).getByLabelText(/^Intentos/)).toHaveValue(10)
-    expect(within(dialog).getByLabelText(/Tiempo límite por intento/)).toHaveValue(1500)
-    await user.selectOptions(within(dialog).getByLabelText(/Tipo de juego/), 'logica')
-    expect(within(dialog).getByLabelText(/Enunciado/)).toBeInTheDocument()
+    // Por defecto: Atención → Completar palabras.
+    expect(within(dialog).getByLabelText('Clasificación')).toHaveValue('Atención')
+    expect(within(dialog).getByLabelText(/^Letras faltantes/)).toHaveValue(2)
+    expect(within(dialog).getByLabelText(/^Tiempo total del juego/)).toHaveValue(5)
+    await user.selectOptions(within(dialog).getByLabelText(/^Juego/), 'logica')
+    expect(within(dialog).getByLabelText(/^Problema/)).toBeInTheDocument()
+    await user.selectOptions(within(dialog).getByLabelText('Clasificación'), 'Memoria')
+    await user.selectOptions(within(dialog).getByLabelText(/^Juego/), 'memoria_secuencias')
+    expect(within(dialog).getByLabelText(/^Número de botones/)).toHaveValue(4)
+    await user.selectOptions(within(dialog).getByLabelText('Clasificación'), 'Velocidad')
+    await user.selectOptions(within(dialog).getByLabelText(/^Juego/), 'busca_imagen')
+    expect(within(dialog).getByLabelText(/^Figuras en la cuadrícula/)).toHaveValue('9')
     expect(within(dialog).queryByLabelText('Parámetros (JSON)')).not.toBeInTheDocument()
   })
 })

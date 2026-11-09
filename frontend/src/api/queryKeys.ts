@@ -34,6 +34,10 @@ export const queryKeys = {
     all: ['ejercicios'] as const,
     list: (filters: Record<string, string | number | undefined>) => ['ejercicios', 'lista', filters] as const,
   },
+  workshop: {
+    all: ['taller'] as const,
+    list: (filters: Record<string, string | number | undefined>) => ['taller', 'lista', filters] as const,
+  },
   adminIndicators: ['admin', 'indicadores'] as const,
   adminTrends: (period: string) => ['admin', 'tendencias', period] as const,
 }

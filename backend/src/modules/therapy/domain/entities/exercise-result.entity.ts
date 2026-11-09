@@ -50,4 +50,8 @@ export class ExerciseResultEntity {
 
   @CreateDateColumn({ type: 'timestamp' })
   fecha!: Date;
+
+  /** Ids de imágenes que adjuntó el paciente (dibujos de Recordar imágenes). */
+  @Column({ type: 'jsonb', nullable: true })
+  dibujos!: string[] | null;
 }

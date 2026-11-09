@@ -20,6 +20,7 @@ import { UserRole } from '../../../users/domain/entities/user.entity';
 import { TherapyUseCase } from '../../application/use-cases/therapy.use-case';
 import {
   AddRouteExerciseDto,
+  ConsistencyQueryDto,
   CreateExerciseDto,
   CreateRouteDto,
   ExerciseQueryDto,
@@ -29,6 +30,7 @@ import {
   ResultsQueryDto,
   RoutesQueryDto,
   UpdateExerciseDto,
+  WorkshopQueryDto,
 } from '../../application/dto/therapy.dto';
 @ApiTags('Ejercicios', 'Rutas terapéuticas', 'Ejecución y resultados')
 @ApiBearerAuth('bearerAuth')
@@ -62,6 +64,46 @@ export class TherapyController {
     @CurrentAuthUser() user: { sub: string; rol: UserRole },
   ) {
     return this.use.archive(id, true, user);
+  }
+  @Patch('ejercicios/:id/publicar')
+  @Roles(UserRole.ESPECIALISTA, UserRole.ADMINISTRADOR)
+  publish(
+    @Param('id') id: string,
+    @CurrentAuthUser() user: { sub: string; rol: UserRole },
+  ) {
+    return this.use.publish(id, user);
+  }
+  @Patch('ejercicios/:id/retirar')
+  @Roles(UserRole.ESPECIALISTA, UserRole.ADMINISTRADOR)
+  unpublish(
+    @Param('id') id: string,
+    @CurrentAuthUser() user: { sub: string; rol: UserRole },
+  ) {
+    return this.use.unpublish(id, user);
+  }
+  @Get('taller')
+  @Roles(UserRole.ESPECIALISTA, UserRole.ADMINISTRADOR)
+  workshop(
+    @Query() query: WorkshopQueryDto,
+    @CurrentAuthUser() user: { sub: string; rol: UserRole },
+  ) {
+    return this.use.workshop(query, user);
+  }
+  @Get('taller/:id')
+  @Roles(UserRole.ESPECIALISTA, UserRole.ADMINISTRADOR)
+  workshopItem(
+    @Param('id') id: string,
+    @CurrentAuthUser() user: { sub: string; rol: UserRole },
+  ) {
+    return this.use.workshopItem(id, user);
+  }
+  @Post('taller/:id/importar')
+  @Roles(UserRole.ESPECIALISTA)
+  importFromWorkshop(
+    @Param('id') id: string,
+    @CurrentAuthUser() user: { sub: string; rol: UserRole },
+  ) {
+    return this.use.importFromWorkshop(id, user);
   }
   @Patch('ejercicios/:id/restaurar')
   @Roles(UserRole.ESPECIALISTA, UserRole.ADMINISTRADOR)
@@ -210,6 +252,15 @@ export class TherapyController {
     @CurrentAuthUser() user?: { sub: string; rol: UserRole },
   ) {
     return this.use.domainProgress(id, desde, hasta, user!);
+  }
+  @Get('pacientes/:id/constancia')
+  @Roles(UserRole.PACIENTE, UserRole.ESPECIALISTA, UserRole.ADMINISTRADOR)
+  consistency(
+    @Param('id') id: string,
+    @Query() query: ConsistencyQueryDto,
+    @CurrentAuthUser() user: { sub: string; rol: UserRole },
+  ) {
+    return this.use.consistency(id, query.mes, user);
   }
   @Get('pacientes/:id/progreso/temporal')
   @Roles(UserRole.PACIENTE, UserRole.ESPECIALISTA, UserRole.ADMINISTRADOR)

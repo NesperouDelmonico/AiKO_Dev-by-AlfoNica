@@ -11,11 +11,37 @@ class Exercise {
     this.parametros = const {},
   });
 
-  /// Tipos de juego (campo `tipo` del backend).
+  /// Juegos (campo `tipo` del backend), agrupados por clasificación.
+  static const completeWords = 'completar_palabras'; // Atención
+  static const logic = 'logica'; // Atención
+  static const rememberImages = 'recordar_imagenes'; // Memoria
+  static const colorSequence = 'memoria_secuencias'; // Memoria
+  static const colorTap = 'toque_color'; // Velocidad
+  static const findImage = 'busca_imagen'; // Velocidad
+
+  /// Retirado: los ejercicios viejos de este tipo ya no se juegan.
   static const reaction = 'reaccion';
-  static const completeWords = 'completar_palabras';
-  static const rememberImages = 'recordar_imagenes';
-  static const logic = 'logica';
+
+  static const categoryByType = {
+    completeWords: 'Atención',
+    logic: 'Atención',
+    rememberImages: 'Memoria',
+    colorSequence: 'Memoria',
+    colorTap: 'Velocidad',
+    findImage: 'Velocidad',
+  };
+
+  /// Lista de textos (p. ej. `palabras` o `frases`).
+  List<String> paramStrings(String key) {
+    final value = parametros[key];
+    if (value is! List) return const [];
+    return value.whereType<String>().where((s) => s.trim().isNotEmpty).toList();
+  }
+
+  bool paramBool(String key, bool fallback) {
+    final value = parametros[key];
+    return value is bool ? value : fallback;
+  }
 
   final String id;
   final String nombre;
@@ -49,9 +75,9 @@ class Exercise {
   }
 
   static String _defaultType(String categoria) => switch (categoria) {
-        'Velocidad' => reaction,
-        'Memoria' => 'memoria_secuencias',
-        _ => 'atencion_sostenida',
+        'Velocidad' => colorTap,
+        'Memoria' => rememberImages,
+        _ => completeWords,
       };
 
   factory Exercise.fromJson(Map<String, dynamic> json) => Exercise(

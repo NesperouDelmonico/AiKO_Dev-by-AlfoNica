@@ -12,6 +12,7 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  Matches,
   Max,
   MaxLength,
   MinLength,
@@ -31,12 +32,16 @@ export class CreateExerciseDto {
   @MinLength(3)
   @MaxLength(100)
   nombre!: string;
-  @ApiProperty({ enum: CognitiveCategory })
+  @ApiPropertyOptional({
+    enum: CognitiveCategory,
+    description: 'Se deduce del juego; si se envía debe coincidir',
+  })
+  @IsOptional()
   @IsEnum(CognitiveCategory)
-  categoria!: CognitiveCategory;
+  categoria?: CognitiveCategory;
   @ApiPropertyOptional({
     enum: GameType,
-    description: 'Mini-juego; por defecto se deduce de la categoría',
+    description: 'Mini-juego; si falta, el juego por defecto de la categoría',
   })
   @IsOptional()
   @IsEnum(GameType)
@@ -129,6 +134,15 @@ export class ResultDto {
   @ApiPropertyOptional() @IsOptional() @IsInt() @Min(0) tiempo_reaccion_ms?:
     number | null;
   @ApiProperty() @IsInt() @Min(0) aciertos!: number;
+  @ApiPropertyOptional({
+    type: [String],
+    description: 'Ids de imágenes con los dibujos del paciente (máx. 8)',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(8)
+  @IsUUID('all', { each: true })
+  dibujos?: string[];
 }
 export class ExerciseQueryDto {
   @ApiPropertyOptional({ enum: CognitiveCategory })
@@ -157,6 +171,15 @@ export class ExerciseQueryDto {
   archivados?: boolean;
 }
 
+export class ConsistencyQueryDto {
+  @ApiPropertyOptional({ example: '2026-10', description: 'Mes YYYY-MM' })
+  @IsOptional()
+  @Matches(/^\d{4}-(0[1-9]|1[0-2])$/, {
+    message: 'mes debe tener el formato YYYY-MM',
+  })
+  mes?: string;
+}
+
 export class ResultsQueryDto {
   @ApiPropertyOptional({ minimum: 1, default: 1 })
   @IsOptional()
@@ -172,6 +195,28 @@ export class ResultsQueryDto {
   @Min(1)
   @Max(100)
   limit = 20;
+}
+
+export class WorkshopQueryDto extends ResultsQueryDto {
+  @ApiPropertyOptional({ enum: CognitiveCategory })
+  @IsOptional()
+  @IsEnum(CognitiveCategory)
+  categoria?: CognitiveCategory;
+  @ApiPropertyOptional({ enum: GameType })
+  @IsOptional()
+  @IsEnum(GameType)
+  tipo?: GameType;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  nivel_dificultad?: number;
+  @ApiPropertyOptional({ description: 'Busca en nombre e instrucciones' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  q?: string;
 }
 
 export class RoutesQueryDto extends ResultsQueryDto {

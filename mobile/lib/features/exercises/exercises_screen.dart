@@ -157,6 +157,21 @@ class _ExercisesScreenState extends State<ExercisesScreen>
     );
   }
 
+  List<Widget> _group(String category, List<ExerciseSummary> items) {
+    if (items.isEmpty) return const [];
+    return [
+      _CategoryLabel(category),
+      for (var i = 0; i < items.length; i++)
+        FadeSlideIn(
+          delay: Duration(milliseconds: 60 * i),
+          child: _ExerciseCard(
+            summary: items[i],
+            onTap: () => _openSheet(items[i]),
+          ),
+        ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -197,22 +212,22 @@ class _ExercisesScreenState extends State<ExercisesScreen>
                   else if (summaries.isEmpty)
                     const _Notice(text: 'Cuando tu especialista te asigne una ruta, aquí verás sus ejercicios.')
                   else
-                    for (var i = 0; i < summaries.length; i++)
-                      FadeSlideIn(
-                        delay: Duration(milliseconds: 60 * i),
-                        child: _ExerciseCard(
-                          summary: summaries[i],
-                          onTap: () => _openSheet(summaries[i]),
-                        ),
-                      ),
+                    for (final category in GameStyle.categories)
+                      ..._group(category, [
+                        for (final s in summaries)
+                          if ((Exercise.categoryByType[s.exercise.tipo] ?? s.exercise.categoria) == category) s,
+                      ]),
                   const SizedBox(height: 26),
                   const Padding(
                     padding: EdgeInsets.only(left: 4, bottom: 10),
                     child: Text('Cómo se juega',
                         style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
                   ),
-                  for (final type in GameStyle.playableTypes)
-                    _HowToCard(style: GameStyle.of(type)),
+                  for (final category in GameStyle.categories) ...[
+                    _CategoryLabel(category),
+                    for (final type in GameStyle.typesOf(category))
+                      _HowToCard(style: GameStyle.of(type)),
+                  ],
                 ],
               ),
             );
@@ -221,6 +236,35 @@ class _ExercisesScreenState extends State<ExercisesScreen>
       ),
     );
   }
+}
+
+/// Encabezado de clasificación (Atención, Memoria, Velocidad).
+class _CategoryLabel extends StatelessWidget {
+  const _CategoryLabel(this.category);
+  final String category;
+
+  static const _icons = {
+    'Atención': Icons.center_focus_strong_rounded,
+    'Memoria': Icons.psychology_rounded,
+    'Velocidad': Icons.bolt_rounded,
+  };
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(4, 6, 4, 8),
+        child: Semantics(
+          header: true,
+          child: Row(
+            children: [
+              Icon(_icons[category] ?? Icons.extension_rounded, size: 20, color: AikoColors.violet),
+              const SizedBox(width: 6),
+              Text(category,
+                  style: const TextStyle(
+                      fontSize: 15, fontWeight: FontWeight.w900, color: AikoColors.violet)),
+            ],
+          ),
+        ),
+      );
 }
 
 class _GameBadge extends StatelessWidget {
