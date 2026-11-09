@@ -10,7 +10,6 @@ import '../../widgets/mascot.dart';
 import '../../widgets/motion.dart';
 import '../../widgets/aiko_avatar.dart';
 import 'change_password_screen.dart';
-import 'personalize_screen.dart';
 
 const appVersion = '0.2.0';
 
@@ -56,23 +55,6 @@ class SettingsScreen extends StatelessWidget {
                   style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900)),
             ),
             FadeSlideIn(child: _ProfileCard(user: user)),
-            const SizedBox(height: 12),
-            _Group(children: [
-              ListTile(
-                leading: const AikoAvatar(size: 40),
-                title: const Text('Tienda de AiKO',
-                    style: TextStyle(fontWeight: FontWeight.w800)),
-                subtitle: Text(
-                  settings.accessory == AikoAccessory.base
-                      ? 'Accesorios y potenciadores'
-                      : 'Lleva: ${settings.accessory.label.toLowerCase()}',
-                ),
-                trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(builder: (_) => const PersonalizeScreen()),
-                ),
-              ),
-            ]),
             const SizedBox(height: 22),
             const _Section('Accesibilidad'),
             _Group(children: [
