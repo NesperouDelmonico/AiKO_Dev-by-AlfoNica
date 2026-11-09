@@ -22,6 +22,10 @@ jobs:
           API: ${{ secrets.AIKO_API_URL }}
           SECRET: ${{ secrets.CRON_SECRET }}
         run: |
+          # Sin espacios ni saltos de línea que se cuelan al pegar.
+          SECRET=$(printf '%s' "$SECRET" | tr -d '[:space:]')
+          API=$(printf '%s' "$API" | tr -d '[:space:]')
+          API=${API%/}
           if [ -z "$API" ] || [ -z "$SECRET" ]; then
             echo "::notice::Faltan los secretos AIKO_API_URL o CRON_SECRET; no se envía nada."
             exit 0
