@@ -1,9 +1,21 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../core/app_settings.dart';
 import '../core/theme.dart';
+import 'accessory_painter.dart';
 import 'motion.dart';
+
+/// Accesorio que lleva puesto el osito (sin proveedor de ajustes, ninguno).
+AikoAccessory wornAccessory(BuildContext context) {
+  try {
+    return context.select<AppSettings, AikoAccessory>((s) => s.accessory);
+  } on ProviderNotFoundException {
+    return AikoAccessory.base;
+  }
+}
 
 /// Osito-globo de AiKO dibujado a partir del logo (assets/brand/mascot.svg).
 /// Se dibuja en código para poder parpadear y flotar.
@@ -15,11 +27,19 @@ class AikoMascot extends StatefulWidget {
     this.earColor = AikoColors.lilac,
     this.animate = true,
     this.happy = false,
+    this.accessory,
+    this.roomy = false,
   });
 
   final double size;
+
+  /// Marco con espacio para el accesorio (ver [MascotPainter.roomy]).
+  final bool roomy;
   final Color color;
   final Color earColor;
+
+  /// Accesorio a mostrar; si es null, el que eligió el paciente.
+  final AikoAccessory? accessory;
 
   /// Flota y parpadea (se desactiva con "reducir animaciones").
   final bool animate;
@@ -59,15 +79,18 @@ class _AikoMascotState extends State<AikoMascot>
 
   @override
   Widget build(BuildContext context) {
+    final accessory = widget.accessory ?? wornAccessory(context);
     final drawing = AnimatedBuilder(
       animation: _blink,
       builder: (context, _) => CustomPaint(
-        size: Size(widget.size, widget.size * 80 / 68),
+        size: Size(widget.size, widget.size * (widget.roomy ? 100 / 88 : 80 / 68)),
         painter: MascotPainter(
           color: widget.color,
           earColor: widget.earColor,
           blink: _blink.value,
           happy: widget.happy,
+          accessory: accessory,
+          roomy: widget.roomy,
         ),
       ),
     );
@@ -94,6 +117,8 @@ class MascotPainter extends CustomPainter {
     required this.earColor,
     this.blink = 0,
     this.happy = false,
+    this.accessory = AikoAccessory.base,
+    this.roomy = false,
   });
 
   final Color color;
@@ -102,17 +127,23 @@ class MascotPainter extends CustomPainter {
   /// 0 = ojos abiertos, 1 = cerrados.
   final double blink;
   final bool happy;
+  final AikoAccessory accessory;
+
+  /// Deja espacio alrededor para el accesorio (marco de 88×100 en vez de
+  /// 68×80), como el avatar del panel web.
+  final bool roomy;
 
   static const _muzzle = Color(0xFFE9E1FF);
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Coordenadas del SVG: x en [-34, 34], y en [-36, 44].
-    final scale = size.width / 68;
+    // Coordenadas del SVG: x en [-34, 34], y en [-36, 44] (con espacio
+    // para accesorios: x en [-44, 44], y en [-50, 50]).
+    final scale = size.width / (roomy ? 88 : 68);
     canvas
       ..save()
       ..scale(scale)
-      ..translate(34, 36);
+      ..translate(roomy ? 44 : 34, roomy ? 50 : 36);
     final body = Paint()..color = color;
     final ink = Paint()..color = AikoColors.ink;
 
@@ -157,13 +188,18 @@ class MascotPainter extends CustomPainter {
     final cheek = Paint()..color = AikoColors.star;
     canvas
       ..drawCircle(const Offset(-22, 5), 3.5, cheek)
-      ..drawCircle(const Offset(22, 5), 3.5, cheek)
-      ..restore();
+      ..drawCircle(const Offset(22, 5), 3.5, cheek);
+    paintAccessory(canvas, accessory);
+    canvas.restore();
   }
 
   @override
   bool shouldRepaint(MascotPainter old) =>
-      old.blink != blink || old.color != color || old.happy != happy;
+      old.blink != blink ||
+      old.color != color ||
+      old.happy != happy ||
+      old.accessory != accessory ||
+      old.roomy != roomy;
 }
 
 /// Estrella de cuatro puntas del logo.

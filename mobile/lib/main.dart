@@ -6,6 +6,7 @@ import 'core/app_settings.dart';
 import 'core/push.dart';
 import 'core/session.dart';
 import 'core/theme.dart';
+import 'core/wallet.dart';
 import 'features/auth/welcome_screen.dart';
 import 'features/shell/app_shell.dart';
 import 'widgets/mascot.dart';
@@ -14,11 +15,13 @@ void main() {
   WidgetsFlutterBinding.ensureInitialized();
   final session = Session(ApiClient())..restore();
   final settings = AppSettings()..load();
+  final wallet = WalletStore(session, settings);
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider.value(value: session),
         ChangeNotifierProvider.value(value: settings),
+        ChangeNotifierProvider.value(value: wallet),
       ],
       child: const AikoApp(),
     ),

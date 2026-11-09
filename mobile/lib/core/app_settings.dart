@@ -12,14 +12,17 @@ enum TextSizeOption {
   final String label;
 }
 
-/// Accesorio del oso en "Personaliza a AiKO" (`avatar_<name>.png`).
+/// Accesorio del osito (se compran en la tienda; el servidor guarda cuál
+/// lleva puesto). Los nombres coinciden con el backend.
 enum AikoAccessory {
   base('Sin accesorio'),
   gorra('Gorra'),
   gafas('Gafas'),
   audifonos('Audífonos'),
   mono('Moño'),
-  gorro('Gorro de lana');
+  gorro('Gorro de lana'),
+  bufanda('Bufanda'),
+  corona('Corona');
 
   const AikoAccessory(this.label);
   final String label;

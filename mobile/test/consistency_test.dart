@@ -24,9 +24,11 @@ void main() {
       'mes': '2026-10',
       'hoy': '2026-10-28',
       'dias_activos': ['2026-10-26', '2026-10-27', '2026-10-28'],
-      'racha_actual': 3,
+      'racha_actual': 4,
       'mejor_racha': 5,
       'ejercicios_semana': 7,
+      'dias_protegidos': ['2026-10-25'],
+      'salvadores_racha': 2,
     });
     await tester.pumpWidget(MaterialApp(
       theme: buildAikoTheme(),
@@ -55,6 +57,9 @@ void main() {
     expect(find.text('días seguidos'), findsOneWidget);
     expect(find.text('Mejor racha: 5'), findsOneWidget);
     expect(find.text('7'), findsWidgets);
+    // El día cubierto por el salvador lleva escudo.
+    expect(find.bySemanticsLabel('25, racha protegida'), findsOneWidget);
+    expect(find.textContaining('Tienes 2 salvadores de racha'), findsOneWidget);
     // No se puede avanzar más allá del mes actual.
     final next = tester.widget<IconButton>(find.widgetWithIcon(IconButton, Icons.chevron_right_rounded));
     expect(next.onPressed, isNull);

@@ -87,7 +87,13 @@ class Consistency {
     required this.rachaActual,
     required this.mejorRacha,
     required this.ejerciciosSemana,
+    this.diasProtegidos = const {},
+    this.salvadoresRacha = 0,
   });
+
+  /// Días sin práctica que cubrió un salvador de racha.
+  final Set<String> diasProtegidos;
+  final int salvadoresRacha;
 
   /// YYYY-MM.
   final String mes;
@@ -106,6 +112,9 @@ class Consistency {
         rachaActual: (json['racha_actual'] as num?)?.toInt() ?? 0,
         mejorRacha: (json['mejor_racha'] as num?)?.toInt() ?? 0,
         ejerciciosSemana: (json['ejercicios_semana'] as num?)?.toInt() ?? 0,
+        diasProtegidos:
+            ((json['dias_protegidos'] as List?) ?? const []).map((d) => '$d').toSet(),
+        salvadoresRacha: (json['salvadores_racha'] as num?)?.toInt() ?? 0,
       );
 }
 

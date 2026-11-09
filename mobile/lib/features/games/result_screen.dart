@@ -6,7 +6,9 @@ import '../../core/island_theme.dart';
 import '../../core/models.dart';
 import '../../core/session.dart';
 import '../../core/theme.dart';
+import '../../core/wallet.dart';
 import '../../widgets/brand_image.dart';
+import '../../widgets/coins.dart';
 import '../../widgets/mascot.dart';
 import '../../widgets/motion.dart';
 import 'game_outcome.dart';
@@ -45,12 +47,15 @@ class _ResultScreenState extends State<ResultScreen> {
     _future = _submit();
   }
 
-  Future<SubmitResult> _submit() {
-    return ResultsRepository(context.read<Session>().api).submit(
+  Future<SubmitResult> _submit() async {
+    final result = await ResultsRepository(context.read<Session>().api).submit(
       routeId: widget.routeId,
       routeExerciseId: widget.routeExerciseId,
       outcome: widget.outcome,
     );
+    // Las monedas y los salvadores cambian con cada resultado.
+    if (mounted) refreshWalletOf(context);
+    return result;
   }
 
   void _close(ResultAction action) => Navigator.of(context).pop(action);
@@ -233,8 +238,14 @@ class _ResultScreenState extends State<ResultScreen> {
                               suffix: ' XP',
                               style: _Stat.valueStyle,
                             ),
-                            semantics: '${result.xpGanado} puntos de experiencia',
-                            label: success ? 'Ganados' : 'Sin XP',
+                            semantics: result.xpDoble
+                                ? '${result.xpGanado} puntos de experiencia, el doble por el potenciador'
+                                : '${result.xpGanado} puntos de experiencia',
+                            label: !success
+                                ? 'Sin XP'
+                                : result.xpDoble
+                                    ? '¡XP ×2!'
+                                    : 'Ganados',
                           ),
                         ),
                       ],
@@ -242,6 +253,13 @@ class _ResultScreenState extends State<ResultScreen> {
                   ),
                 ),
               ),
+              if (result.monedasGanadas > 0) ...[
+                const SizedBox(height: 12),
+                FadeSlideIn(
+                  delay: const Duration(milliseconds: 300),
+                  child: _CoinsEarned(amount: result.monedasGanadas),
+                ),
+              ],
               const SizedBox(height: 10),
               Center(
                 child: Text(
@@ -419,6 +437,39 @@ class _Stat extends StatelessWidget {
           FittedBox(child: value),
           Text(label, style: const TextStyle(fontSize: 12.5, color: AikoColors.inkSoft)),
         ],
+      ),
+    );
+  }
+}
+
+/// Monedas ganadas con este ejercicio.
+class _CoinsEarned extends StatelessWidget {
+  const _CoinsEarned({required this.amount});
+
+  final int amount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: 'Ganaste $amount monedas',
+      excludeSemantics: true,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: softCard(color: const Color(0xFFFFF3C4)),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const CoinIcon(size: 30),
+            const SizedBox(width: 10),
+            CountUp(
+              value: amount,
+              prefix: '+',
+              suffix: amount == 1 ? ' moneda' : ' monedas',
+              style: const TextStyle(
+                  fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFF7A5400)),
+            ),
+          ],
+        ),
       ),
     );
   }

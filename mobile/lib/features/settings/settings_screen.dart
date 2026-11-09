@@ -60,9 +60,13 @@ class SettingsScreen extends StatelessWidget {
             _Group(children: [
               ListTile(
                 leading: const AikoAvatar(size: 40),
-                title: const Text('Personaliza a AiKO',
+                title: const Text('Tienda de AiKO',
                     style: TextStyle(fontWeight: FontWeight.w800)),
-                subtitle: Text(settings.accessory.label),
+                subtitle: Text(
+                  settings.accessory == AikoAccessory.base
+                      ? 'Accesorios y potenciadores'
+                      : 'Lleva: ${settings.accessory.label.toLowerCase()}',
+                ),
                 trailing: const Icon(Icons.chevron_right_rounded),
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(builder: (_) => const PersonalizeScreen()),
