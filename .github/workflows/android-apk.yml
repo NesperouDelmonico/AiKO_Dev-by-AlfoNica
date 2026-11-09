@@ -91,6 +91,18 @@ jobs:
                   print("::warning::GOOGLE_SERVICES_JSON tiene la CUENTA DE SERVICIO (esa va en Vercel como FIREBASE_SERVICE_ACCOUNT_JSON). Aquí va el google-services.json de la app Android. El APK se compila sin push.")
               else:
                   print("::warning::GOOGLE_SERVICES_JSON no es un google-services.json válido (ni en texto ni en base64). El APK se compila sin notificaciones push.")
+                  # Pistas que no revelan el contenido del secreto.
+                  hints = [f"{len(raw)} caracteres", f"{raw.count(chr(10)) + 1} líneas",
+                           f"empieza con {raw[:1]!r}", f"termina con {raw[-1:]!r}"]
+                  try:
+                      json.loads(raw)
+                  except ValueError as error:
+                      hints.append(f"error JSON: {getattr(error, 'msg', error)} (línea {getattr(error, 'lineno', '?')}, columna {getattr(error, 'colno', '?')})")
+                  if isinstance(other, dict):
+                      hints.append(f"claves: {sorted(other)[:8]}")
+                  if any(q in raw for q in "\u201c\u201d"):
+                      hints.append("tiene comillas tipográficas “ ” (se pegó desde un editor de texto enriquecido)")
+                  print("::warning::Diagnóstico de GOOGLE_SERVICES_JSON: " + "; ".join(hints))
               sys.exit(0)
           # La app Android registrada en Firebase debe tener el mismo paquete.
           package = "co.edu.amigo.aiko_mobile"
