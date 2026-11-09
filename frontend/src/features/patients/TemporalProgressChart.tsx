@@ -1,6 +1,6 @@
 import { Line, LineChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 
-const numberFormat = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 1 })
+const numberFormat = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 })
 
 export type TemporalChartPoint = {
   fecha: string

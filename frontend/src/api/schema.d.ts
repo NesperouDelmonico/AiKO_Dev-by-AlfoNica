@@ -1215,7 +1215,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Subir imagen de ejercicio (PNG o JPG, máx. 1,5 MB) */
+        /** Subir imagen de ejercicio o dibujo del paciente (PNG o JPG, máx. 1,5 MB) */
         post: {
             parameters: {
                 query?: never;
@@ -2115,6 +2115,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/rutas/{id}/resultados": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPathParam"];
+            };
+            cookie?: never;
+        };
+        /** Intentos de una ruta, del más antiguo al más reciente (informe por día) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPathParam"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Resultados de la ruta */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ResultadoEjercicio"][];
+                    };
+                };
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/rutas/{id}/progreso": {
         parameters: {
             query?: never;
@@ -2727,6 +2769,194 @@ export interface paths {
             };
         };
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tienda": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Catálogo de la tienda (potenciador de XP, salvador de racha y accesorios) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Artículos a la venta */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ArticuloTienda"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pacientes/{id}/monedero": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPathParam"];
+            };
+            cookie?: never;
+        };
+        /** Monedas, accesorios y potenciadores del paciente */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPathParam"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Monedero */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Monedero"];
+                    };
+                };
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pacientes/{id}/compras": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPathParam"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Comprar un artículo con monedas (solo el propio paciente)
+         * @description Un accesorio se compra una vez y queda puesto; el potenciador suma 3 ejercicios con XP doble; el salvador de racha suma uno (máximo 3).
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPathParam"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @example potenciador_xp */
+                        articulo_id: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Monedero actualizado */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Monedero"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                /** @description Accesorio ya comprado o máximo de salvadores alcanzado */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pacientes/{id}/accesorio": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["idPathParam"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Ponerle al osito un accesorio comprado (solo el propio paciente) */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["idPathParam"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        accesorio: components["schemas"]["Accesorio"];
+                    };
+                };
+            };
+            responses: {
+                /** @description Monedero actualizado */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Monedero"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                403: components["responses"]["Forbidden"];
+            };
+        };
         post?: never;
         delete?: never;
         options?: never;
@@ -3525,6 +3755,9 @@ export interface components {
             /** Format: date */
             fecha_nacimiento: string | null;
             edad: number | null;
+            /** @description Monedas de la tienda de AiKO */
+            monedas?: number;
+            accesorio?: components["schemas"]["Accesorio"];
             /** @description Nombre del especialista asignado */
             especialista_nombre?: string;
         };
@@ -3584,6 +3817,9 @@ export interface components {
             mejor_racha?: number;
             ejercicios_semana?: number;
             dias_activos_total?: number;
+            /** @description Días del mes cubiertos por un salvador de racha */
+            dias_protegidos?: string[];
+            salvadores_racha?: number;
         };
         RutaTerapeutica: {
             /** Format: uuid */
@@ -3631,8 +3867,36 @@ export interface components {
             tipo?: components["schemas"]["TipoJuego"];
             /** @description Dibujos del paciente (ids de imagen) */
             dibujos?: string[];
+            /** @description Monedas por el puntaje (+5 con 90 o más) y +10 al completar el día */
+            monedas_ganadas?: number;
+            /** @description El XP se duplicó con un potenciador */
+            xp_doble?: boolean;
             retroalimentacion?: string;
             insignias_obtenidas?: components["schemas"]["Insignia"][];
+        };
+        /**
+         * @description Accesorio del osito (`base` = sin accesorio).
+         * @enum {string}
+         */
+        Accesorio: "base" | "gorra" | "gafas" | "audifonos" | "mono" | "gorro" | "bufanda" | "corona";
+        ArticuloTienda: {
+            /** @example potenciador_xp */
+            id: string;
+            nombre: string;
+            descripcion: string;
+            precio: number;
+            /** @enum {string} */
+            tipo: "accesorio" | "potenciador" | "salvador";
+        };
+        Monedero: {
+            monedas: number;
+            accesorio: components["schemas"]["Accesorio"];
+            /** @description Accesorios comprados (siempre incluye `base`) */
+            accesorios: components["schemas"]["Accesorio"][];
+            /** @description Ejercicios aprobados que aún darán XP doble */
+            potenciador_xp_restante: number;
+            salvadores_racha: number;
+            dias_protegidos: string[];
         };
         Insignia: {
             /** Format: uuid */

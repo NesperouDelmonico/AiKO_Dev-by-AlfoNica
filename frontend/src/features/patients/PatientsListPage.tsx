@@ -15,6 +15,8 @@ import { getPatients, isApiStatus, type Patient } from './api'
 import { PatientListSkeleton, QueryError } from './PatientStates'
 import { useDebouncedValue } from './useDebouncedValue'
 import { useAuth } from '../../auth/AuthContext'
+import { AikoBear } from '../../components/aiko/AikoBear'
+import { formatPercent, roundPercent } from '../../lib/percent'
 
 const PAGE_SIZE = 12
 
@@ -34,11 +36,11 @@ function PatientCard({ patient }: { patient: Patient }) {
       aria-label={`Ver detalle de ${patient.nombre || 'paciente'}`}
       className="group rounded-card text-inherit no-underline focus-visible:outline-offset-4"
     >
-      <Card className="h-full min-h-48 transition-shadow group-hover:shadow-lg">
+      <Card className="lift h-full min-h-48 group-hover:shadow-lg">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
-            <span aria-hidden="true" className="grid size-12 shrink-0 place-items-center rounded-full bg-purple-100 text-sm font-semibold text-brand-heading">
-              {initials(patient.nombre)}
+            <span aria-hidden="true" className="grid size-12 shrink-0 place-items-center rounded-full bg-purple-100 transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-6">
+              <AikoBear accessory={patient.accesorio} className="size-10" title={initials(patient.nombre)} />
             </span>
             <div className="min-w-0">
               <h2 className="mb-1 truncate text-base">{patient.nombre || 'Paciente'}</h2>
@@ -52,20 +54,20 @@ function PatientCard({ patient }: { patient: Patient }) {
           {patient.estado === false && <Badge variant="pending">Cuenta inactiva</Badge>}
         </div>
         {patient.progreso_ruta ? (
-          <div aria-label={`Ruta activa, ${patient.progreso_ruta.porcentaje}% completada`}>
+          <div aria-label={`Ruta activa, ${formatPercent(patient.progreso_ruta.porcentaje)} completada`}>
             <div className="mb-1 flex justify-between gap-2 text-xs text-[var(--color-text-muted)]">
               <span>Ruta activa</span>
-              <span>{patient.progreso_ruta.porcentaje}%</span>
+              <span className="font-semibold text-brand-heading">{formatPercent(patient.progreso_ruta.porcentaje)}</span>
             </div>
             <div
               role="progressbar"
-              aria-label={`Progreso de ruta: ${patient.progreso_ruta.porcentaje}%`}
+              aria-label={`Progreso de ruta: ${formatPercent(patient.progreso_ruta.porcentaje)}`}
               aria-valuemin={0}
               aria-valuemax={100}
-              aria-valuenow={patient.progreso_ruta.porcentaje}
+              aria-valuenow={roundPercent(patient.progreso_ruta.porcentaje)}
               className="h-2 overflow-hidden rounded-full bg-purple-100"
             >
-              <div className="h-full rounded-full bg-brand-primary" style={{ width: `${Math.min(100, Math.max(0, patient.progreso_ruta.porcentaje))}%` }} />
+              <div className="bar-fill h-full rounded-full bg-brand-primary" style={{ width: `${roundPercent(patient.progreso_ruta.porcentaje)}%` }} />
             </div>
           </div>
         ) : patient.progreso_ruta === null ? (
@@ -126,7 +128,7 @@ export function PatientsListPage() {
     ? `${total} ${total === 1 ? 'paciente encontrado' : 'pacientes encontrados'}`
     : `${total} ${total === 1 ? 'paciente asignado' : 'pacientes asignados'}`
   return (
-    <div className="space-y-6">
+    <div className="rise-stagger space-y-6">
       <PageHeader
         title="Mis pacientes"
         description="Tus pacientes y su progreso reciente."

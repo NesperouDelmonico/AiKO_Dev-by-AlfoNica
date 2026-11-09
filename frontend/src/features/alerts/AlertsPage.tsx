@@ -37,7 +37,7 @@ export function AlertsPage() {
   })
   const alerts = query.data ?? []
   return (
-    <div className="space-y-6">
+    <div className="rise-stagger space-y-6">
       <PageHeader title="Alertas" description="Consulta las alertas de tus pacientes; se resuelven automáticamente." />
       <Card>
         <div className="mb-5 grid gap-3 sm:grid-cols-2">
