@@ -127,6 +127,15 @@ afterEach(() => {
 })
 
 describe('autenticación y cliente API', () => {
+  it('muestra un solo logo completo en la pantalla de acceso', async () => {
+    const { container } = renderAuth('/login', () => jsonResponse(404))
+
+    await screen.findByRole('button', { name: 'Iniciar sesión' })
+
+    expect(container.querySelectorAll('img')).toHaveLength(1)
+    expect(screen.getByRole('img', { name: 'AiKO' })).toHaveAttribute('src', expect.stringContaining('aiko-logo-color.svg'))
+  })
+
   it('permite pasar el correo entre las pantallas públicas de recuperación', async () => {
     const locations: string[] = []
     const fetcher = (input: RequestInfo | URL) => {

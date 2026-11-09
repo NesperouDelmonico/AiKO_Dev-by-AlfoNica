@@ -125,7 +125,7 @@ function PatientSearch({ onNavigate }: { onNavigate: (patientId: string) => void
         {isMobileSearchOpen ? <X aria-hidden="true" className="size-5" /> : <Search aria-hidden="true" className="size-5" />}
       </button>
       <div className={cn(
-        'absolute right-0 top-12 z-30 w-[min(20rem,calc(100vw-2rem))] sm:static sm:block sm:w-64',
+        'absolute right-0 top-12 z-30 w-[min(20rem,calc(100vw-2rem))] sm:static sm:block sm:w-full',
         isMobileSearchOpen ? 'block' : 'hidden sm:block',
       )}>
         <label className="sr-only" htmlFor="patient-quick-search">Buscar pacientes</label>
@@ -141,7 +141,7 @@ function PatientSearch({ onNavigate }: { onNavigate: (patientId: string) => void
             aria-controls="patient-quick-search-results"
             aria-activedescendant={activeIndex >= 0 ? `patient-quick-search-option-${activeIndex}` : undefined}
             autoComplete="off"
-            className="min-h-11 w-full rounded-xl border border-[var(--color-border)] bg-white pl-9 pr-3 text-sm text-brand-heading outline-none transition focus:border-brand-primary focus:ring-2 focus:ring-purple-200"
+            className="min-h-11 min-w-0 w-full rounded-xl border border-[var(--color-border)] bg-white pl-9 pr-3 text-sm text-brand-heading outline-none transition focus:border-brand-primary focus:ring-2 focus:ring-purple-200"
             placeholder="Buscar pacientes"
             value={search}
             onChange={(event) => {
@@ -286,89 +286,97 @@ function PanelLayoutBase({ role }: { role: PanelRole }) {
 
   return (
     <div className="min-h-screen pb-24">
-      <header className="sticky top-0 z-30 flex min-h-[72px] items-center gap-2 border-b border-white/70 bg-white/90 px-2 backdrop-blur sm:gap-3 sm:px-5">
-        <button
-          ref={menuButtonRef}
-          type="button"
-          className="inline-flex size-11 shrink-0 items-center justify-center rounded-xl text-brand-heading hover:bg-purple-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary"
-          aria-label="Abrir menú"
-          aria-expanded={isDrawerOpen}
-          aria-controls="panel-navigation-dialog"
-          onClick={openDrawer}
-        >
-          <Menu aria-hidden="true" className="size-5" strokeWidth={1.9} />
-        </button>
-        <Logo compact className="h-9 w-8 shrink-0" />
-        {role === 'specialist' && (
-          <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-            <PatientSearch onNavigate={(patientId) => navigate(`/especialista/pacientes/${patientId}`)} />
-            <Link
-              to="/especialista/alertas"
-              aria-label={alertsQuery.isError
-                ? 'Alertas activas no disponibles'
-                : activeAlertCount > 0
-                  ? `${activeAlertCount} alerta${activeAlertCount === 1 ? '' : 's'} activa${activeAlertCount === 1 ? '' : 's'}`
-                  : 'Alertas'}
-              title={alertsQuery.isError ? 'No se pudieron cargar las alertas activas' : undefined}
-              className="relative inline-flex size-11 items-center justify-center rounded-xl text-brand-heading no-underline hover:bg-purple-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary"
+      <header className="sticky top-0 z-30 w-full border-b border-white/70 bg-white/90 backdrop-blur">
+        <div className="mx-auto flex min-h-[72px] w-full max-w-7xl items-center justify-between gap-3 px-4 sm:px-8">
+          <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
+            <button
+              ref={menuButtonRef}
+              type="button"
+              className="inline-flex size-11 shrink-0 items-center justify-center rounded-xl text-brand-heading hover:bg-purple-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary"
+              aria-label="Abrir menú"
+              aria-expanded={isDrawerOpen}
+              aria-controls="panel-navigation-dialog"
+              onClick={openDrawer}
             >
-              <Bell aria-hidden="true" className="size-5" strokeWidth={1.75} />
-              {activeAlertCount > 0 && (
-                <span aria-hidden="true" className="absolute right-0.5 top-0.5 min-w-5 rounded-full bg-[var(--color-attention-bg)] px-1 text-center text-[10px] font-bold leading-5 text-[var(--color-attention-text)]">
-                  {activeAlertCount}
-                </span>
-              )}
-              {alertsQuery.isError && <span role="status" className="sr-only">No se pudieron cargar las alertas activas.</span>}
-            </Link>
-          </div>
-        )}
-        <div className="relative shrink-0">
-          <button
-            type="button"
-            className="flex min-h-11 max-w-52 items-center gap-2 rounded-xl px-1.5 text-left text-sm text-brand-heading hover:bg-purple-50 sm:px-2"
-            aria-haspopup="menu"
-            aria-expanded={isUserMenuOpen}
-            aria-label={`Menú de usuario: ${userName}`}
-            onClick={toggleUserMenu}
-          >
-            <span className="grid size-9 shrink-0 place-items-center rounded-full bg-purple-100 font-semibold text-brand-heading">
-              {user?.nombre?.slice(0, 1).toUpperCase() || 'U'}
-            </span>
-            <span className="hidden min-w-0 flex-col text-left sm:flex">
-              <span className="max-w-28 truncate font-semibold">{userName}</span>
-              <span className="text-xs text-[var(--color-text-muted)]">{user?.rol ?? ''}</span>
-            </span>
-            <ChevronDown aria-hidden="true" className="hidden size-4 sm:block" strokeWidth={1.75} />
-          </button>
-          {isUserMenuOpen && (
-            <div role="menu" className="absolute right-0 top-full z-40 mt-2 w-56 rounded-xl border border-[var(--color-border)] bg-white p-2 shadow-brand-card">
-              <div className="border-b border-[var(--color-border)] px-3 py-2">
-                <p className="mb-0 truncate text-sm font-semibold text-brand-heading">{userName}</p>
-                {user?.rol && <p className="mb-0 text-xs text-[var(--color-text-muted)]">{user.rol}</p>}
+              <Menu aria-hidden="true" className="size-5" strokeWidth={1.9} />
+            </button>
+            <Logo compact className="h-9 w-8 shrink-0" />
+            {role === 'specialist' && (
+              <div className="min-w-0 max-w-md flex-1">
+                <PatientSearch onNavigate={(patientId) => navigate(`/especialista/pacientes/${patientId}`)} />
               </div>
+            )}
+          </div>
+          <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
+            {role === 'specialist' && (
+              <Link
+                to="/especialista/alertas"
+                aria-label={alertsQuery.isError
+                  ? 'Alertas activas no disponibles'
+                  : activeAlertCount > 0
+                    ? `${activeAlertCount} alerta${activeAlertCount === 1 ? '' : 's'} activa${activeAlertCount === 1 ? '' : 's'}`
+                    : 'Alertas'}
+                title={alertsQuery.isError ? 'No se pudieron cargar las alertas activas' : undefined}
+                className="relative inline-flex size-11 items-center justify-center rounded-xl text-brand-heading no-underline hover:bg-purple-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary"
+              >
+                <Bell aria-hidden="true" className="size-5" strokeWidth={1.75} />
+                {activeAlertCount > 0 && (
+                  <span aria-hidden="true" className="absolute right-0.5 top-0.5 min-w-5 rounded-full bg-[var(--color-attention-bg)] px-1 text-center text-[10px] font-bold leading-5 text-[var(--color-attention-text)]">
+                    {activeAlertCount}
+                  </span>
+                )}
+                {alertsQuery.isError && <span role="status" className="sr-only">No se pudieron cargar las alertas activas.</span>}
+              </Link>
+            )}
+            <div className="relative">
               <button
                 type="button"
-                role="menuitem"
-                className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-left text-sm text-brand-heading hover:bg-purple-50"
-                onClick={() => {
-                  setUserMenuOpen(false)
-                  navigate('/cambiar-contrasena')
-                }}
+                className="flex min-h-11 max-w-full items-center gap-2 rounded-xl px-1.5 text-left text-sm text-brand-heading hover:bg-purple-50 sm:px-2"
+                aria-haspopup="menu"
+                aria-expanded={isUserMenuOpen}
+                aria-label={`Menú de usuario: ${userName}`}
+                onClick={toggleUserMenu}
               >
-                <KeyRound aria-hidden="true" className="size-4" strokeWidth={1.75} />
-                Cambiar contraseña
+                <span className="grid size-9 shrink-0 place-items-center rounded-full bg-purple-100 font-semibold text-brand-heading">
+                  {user?.nombre?.slice(0, 1).toUpperCase() || 'U'}
+                </span>
+                <span className="hidden min-w-0 flex-col text-left sm:flex">
+                  <span className="max-w-64 truncate font-semibold">{userName}</span>
+                  <span className="text-xs text-[var(--color-text-muted)]">{user?.rol ?? ''}</span>
+                </span>
+                <ChevronDown aria-hidden="true" className="hidden size-4 sm:block" strokeWidth={1.75} />
               </button>
-              <button
-                type="button"
-                role="menuitem"
-                className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-left text-sm text-brand-heading hover:bg-purple-50"
-                onClick={() => void handleLogout()}
-              >
-                <LogOut aria-hidden="true" className="size-4" strokeWidth={1.75} />
-                Cerrar sesión
-              </button>
+              {isUserMenuOpen && (
+                <div role="menu" className="absolute right-0 top-full z-40 mt-2 w-56 rounded-xl border border-[var(--color-border)] bg-white p-2 shadow-brand-card">
+                  <div className="border-b border-[var(--color-border)] px-3 py-2">
+                    <p className="mb-0 truncate text-sm font-semibold text-brand-heading">{userName}</p>
+                    {user?.rol && <p className="mb-0 text-xs text-[var(--color-text-muted)]">{user.rol}</p>}
+                  </div>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-left text-sm text-brand-heading hover:bg-purple-50"
+                    onClick={() => {
+                      setUserMenuOpen(false)
+                      navigate('/cambiar-contrasena')
+                    }}
+                  >
+                    <KeyRound aria-hidden="true" className="size-4" strokeWidth={1.75} />
+                    Cambiar contraseña
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-left text-sm text-brand-heading hover:bg-purple-50"
+                    onClick={() => void handleLogout()}
+                  >
+                    <LogOut aria-hidden="true" className="size-4" strokeWidth={1.75} />
+                    Cerrar sesión
+                  </button>
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
       </header>
 

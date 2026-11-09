@@ -11,7 +11,6 @@ import { Button } from '../components/ui/Button'
 import { Card } from '../components/ui/Card'
 import { Input } from '../components/ui/Input'
 import { Logo } from '../components/ui/Logo'
-import { Mascot } from '../components/ui/Mascot'
 import { PageHeader } from '../components/ui/PageHeader'
 import { useToast } from '../components/ui/toastContext'
 import { Spinner } from '../components/ui/Spinner'
@@ -54,10 +53,9 @@ function AuthShell({ children, subtitle }: { children: ReactNode; subtitle: stri
   return (
     <main className="flex min-h-screen items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
-        <div className="auth-logo-enter mb-7 flex justify-center">
+        <div className="auth-logo-enter mb-5 flex justify-center">
           <Logo className="h-auto w-48 max-h-36" />
         </div>
-        <Mascot className="mx-auto mb-4 size-16" />
         <Card className="auth-card-enter border-white/80 p-6 sm:p-8">
           <p className="mb-6 text-center text-sm text-[var(--color-text-muted)]">{subtitle}</p>
           {children}
