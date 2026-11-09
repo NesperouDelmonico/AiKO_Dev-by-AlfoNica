@@ -177,7 +177,7 @@ class _PersonalizeScreenState extends State<PersonalizeScreen> {
                 ),
               ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Ganas monedas al aprobar ejercicios: más puntaje, más monedas, y un premio extra al terminar cada isla.',
               style: TextStyle(color: AikoColors.inkSoft, fontWeight: FontWeight.w600),
             ),
@@ -221,23 +221,28 @@ class _Preview extends StatelessWidget {
     } else {
       action = FilledButton(
         onPressed: busy || onBuy == null ? null : onBuy,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Comprar por '),
-            const CoinIcon(size: 20),
-            Text(' ${price ?? '—'}'),
-          ],
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Comprar por '),
+              const CoinIcon(size: 20),
+              Text(' ${price ?? '—'}'),
+            ],
+          ),
         ),
       );
     }
     return Container(
       padding: const EdgeInsets.fromLTRB(18, 20, 18, 18),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFFEDE4FF), Color(0xFFFFF3DD)],
+          colors: AikoColors.dark
+              ? const [Color(0xFF2B2240), Color(0xFF2E2430)]
+              : const [Color(0xFFEDE4FF), Color(0xFFFFF3DD)],
         ),
         borderRadius: BorderRadius.circular(28),
       ),
@@ -252,7 +257,7 @@ class _Preview extends StatelessWidget {
             child: Container(
               key: ValueKey(accessory),
               padding: const EdgeInsets.all(10),
-              decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+              decoration: BoxDecoration(color: AikoColors.surface, shape: BoxShape.circle),
               child: AikoAvatar(size: 160, accessory: accessory, animate: true),
             ),
           ),
@@ -298,7 +303,7 @@ class _AccessoryTile extends StatelessWidget {
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: selected ? AikoColors.lilacSoft : Colors.white,
+            color: selected ? AikoColors.lilacSoft : AikoColors.surface,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
               color: selected ? AikoColors.violet : Colors.transparent,
@@ -375,7 +380,9 @@ class _BoostCard extends StatelessWidget {
             width: 56,
             height: 56,
             decoration: BoxDecoration(
-              color: xp ? const Color(0xFFFFF3C4) : const Color(0xFFFFE8DB),
+              color: xp
+                  ? AikoColors.tint(AikoColors.star, const Color(0xFFFFF3C4))
+                  : AikoColors.peachSoft,
               borderRadius: BorderRadius.circular(18),
             ),
             child: Icon(xp ? Icons.bolt_rounded : Icons.shield_rounded,
@@ -390,10 +397,10 @@ class _BoostCard extends StatelessWidget {
                     style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
                 const SizedBox(height: 2),
                 Text(item.descripcion,
-                    style: const TextStyle(color: AikoColors.inkSoft, fontSize: 13.5)),
+                    style: TextStyle(color: AikoColors.inkSoft, fontSize: 13.5)),
                 const SizedBox(height: 4),
                 Text(status,
-                    style: const TextStyle(
+                    style: TextStyle(
                         color: AikoColors.violet, fontWeight: FontWeight.w800, fontSize: 13)),
               ],
             ),
@@ -436,7 +443,7 @@ class _Title extends StatelessWidget {
               header: true,
               child: Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
             ),
-            Text(subtitle, style: const TextStyle(color: AikoColors.inkSoft)),
+            Text(subtitle, style: TextStyle(color: AikoColors.inkSoft)),
           ],
         ),
       );

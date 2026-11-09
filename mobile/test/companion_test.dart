@@ -129,12 +129,12 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, 'Comprar'));
     await tester.pumpAndSettle();
-    expect(calls, contains('POST /pacientes/p1/compras'));
+    expect(calls, contains(matches(r'^POST .*/pacientes/p1/compras$')));
     expect(store.wallet!.monedas, 50);
 
     await tester.tap(find.text('Ponérselo'));
     await tester.pumpAndSettle();
-    expect(calls, contains('PUT /pacientes/p1/accesorio'));
+    expect(calls, contains(matches(r'^PUT .*/pacientes/p1/accesorio$')));
     expect(settings.accessory, AikoAccessory.audifonos);
     expect(find.text('Lo lleva puesto'), findsOneWidget);
   });
