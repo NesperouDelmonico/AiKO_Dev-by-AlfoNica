@@ -52,6 +52,20 @@ export class PostgresGamificationRepository implements GamificationRepositoryPor
   badges() {
     return this.badgesRepo.find();
   }
+  wallet(patientId: string) {
+    return this.patients.findOneBy({ id: patientId });
+  }
+  updateWallet(patientId: string, change: (patient: PatientEntity) => void) {
+    return this.patients.manager.transaction(async (manager) => {
+      const patient = await manager
+        .createQueryBuilder(PatientEntity, 'patient')
+        .setLock('pessimistic_write')
+        .where('patient.id = :patientId', { patientId })
+        .getOneOrFail();
+      change(patient);
+      return manager.save(patient);
+    });
+  }
   patientBadges(id: string) {
     return this.patientRepo.find({
       where: { pacienteId: id },

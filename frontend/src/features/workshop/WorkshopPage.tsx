@@ -92,7 +92,7 @@ export function WorkshopPage({ moderation = false }: { moderation?: boolean }) {
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   return (
-    <div className="space-y-6">
+    <div className="rise-stagger space-y-6">
       <PageHeader
         title="Taller"
         description={moderation

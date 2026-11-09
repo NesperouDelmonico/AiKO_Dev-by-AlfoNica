@@ -125,6 +125,18 @@ export async function getRouteProgress(routeId: string): Promise<RouteProgress> 
   return requireResponse(result.data, result.response)
 }
 
+export async function getRouteResults(routeId: string): Promise<HistoryItem[]> {
+  const result = await apiClient.GET('/rutas/{id}/resultados', { params: { path: { id: routeId } } })
+  return requireResponse(result.data, result.response)
+}
+
+export type Consistency = components['schemas']['Constancia']
+
+export async function getConsistency(id: string): Promise<Consistency> {
+  const result = await apiClient.GET('/pacientes/{id}/constancia', { params: { path: { id } } })
+  return requireResponse(result.data, result.response)
+}
+
 export async function getExercises(): Promise<Exercise[]> {
   const result = await apiClient.GET('/ejercicios')
   return requireResponse(result.data, result.response)

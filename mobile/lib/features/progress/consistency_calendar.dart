@@ -82,7 +82,7 @@ class _ConsistencyCalendarState extends State<ConsistencyCalendar> {
         Container(
           padding: const EdgeInsets.fromLTRB(10, 8, 10, 14),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AikoColors.surface,
             borderRadius: BorderRadius.circular(24),
           ),
           child: Column(
@@ -119,7 +119,7 @@ class _ConsistencyCalendarState extends State<ConsistencyCalendar> {
                       child: ExcludeSemantics(
                         child: Text(d,
                             textAlign: TextAlign.center,
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontSize: 13, fontWeight: FontWeight.w800, color: AikoColors.inkSoft)),
                       ),
                     ),
@@ -167,8 +167,43 @@ class _ConsistencyCalendarState extends State<ConsistencyCalendar> {
             ),
           ],
         ),
+        const SizedBox(height: 12),
+        Semantics(
+          label: _saversText,
+          excludeSemantics: true,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: AikoColors.peachSoft,
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.shield_rounded, color: Color(0xFFE07B39), size: 26),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(_saversText,
+                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                ),
+              ],
+            ),
+          ),
+        ),
       ],
     );
+  }
+}
+
+extension on _ConsistencyCalendarState {
+  String get _saversText {
+    final n = _data.salvadoresRacha;
+    final saved = _data.diasProtegidos.length;
+    final head = n == 0
+        ? 'No tienes salvadores de racha. Consíguelos en la tienda de AiKO.'
+        : 'Tienes $n ${n == 1 ? 'salvador' : 'salvadores'} de racha.';
+    return saved == 0
+        ? head
+        : '$head Este mes ${saved == 1 ? 'protegió 1 día' : 'protegieron $saved días'}.';
   }
 }
 
@@ -183,29 +218,46 @@ class _DayCell extends StatelessWidget {
   Widget build(BuildContext context) {
     final date = '$month-${day.toString().padLeft(2, '0')}';
     final active = data.diasActivos.contains(date);
+    final shielded = !active && data.diasProtegidos.contains(date);
     final today = date == data.hoy;
     final future = date.compareTo(data.hoy) > 0;
     return Semantics(
-      label: '$day${active ? ', practicaste' : ''}${today ? ', hoy' : ''}',
+      label: '$day${active ? ', practicaste' : ''}${shielded ? ', racha protegida' : ''}'
+          '${today ? ', hoy' : ''}',
       excludeSemantics: true,
       child: Container(
         alignment: Alignment.center,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           gradient: active ? AikoColors.heroGradient : null,
-          color: active ? null : (future ? Colors.transparent : AikoColors.lavenderBg),
-          border: today ? Border.all(color: AikoColors.star, width: 3) : null,
+          color: active
+              ? null
+              : shielded
+                  ? AikoColors.peachSoft
+                  : (future ? Colors.transparent : AikoColors.lavenderBg),
+          border: today
+              ? Border.all(color: AikoColors.star, width: 3)
+              : shielded
+                  ? Border.all(color: const Color(0xFFE07B39), width: 1.5)
+                  : null,
         ),
-        child: Text('$day',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: active || today ? FontWeight.w900 : FontWeight.w700,
-              color: active
-                  ? Colors.white
-                  : future
-                      ? const Color(0xFFC9C2DA)
-                      : AikoColors.inkSoft,
-            )),
+        child: shielded
+            ? const FittedBox(
+                child: Padding(
+                  padding: EdgeInsets.all(6),
+                  child: Icon(Icons.shield_rounded, color: Color(0xFFE07B39)),
+                ),
+              )
+            : Text('$day',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: active || today ? FontWeight.w900 : FontWeight.w700,
+                  color: active
+                      ? Colors.white
+                      : future
+                          ? const Color(0xFFC9C2DA)
+                          : AikoColors.inkSoft,
+                )),
       ),
     );
   }
@@ -233,7 +285,7 @@ class _Tile extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AikoColors.surface,
             borderRadius: BorderRadius.circular(22),
           ),
           child: Column(
@@ -243,7 +295,7 @@ class _Tile extends StatelessWidget {
               CountUp(value: value, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900)),
               Text(label,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 13, color: AikoColors.inkSoft)),
+                  style: TextStyle(fontSize: 13, color: AikoColors.inkSoft)),
               if (hint != null)
                 Text(hint!,
                     textAlign: TextAlign.center,

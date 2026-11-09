@@ -91,7 +91,7 @@ export function UsersPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="rise-stagger space-y-6">
       <PageHeader
         title="Usuarios"
         description="Consulta y administra las cuentas de la plataforma."

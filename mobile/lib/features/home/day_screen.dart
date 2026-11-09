@@ -120,7 +120,7 @@ class _DayScreenState extends State<DayScreen> {
               FadeSlideIn(
                 delay: const Duration(milliseconds: 80),
                 child: Text(theme.tagline,
-                    style: const TextStyle(fontSize: 16, color: AikoColors.inkSoft)),
+                    style: TextStyle(fontSize: 16, color: AikoColors.inkSoft)),
               ),
               const SizedBox(height: 18),
               FadeSlideIn(
@@ -168,8 +168,8 @@ class _DayScreenState extends State<DayScreen> {
         minimum: const EdgeInsets.fromLTRB(16, 8, 16, 16),
         child: FilledButton(
           style: FilledButton.styleFrom(
-            backgroundColor: theme.deep,
-            disabledBackgroundColor: const Color(0xFFE6E1EF),
+            backgroundColor: theme.deepFill,
+            disabledBackgroundColor: AikoColors.lilacSoft,
             disabledForegroundColor: AikoColors.inkSoft,
           ),
           onPressed: onCta,
@@ -194,7 +194,7 @@ class _Header extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [const Color(0xFFCDEBFA), Color.lerp(theme.soft, Colors.white, 0.2)!],
+          colors: [AikoColors.tint(AikoColors.sky, const Color(0xFFCDEBFA)), theme.soft],
         ),
       ),
       child: Align(
@@ -227,7 +227,7 @@ class _ProgressCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AikoColors.surface,
         borderRadius: BorderRadius.circular(22),
         boxShadow: [
           BoxShadow(color: theme.color.withValues(alpha: 0.12), blurRadius: 18, offset: const Offset(0, 8)),
@@ -302,7 +302,7 @@ class _ExerciseRow extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.fromLTRB(12, 12, 14, 12),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AikoColors.surface,
               borderRadius: BorderRadius.circular(18),
               border: Border.all(
                 color: isNext ? style.color : Colors.transparent,
@@ -315,12 +315,12 @@ class _ExerciseRow extends StatelessWidget {
                   width: 30,
                   height: 30,
                   alignment: Alignment.center,
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     color: AikoColors.lavenderBg,
                     shape: BoxShape.circle,
                   ),
                   child: Text('$index',
-                      style: const TextStyle(fontWeight: FontWeight.w900, color: AikoColors.inkSoft)),
+                      style: TextStyle(fontWeight: FontWeight.w900, color: AikoColors.inkSoft)),
                 ),
                 const SizedBox(width: 12),
                 Hero(
@@ -345,7 +345,7 @@ class _ExerciseRow extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
                       Text(style.label,
-                          style: const TextStyle(fontSize: 13, color: AikoColors.inkSoft)),
+                          style: TextStyle(fontSize: 13, color: AikoColors.inkSoft)),
                     ],
                   ),
                 ),

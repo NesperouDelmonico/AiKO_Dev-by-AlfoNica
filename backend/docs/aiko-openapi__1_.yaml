@@ -1115,6 +1115,23 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
 
+  /rutas/{id}/resultados:
+    parameters:
+      - { $ref: "#/components/parameters/idPathParam" }
+    get:
+      tags: [Rutas terapéuticas]
+      summary: Intentos de una ruta, del más antiguo al más reciente (informe por día)
+      responses:
+        "200":
+          description: Resultados de la ruta
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ResultadoEjercicio" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /rutas/{id}/progreso:
     parameters:
       - { $ref: "#/components/parameters/idPathParam" }
@@ -1154,7 +1171,7 @@ paths:
               properties:
                 ejercicio_id: { type: string, format: uuid }
                 orden: { type: integer, minimum: 1 }
-                dia: { type: integer, minimum: 1, description: "Último día de la ruta o el siguiente (por defecto el último)" }
+                dia: { type: integer, minimum: 1, description: "Desde el día en curso hasta el último día de la ruta (o el siguiente si no tiene duración); por defecto el último" }
       responses:
         "201":
           description: Ejercicio agregado
@@ -1445,6 +1462,91 @@ paths:
                   insignias:
                     type: array
                     items: { $ref: "#/components/schemas/Insignia" }
+
+  /tienda:
+    get:
+      tags: [Gamificación]
+      summary: Catálogo de la tienda (potenciador de XP, salvador de racha y accesorios)
+      responses:
+        "200":
+          description: Artículos a la venta
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ArticuloTienda" }
+
+  /pacientes/{id}/monedero:
+    parameters:
+      - { $ref: "#/components/parameters/idPathParam" }
+    get:
+      tags: [Gamificación]
+      summary: Monedas, accesorios y potenciadores del paciente
+      responses:
+        "200":
+          description: Monedero
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Monedero" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /pacientes/{id}/compras:
+    parameters:
+      - { $ref: "#/components/parameters/idPathParam" }
+    post:
+      tags: [Gamificación]
+      summary: Comprar un artículo con monedas (solo el propio paciente)
+      description: >
+        Un accesorio se compra una vez y queda puesto; el potenciador suma 3
+        ejercicios con XP doble; el salvador de racha suma uno (máximo 3).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [articulo_id]
+              properties:
+                articulo_id: { type: string, example: potenciador_xp }
+      responses:
+        "200":
+          description: Monedero actualizado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Monedero" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Accesorio ya comprado o máximo de salvadores alcanzado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /pacientes/{id}/accesorio:
+    parameters:
+      - { $ref: "#/components/parameters/idPathParam" }
+    put:
+      tags: [Gamificación]
+      summary: Ponerle al osito un accesorio comprado (solo el propio paciente)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accesorio]
+              properties:
+                accesorio: { $ref: "#/components/schemas/Accesorio" }
+      responses:
+        "200":
+          description: Monedero actualizado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Monedero" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
 
   /insignias:
     get:
@@ -1973,6 +2075,8 @@ components:
         estado: { type: boolean, description: Estado de la cuenta del paciente }
         fecha_nacimiento: { type: string, format: date, nullable: true }
         edad: { type: integer, minimum: 0, maximum: 120, nullable: true }
+        monedas: { type: integer, minimum: 0, description: Monedas de la tienda de AiKO }
+        accesorio: { $ref: "#/components/schemas/Accesorio" }
         especialista_nombre: { type: string, description: Nombre del especialista asignado }
 
     PacienteListado:
@@ -2041,6 +2145,11 @@ components:
         mejor_racha: { type: integer, minimum: 0 }
         ejercicios_semana: { type: integer, minimum: 0 }
         dias_activos_total: { type: integer, minimum: 0 }
+        dias_protegidos:
+          type: array
+          description: Días del mes cubiertos por un salvador de racha
+          items: { type: string, format: date }
+        salvadores_racha: { type: integer, minimum: 0 }
 
     RutaTerapeutica:
       type: object
@@ -2086,10 +2195,49 @@ components:
           type: array
           description: Dibujos del paciente (ids de imagen)
           items: { type: string, format: uuid }
+        monedas_ganadas:
+          type: integer
+          minimum: 0
+          description: Monedas por el puntaje (+5 con 90 o más) y +10 al completar el día
+        xp_doble: { type: boolean, description: El XP se duplicó con un potenciador }
         retroalimentacion: { type: string }
         insignias_obtenidas:
           type: array
           items: { $ref: "#/components/schemas/Insignia" }
+
+    Accesorio:
+      type: string
+      description: Accesorio del osito (`base` = sin accesorio).
+      enum: [base, gorra, gafas, audifonos, mono, gorro, bufanda, corona]
+
+    ArticuloTienda:
+      type: object
+      required: [id, nombre, descripcion, precio, tipo]
+      properties:
+        id: { type: string, example: potenciador_xp }
+        nombre: { type: string }
+        descripcion: { type: string }
+        precio: { type: integer, minimum: 1 }
+        tipo: { type: string, enum: [accesorio, potenciador, salvador] }
+
+    Monedero:
+      type: object
+      required: [monedas, accesorio, accesorios, potenciador_xp_restante, salvadores_racha, dias_protegidos]
+      properties:
+        monedas: { type: integer, minimum: 0 }
+        accesorio: { $ref: "#/components/schemas/Accesorio" }
+        accesorios:
+          type: array
+          description: Accesorios comprados (siempre incluye `base`)
+          items: { $ref: "#/components/schemas/Accesorio" }
+        potenciador_xp_restante:
+          type: integer
+          minimum: 0
+          description: Ejercicios aprobados que aún darán XP doble
+        salvadores_racha: { type: integer, minimum: 0, maximum: 3 }
+        dias_protegidos:
+          type: array
+          items: { type: string, format: date }
 
     Insignia:
       type: object

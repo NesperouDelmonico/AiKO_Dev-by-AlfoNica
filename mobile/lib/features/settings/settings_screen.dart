@@ -45,7 +45,7 @@ class SettingsScreen extends StatelessWidget {
     final user = context.watch<Session>().user ?? const {};
     final settings = context.watch<AppSettings>();
     return Container(
-      decoration: const BoxDecoration(gradient: AikoColors.softGradient),
+      decoration: BoxDecoration(gradient: AikoColors.softGradient),
       child: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
@@ -60,9 +60,13 @@ class SettingsScreen extends StatelessWidget {
             _Group(children: [
               ListTile(
                 leading: const AikoAvatar(size: 40),
-                title: const Text('Personaliza a AiKO',
+                title: const Text('Tienda de AiKO',
                     style: TextStyle(fontWeight: FontWeight.w800)),
-                subtitle: Text(settings.accessory.label),
+                subtitle: Text(
+                  settings.accessory == AikoAccessory.base
+                      ? 'Accesorios y potenciadores'
+                      : 'Lleva: ${settings.accessory.label.toLowerCase()}',
+                ),
                 trailing: const Icon(Icons.chevron_right_rounded),
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(builder: (_) => const PersonalizeScreen()),
@@ -76,14 +80,14 @@ class SettingsScreen extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
                 child: Row(
                   children: [
-                    const Icon(Icons.format_size_rounded, color: AikoColors.violet),
+                    Icon(Icons.format_size_rounded, color: AikoColors.violet),
                     const SizedBox(width: 12),
                     const Expanded(
                       child: Text('Tamaño de letra',
                           style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
                     ),
                     Text(settings.textSize.label,
-                        style: const TextStyle(color: AikoColors.inkSoft)),
+                        style: TextStyle(color: AikoColors.inkSoft)),
                   ],
                 ),
               ),
@@ -106,8 +110,47 @@ class SettingsScreen extends StatelessWidget {
                 ),
               ),
               const Divider(height: 1),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
+                child: Row(
+                  children: [
+                    Icon(Icons.dark_mode_rounded, color: AikoColors.violet),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text('Modo noche',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 4, 12, 14),
+                child: SegmentedButton<ThemeMode>(
+                  showSelectedIcon: false,
+                  segments: const [
+                    ButtonSegment(
+                      value: ThemeMode.system,
+                      icon: Icon(Icons.brightness_auto_rounded),
+                      label: Text('Auto'),
+                    ),
+                    ButtonSegment(
+                      value: ThemeMode.light,
+                      icon: Icon(Icons.light_mode_rounded),
+                      label: Text('Claro'),
+                    ),
+                    ButtonSegment(
+                      value: ThemeMode.dark,
+                      icon: Icon(Icons.dark_mode_rounded),
+                      label: Text('Noche'),
+                    ),
+                  ],
+                  selected: {settings.themeMode},
+                  onSelectionChanged: (value) => settings.setThemeMode(value.first),
+                ),
+              ),
+              const Divider(height: 1),
               SwitchListTile(
-                secondary: const Icon(Icons.motion_photos_off_rounded, color: AikoColors.violet),
+                secondary: Icon(Icons.motion_photos_off_rounded, color: AikoColors.violet),
                 title: const Text('Reducir animaciones',
                     style: TextStyle(fontWeight: FontWeight.w800)),
                 subtitle: const Text('Menos movimiento en pantalla'),
@@ -122,7 +165,7 @@ class SettingsScreen extends StatelessWidget {
             const _Section('Cuenta'),
             _Group(children: [
               ListTile(
-                leading: const Icon(Icons.lock_reset_rounded, color: AikoColors.violet),
+                leading: Icon(Icons.lock_reset_rounded, color: AikoColors.violet),
                 title: const Text('Cambiar contraseña',
                     style: TextStyle(fontWeight: FontWeight.w800)),
                 trailing: const Icon(Icons.chevron_right_rounded),
@@ -141,10 +184,10 @@ class SettingsScreen extends StatelessWidget {
             const SizedBox(height: 28),
             const Center(child: AikoLogo(mascotSize: 56, animate: false)),
             const SizedBox(height: 8),
-            const Text('Versión $appVersion',
+            Text('Versión $appVersion',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 12, color: AikoColors.inkSoft)),
-            const Text('Servidor: ${AppConfig.apiBaseUrl}',
+            Text('Servidor: ${AppConfig.apiBaseUrl}',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 11, color: AikoColors.inkSoft)),
           ],
@@ -177,7 +220,7 @@ class _Group extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AikoColors.surface,
           borderRadius: BorderRadius.circular(22),
         ),
         child: Material(
@@ -353,10 +396,10 @@ class _ReminderCardState extends State<_ReminderCard> {
       if (_frequency != ReminderFrequency.none) ...[
         const Divider(height: 1),
         ListTile(
-          leading: const Icon(Icons.schedule_rounded, color: AikoColors.violet),
+          leading: Icon(Icons.schedule_rounded, color: AikoColors.violet),
           title: const Text('Hora', style: TextStyle(fontWeight: FontWeight.w800)),
           trailing: Text(_time.format(context),
-              style: const TextStyle(fontWeight: FontWeight.w900, color: AikoColors.violet)),
+              style: TextStyle(fontWeight: FontWeight.w900, color: AikoColors.violet)),
           onTap: _saving
               ? null
               : () async {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/wallet.dart';
 import '../exercises/exercises_screen.dart';
 import '../home/home_screen.dart';
 import '../progress/progress_screen.dart';
@@ -46,6 +47,9 @@ class _AppShellState extends State<AppShell>
     // También reacciona si otra pantalla cambia la pestaña (p. ej. "Ver mi
     // progreso" al terminar la rutina).
     _tab.addListener(_onTabChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) refreshWalletOf(context);
+    });
   }
 
   void _onTabChanged() {

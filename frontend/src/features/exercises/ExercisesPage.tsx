@@ -87,7 +87,7 @@ export function ExercisesPage() {
   const items = query.data ?? []
 
   return (
-    <div className="space-y-6">
+    <div className="rise-stagger space-y-6">
       <PageHeader title="Ejercicios" description="Tu catálogo personal: solo tú ves y usas estos ejercicios en las rutas de tus pacientes." actions={<Button onClick={() => setEditing('new')}><Plus aria-hidden="true" className="size-4" />Crear ejercicio</Button>} />
       <Card>
         <div role="tablist" aria-label="Vista del catálogo" className="mb-4 inline-flex rounded-xl border border-[var(--color-border)] p-1">

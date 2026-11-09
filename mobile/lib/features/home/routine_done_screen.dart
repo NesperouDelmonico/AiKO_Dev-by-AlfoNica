@@ -35,7 +35,7 @@ class RoutineDoneScreen extends StatelessWidget {
                   child: IconButton(
                     tooltip: 'Cerrar',
                     onPressed: () => Navigator.of(context).pop(RoutineDoneAction.map),
-                    icon: const Icon(Icons.close_rounded, color: AikoColors.inkSoft),
+                    icon: Icon(Icons.close_rounded, color: AikoColors.inkSoft),
                   ),
                 ),
                 const Spacer(),
@@ -64,7 +64,7 @@ class RoutineDoneScreen extends StatelessWidget {
                       style: TextStyle(fontSize: 34, fontWeight: FontWeight.w900)),
                 ),
                 const SizedBox(height: 4),
-                const Text('Has completado tu rutina de hoy',
+                Text('Has completado tu rutina de hoy',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 17, color: AikoColors.inkSoft)),
                 const SizedBox(height: 22),
@@ -82,14 +82,14 @@ class RoutineDoneScreen extends StatelessWidget {
                             value: '${day.done}/${day.total}',
                             label: 'Ejercicios',
                           ),
-                          const VerticalDivider(width: 1, color: AikoColors.lilacSoft),
+                          VerticalDivider(width: 1, color: AikoColors.lilacSoft),
                           _Stat(
                             icon: theme.icon,
                             color: theme.color,
                             value: totalDays > 1 ? '${day.numero}/$totalDays' : '${day.numero}',
                             label: 'Día de la ruta',
                           ),
-                          const VerticalDivider(width: 1, color: AikoColors.lilacSoft),
+                          VerticalDivider(width: 1, color: AikoColors.lilacSoft),
                           const _Stat(
                             icon: Icons.local_fire_department_rounded,
                             color: Color(0xFFE07B39),
@@ -152,7 +152,7 @@ class _Fallback extends StatelessWidget {
             Container(
               width: size * 0.84,
               height: size * 0.84,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: AikoColors.lilacSoft,
               ),
@@ -199,7 +199,7 @@ class _Stat extends StatelessWidget {
               Text(value, style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w900)),
               Text(label,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 12.5, color: AikoColors.inkSoft)),
+                  style: TextStyle(fontSize: 12.5, color: AikoColors.inkSoft)),
             ],
           ),
         ),

@@ -178,20 +178,27 @@ class _BreathingState extends State<Breathing>
 
 /// Número que cuenta hasta su valor (XP, nivel, porcentajes).
 class CountUp extends StatelessWidget {
-  const CountUp({super.key, required this.value, this.style, this.suffix = ''});
+  const CountUp({
+    super.key,
+    required this.value,
+    this.style,
+    this.suffix = '',
+    this.prefix = '',
+  });
 
   final int value;
   final TextStyle? style;
   final String suffix;
+  final String prefix;
 
   @override
   Widget build(BuildContext context) {
-    if (reduceMotion(context)) return Text('$value$suffix', style: style);
+    if (reduceMotion(context)) return Text('$prefix$value$suffix', style: style);
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: value.toDouble()),
       duration: const Duration(milliseconds: 900),
       curve: Curves.easeOutCubic,
-      builder: (context, v, _) => Text('${v.round()}$suffix', style: style),
+      builder: (context, v, _) => Text('$prefix${v.round()}$suffix', style: style),
     );
   }
 }

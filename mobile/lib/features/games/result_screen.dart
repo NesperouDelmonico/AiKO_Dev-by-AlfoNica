@@ -6,7 +6,9 @@ import '../../core/island_theme.dart';
 import '../../core/models.dart';
 import '../../core/session.dart';
 import '../../core/theme.dart';
+import '../../core/wallet.dart';
 import '../../widgets/brand_image.dart';
+import '../../widgets/coins.dart';
 import '../../widgets/mascot.dart';
 import '../../widgets/motion.dart';
 import 'game_outcome.dart';
@@ -45,12 +47,15 @@ class _ResultScreenState extends State<ResultScreen> {
     _future = _submit();
   }
 
-  Future<SubmitResult> _submit() {
-    return ResultsRepository(context.read<Session>().api).submit(
+  Future<SubmitResult> _submit() async {
+    final result = await ResultsRepository(context.read<Session>().api).submit(
       routeId: widget.routeId,
       routeExerciseId: widget.routeExerciseId,
       outcome: widget.outcome,
     );
+    // Las monedas y los salvadores cambian con cada resultado.
+    if (mounted) refreshWalletOf(context);
+    return result;
   }
 
   void _close(ResultAction action) => Navigator.of(context).pop(action);
@@ -115,7 +120,7 @@ class _ResultScreenState extends State<ResultScreen> {
                 ? error.message
                 : 'Revisa tu conexión e inténtalo de nuevo.',
             textAlign: TextAlign.center,
-            style: const TextStyle(color: AikoColors.inkSoft),
+            style: TextStyle(color: AikoColors.inkSoft),
           ),
           const SizedBox(height: 24),
           if (!already)
@@ -150,7 +155,7 @@ class _ResultScreenState extends State<ResultScreen> {
           child: IconButton(
             tooltip: 'Cerrar',
             onPressed: () => _close(ResultAction.done),
-            icon: const Icon(Icons.close_rounded, color: AikoColors.inkSoft),
+            icon: Icon(Icons.close_rounded, color: AikoColors.inkSoft),
           ),
         ),
         Expanded(
@@ -182,7 +187,7 @@ class _ResultScreenState extends State<ResultScreen> {
                     ? 'Has completado ${widget.exercise.nombre}'
                     : 'Necesitas al menos 60 % para avanzar',
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 16, color: AikoColors.inkSoft),
+                style: TextStyle(fontSize: 16, color: AikoColors.inkSoft),
               ),
               const SizedBox(height: 22),
               FadeSlideIn(
@@ -206,7 +211,7 @@ class _ResultScreenState extends State<ResultScreen> {
                             label: 'Precisión',
                           ),
                         ),
-                        const VerticalDivider(width: 1, color: AikoColors.lilacSoft),
+                        VerticalDivider(width: 1, color: AikoColors.lilacSoft),
                         Expanded(
                           child: _Stat(
                             icon: Icons.timer_rounded,
@@ -223,7 +228,7 @@ class _ResultScreenState extends State<ResultScreen> {
                             label: 'Tiempo',
                           ),
                         ),
-                        const VerticalDivider(width: 1, color: AikoColors.lilacSoft),
+                        VerticalDivider(width: 1, color: AikoColors.lilacSoft),
                         Expanded(
                           child: _Stat(
                             icon: Icons.star_rounded,
@@ -233,8 +238,14 @@ class _ResultScreenState extends State<ResultScreen> {
                               suffix: ' XP',
                               style: _Stat.valueStyle,
                             ),
-                            semantics: '${result.xpGanado} puntos de experiencia',
-                            label: success ? 'Ganados' : 'Sin XP',
+                            semantics: result.xpDoble
+                                ? '${result.xpGanado} puntos de experiencia, el doble por el potenciador'
+                                : '${result.xpGanado} puntos de experiencia',
+                            label: !success
+                                ? 'Sin XP'
+                                : result.xpDoble
+                                    ? '¡XP ×2!'
+                                    : 'Ganados',
                           ),
                         ),
                       ],
@@ -242,12 +253,19 @@ class _ResultScreenState extends State<ResultScreen> {
                   ),
                 ),
               ),
+              if (result.monedasGanadas > 0) ...[
+                const SizedBox(height: 12),
+                FadeSlideIn(
+                  delay: const Duration(milliseconds: 300),
+                  child: _CoinsEarned(amount: result.monedasGanadas),
+                ),
+              ],
               const SizedBox(height: 10),
               Center(
                 child: Text(
                   '${outcome.aciertos} de ${outcome.intentos} aciertos'
                   '${outcome.tiempoReaccionMs == null ? '' : ' · reacción ${outcome.tiempoReaccionMs} ms'}',
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AikoColors.inkSoft),
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AikoColors.inkSoft),
                 ),
               ),
               const SizedBox(height: 16),
@@ -276,7 +294,8 @@ class _ResultScreenState extends State<ResultScreen> {
                   decoration: softCard(color: AikoColors.peachSoft),
                   child: Row(
                     children: [
-                      const Icon(Icons.military_tech_rounded, size: 36, color: Color(0xFF9A4A1F)),
+                      Icon(Icons.military_tech_rounded,
+                          size: 36, color: AikoColors.deep(const Color(0xFFE07B39), const Color(0xFF9A4A1F))),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text('Nueva insignia: ${result.insignias.join(', ')}',
@@ -417,8 +436,41 @@ class _Stat extends StatelessWidget {
           Icon(icon, color: color, size: 30),
           const SizedBox(height: 6),
           FittedBox(child: value),
-          Text(label, style: const TextStyle(fontSize: 12.5, color: AikoColors.inkSoft)),
+          Text(label, style: TextStyle(fontSize: 12.5, color: AikoColors.inkSoft)),
         ],
+      ),
+    );
+  }
+}
+
+/// Monedas ganadas con este ejercicio.
+class _CoinsEarned extends StatelessWidget {
+  const _CoinsEarned({required this.amount});
+
+  final int amount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: 'Ganaste $amount monedas',
+      excludeSemantics: true,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: softCard(color: const Color(0xFFFFF3C4)),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const CoinIcon(size: 30),
+            const SizedBox(width: 10),
+            CountUp(
+              value: amount,
+              prefix: '+',
+              suffix: amount == 1 ? ' moneda' : ' monedas',
+              style: const TextStyle(
+                  fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFF7A5400)),
+            ),
+          ],
+        ),
       ),
     );
   }

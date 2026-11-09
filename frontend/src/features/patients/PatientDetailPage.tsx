@@ -15,7 +15,10 @@ import { Select } from '../../components/ui/Select'
 import { formatDate } from '../../lib/date'
 import { gameTypeLabel } from '../exercises/exerciseTypes'
 import { ObservationDialog } from './ObservationDialog'
-import { getActiveRoute, getAchievements, getAlerts, getDomainProgress, getExercises, getHistory, getObservations, getPatient, getRouteHistory, getRouteProgress, getTemporalProgress, isApiStatus } from './api'
+import { getActiveRoute, getAchievements, getAlerts, getConsistency, getDomainProgress, getExercises, getHistory, getObservations, getPatient, getRouteHistory, getRouteProgress, getRouteResults, getTemporalProgress, isApiStatus } from './api'
+import { PatientSummary } from './PatientSummary'
+import { RouteIslands } from './RouteIslands'
+import { formatPercent, roundPercent } from '../../lib/percent'
 import { QueryError, SectionSkeleton } from './PatientStates'
 import type { PatientAlert } from './api'
 import type { TemporalChartPoint } from './TemporalProgressChart'
@@ -27,7 +30,7 @@ const TemporalProgressChart = lazy(() => import('./TemporalProgressChart').then(
 
 const HISTORY_PAGE_SIZE = 10
 const OBSERVATION_PAGE_SIZE = 10
-const numberFormat = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 1 })
+const numberFormat = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 })
 
 function textOrDash(value: string | number | null | undefined): string {
   return value === null || value === undefined || value === '' ? '—' : String(value)
@@ -55,34 +58,6 @@ function SectionError({ error, retry }: { error: unknown; retry: () => void }) {
       <p role="alert" className="mb-2 text-sm text-[var(--color-attention-text)]">{getErrorMessage(error)}</p>
       <Button variant="secondary" size="sm" onClick={retry}>Reintentar</Button>
     </div>
-  )
-}
-
-function PatientInformation({ patient }: { patient: NonNullable<ReturnType<typeof usePatientQuery>['data']> }) {
-  const information = [
-    ['Nombre', patient.nombre],
-    ['Edad', patient.edad == null ? null : `${patient.edad} años`],
-    ['Correo', patient.correo],
-    ['Cédula', patient.cedula],
-    ['Fecha de asignación', patient.fecha_asignacion ? formatDate(patient.fecha_asignacion) : null],
-    ['Nivel', patient.nivel_actual],
-    ['XP total', patient.xp_total],
-    ['Umbral de bajo rendimiento', patient.umbral_bajo_rendimiento == null ? null : `${patient.umbral_bajo_rendimiento}%`],
-    ['Días de inactividad', patient.umbral_dias_inactividad],
-  ] as const
-
-  return (
-    <Card>
-      <h2 className="mb-4 text-xl">Información básica</h2>
-      <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
-        {information.map(([label, value]) => (
-          <div key={label}>
-            <dt className="text-xs font-medium text-[var(--color-text-muted)]">{label}</dt>
-            <dd className="mb-0 mt-1 break-words text-sm font-semibold text-brand-heading">{textOrDash(value)}</dd>
-          </div>
-        ))}
-      </dl>
-    </Card>
   )
 }
 
@@ -128,6 +103,16 @@ export function PatientDetailPage() {
     queryKey: queryKeys.patients.exercises(id),
     queryFn: getExercises,
     enabled: Boolean(routeId),
+  })
+  const routeResultsQuery = useQuery({
+    queryKey: queryKeys.patients.routeResults(routeId),
+    queryFn: () => getRouteResults(routeId),
+    enabled: Boolean(routeId),
+  })
+  const consistencyQuery = useQuery({
+    queryKey: queryKeys.patients.consistency(id),
+    queryFn: () => getConsistency(id),
+    enabled: Boolean(id) && patientQuery.isSuccess,
   })
   const routesQuery = useQuery({
     queryKey: queryKeys.patients.routes(id, routesPage, 10, routeFilter || undefined),
@@ -185,7 +170,7 @@ export function PatientDetailPage() {
   const totalHistoryPages = Math.max(1, Math.ceil((historyQuery.data?.total ?? history.length) / HISTORY_PAGE_SIZE))
   const totalObservationPages = Math.max(1, Math.ceil((observationsQuery.data?.total ?? observations.length) / OBSERVATION_PAGE_SIZE))
   return (
-    <div className="space-y-6">
+    <div className="rise-stagger space-y-6">
       <PageHeader
         title={patient.nombre || 'Paciente'}
         description={`Consulta el progreso y seguimiento de ${patient.nombre || 'tu paciente'}.`}
@@ -200,14 +185,23 @@ export function PatientDetailPage() {
         </>}
       />
 
-      <PatientInformation patient={patient} />
+      <PatientSummary
+        patient={patient}
+        routePercent={routeQuery.data ? routePercent : null}
+        streak={consistencyQuery.data?.racha_actual ?? null}
+        badges={achievementsQuery.data ? insignias.length : null}
+        activeAlerts={alertsQuery.data ? alertsQuery.data.filter((alert) => alert.estado === 'Activa').length : null}
+      />
 
       <section aria-labelledby="active-route-title">
         <Card>
-          <h2 id="active-route-title" className="mb-4 flex items-center gap-2 text-xl">
-            <RouteIcon aria-hidden="true" className="size-5" strokeWidth={1.75} />
-            Ruta terapéutica activa
-          </h2>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <h2 id="active-route-title" className="mb-0 flex items-center gap-2 text-xl">
+              <RouteIcon aria-hidden="true" className="size-5" strokeWidth={1.75} />
+              Ruta terapéutica activa
+            </h2>
+            {routeQuery.data && <Link className="text-sm font-semibold" to={`/especialista/pacientes/${id}/ruta`}>Editar ruta</Link>}
+          </div>
           {routeQuery.isPending ? <SectionSkeleton title="ruta activa" /> : null}
           {routeQuery.isError && <SectionError error={routeQuery.error} retry={() => void routeQuery.refetch()} />}
           {routeQuery.isSuccess && !routeQuery.data && (
@@ -219,33 +213,18 @@ export function PatientDetailPage() {
           )}
           {routeQuery.data && (
             <div className="space-y-4">
-              {routeProgressQuery.isPending ? <SectionSkeleton title="progreso de ruta" /> : null}
               {routeProgressQuery.isError && <SectionError error={routeProgressQuery.error} retry={() => void routeProgressQuery.refetch()} />}
               {routeProgressQuery.data && (
-                <>
-                  <div className="flex items-center justify-between gap-3 text-sm">
-                    <span>Progreso de la ruta</span>
-                    <strong>{numberFormat.format(routePercent)}% · {routeProgressQuery.data.completados ?? 0} completados</strong>
-                  </div>
-                  <div role="progressbar" aria-label={`Progreso de la ruta: ${numberFormat.format(routePercent)}%`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={routePercent} className="h-3 overflow-hidden rounded-full bg-purple-100">
-                    <div className="h-full rounded-full bg-brand-primary" style={{ width: `${Math.min(100, Math.max(0, routePercent))}%` }} />
-                  </div>
-                </>
+                <p className="mb-0 text-sm text-[var(--color-text-muted)]">
+                  <strong className="text-brand-heading">{formatPercent(routePercent)}</strong> de la ruta · {routeProgressQuery.data.completados ?? 0} ejercicios completados. Toca una isla para ver cómo le fue cada día.
+                </p>
               )}
-              <div className="space-y-2">
-                {routeExercisesQuery.isPending && <SectionSkeleton title="ejercicios de la ruta" />}
-                {!routeExercisesQuery.isPending && (routeQuery.data.ejercicios ?? []).map((routeExercise, index) => {
-                  const exercise = routeExercisesQuery.data?.find((item) => item.id === routeExercise.ejercicio_id)
-                  const variant = routeExercise.estado === 'Completado' ? 'success' : routeExercise.estado === 'Reemplazado' ? 'neutral' : 'pending'
-                  return (
-                    <div key={routeExercise.id || routeExercise.ejercicio_id || index} className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-purple-50/70 p-3">
-                      <span className="text-sm font-medium text-brand-heading">{exercise?.nombre || `Ejercicio ${index + 1}`}</span>
-                      <Badge variant={variant}>{routeExercise.estado || 'Estado no disponible'}</Badge>
-                    </div>
-                  )
-                })}
-                {routeExercisesQuery.isError && <SectionError error={routeExercisesQuery.error} retry={() => void routeExercisesQuery.refetch()} />}
-              </div>
+              {(routeExercisesQuery.isPending || routeResultsQuery.isPending) && <SectionSkeleton title="islas de la ruta" />}
+              {routeExercisesQuery.isError && <SectionError error={routeExercisesQuery.error} retry={() => void routeExercisesQuery.refetch()} />}
+              {routeResultsQuery.isError && <SectionError error={routeResultsQuery.error} retry={() => void routeResultsQuery.refetch()} />}
+              {routeExercisesQuery.isSuccess && routeResultsQuery.isSuccess && (
+                <RouteIslands route={routeQuery.data} exercises={routeExercisesQuery.data} results={routeResultsQuery.data} accessory={patient.accesorio} />
+              )}
             </div>
           )}
         </Card>
@@ -257,7 +236,7 @@ export function PatientDetailPage() {
             <Button role="tab" aria-selected={routeTab === 'activa'} variant={routeTab === 'activa' ? 'primary' : 'secondary'} onClick={() => setRouteTab('activa')}>Ruta activa</Button>
             <Button role="tab" aria-selected={routeTab === 'historial'} variant={routeTab === 'historial' ? 'primary' : 'secondary'} onClick={() => setRouteTab('historial')}>Historial de rutas</Button>
           </div>
-          {routeTab === 'activa' && <p className="mb-0 text-sm text-[var(--color-text-muted)]">La ruta actual se muestra en la sección anterior. <Link to={`/especialista/pacientes/${id}/ruta`}>Abrir constructor de ruta</Link></p>}
+          {routeTab === 'activa' && <p className="mb-0 text-sm text-[var(--color-text-muted)]">La ruta actual se muestra en la sección anterior. <Link to={`/especialista/pacientes/${id}/ruta`}>Editar ruta</Link></p>}
           {routeTab === 'historial' && <>
             <h2 id="route-history-title" className="mb-3 text-xl">Historial de rutas</h2>
             <label htmlFor="route-history-state" className="mb-4 block text-sm font-semibold">Estado
@@ -304,11 +283,11 @@ export function PatientDetailPage() {
                 <section key={category.categoria || 'sin-categoria'} aria-label={category.categoria || 'Categoría'}>
                   <div className="mb-3 flex items-center justify-between gap-3">
                     <h3 className="mb-0 text-base">{category.categoria || 'Categoría sin nombre'}</h3>
-                    <span className="text-sm font-semibold text-brand-heading">{numberFormat.format(category.porcentaje ?? 0)}% promedio</span>
+                    <span className="text-sm font-semibold text-brand-heading">{formatPercent(category.porcentaje)} promedio</span>
                   </div>
                   <div className="space-y-3">
                     {(category.ejercicios ?? []).map((exercise) => {
-                      const score = Math.min(100, Math.max(0, exercise.promedio_puntaje))
+                      const score = roundPercent(exercise.promedio_puntaje)
                       const rating = score >= 70 ? { label: 'Alto', variant: 'success' as const } : score >= 40 ? { label: 'Medio', variant: 'pending' as const } : { label: 'Bajo', variant: 'attention' as const }
                       return (
                         <div key={exercise.ejercicio_id} className="rounded-xl border border-[var(--color-border)] p-4">
@@ -319,13 +298,13 @@ export function PatientDetailPage() {
                             </div>
                             <Badge variant={rating.variant}>Nivel {rating.label}</Badge>
                           </div>
-                          <div role="progressbar" aria-label={`Promedio de ${exercise.nombre}: ${numberFormat.format(score)} por ciento, nivel ${rating.label}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={score} className="mb-3 h-2 overflow-hidden rounded-full bg-purple-100">
-                            <div className="h-full rounded-full bg-brand-primary" style={{ width: `${score}%` }} />
+                          <div role="progressbar" aria-label={`Promedio de ${exercise.nombre}: ${score} por ciento, nivel ${rating.label}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={score} className="mb-3 h-2 overflow-hidden rounded-full bg-purple-100">
+                            <div className="bar-fill h-full rounded-full bg-brand-primary" style={{ width: `${score}%` }} />
                           </div>
                           <dl className="grid grid-cols-3 gap-2 text-xs">
-                            <div><dt className="text-[var(--color-text-muted)]">Promedio</dt><dd className="mb-0 mt-1 font-semibold">{numberFormat.format(exercise.promedio_puntaje)}%</dd></div>
-                            <div><dt className="text-[var(--color-text-muted)]">Mejor</dt><dd className="mb-0 mt-1 font-semibold">{numberFormat.format(exercise.mejor_puntaje)}%</dd></div>
-                            <div><dt className="text-[var(--color-text-muted)]">Último</dt><dd className="mb-0 mt-1 font-semibold">{numberFormat.format(exercise.ultimo_puntaje)}%</dd></div>
+                            <div><dt className="text-[var(--color-text-muted)]">Promedio</dt><dd className="mb-0 mt-1 font-semibold">{formatPercent(exercise.promedio_puntaje)}</dd></div>
+                            <div><dt className="text-[var(--color-text-muted)]">Mejor</dt><dd className="mb-0 mt-1 font-semibold">{formatPercent(exercise.mejor_puntaje)}</dd></div>
+                            <div><dt className="text-[var(--color-text-muted)]">Último</dt><dd className="mb-0 mt-1 font-semibold">{formatPercent(exercise.ultimo_puntaje)}</dd></div>
                           </dl>
                         </div>
                       )
@@ -367,16 +346,17 @@ export function PatientDetailPage() {
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[860px] border-collapse text-left text-sm">
                   <thead><tr className="border-b border-[var(--color-border)] text-xs text-[var(--color-text-muted)]">
-                    <th scope="col" className="p-3">Ejercicio</th><th scope="col" className="p-3">Categoría</th><th scope="col" className="p-3">Puntaje</th><th scope="col" className="p-3">Aciertos</th><th scope="col" className="p-3">Tiempo de reacción</th><th scope="col" className="p-3">XP</th><th scope="col" className="p-3">Dibujos</th><th scope="col" className="p-3">Fecha</th>
+                    <th scope="col" className="p-3">Ejercicio</th><th scope="col" className="p-3">Categoría</th><th scope="col" className="p-3">Puntaje</th><th scope="col" className="p-3">Aciertos</th><th scope="col" className="p-3">Tiempo de reacción</th><th scope="col" className="p-3">XP</th><th scope="col" className="p-3">Monedas</th><th scope="col" className="p-3">Dibujos</th><th scope="col" className="p-3">Fecha</th>
                   </tr></thead>
                   <tbody>{history.map((attempt) => (
                     <tr key={attempt.id} className="border-b border-purple-100 last:border-0">
                       <td className="p-3 font-medium text-brand-heading">{attempt.ejercicio_nombre || '—'}{attempt.xp_ganado === 0 && <span className="ml-2"><Badge variant="attention">No aprobado</Badge></span>}</td>
                       <td className="p-3">{attempt.categoria || '—'}{attempt.tipo && <span className="block text-xs text-[var(--color-text-muted)]">{gameTypeLabel(attempt.tipo)}</span>}</td>
-                      <td className="p-3">{attempt.puntaje == null ? '—' : `${numberFormat.format(attempt.puntaje)}%`}</td>
+                      <td className="p-3">{attempt.puntaje == null ? '—' : formatPercent(attempt.puntaje)}</td>
                       <td className="p-3">{textOrDash(attempt.aciertos)}</td>
                       <td className="p-3">{attempt.tiempo_reaccion_ms == null ? '—' : `${numberFormat.format(attempt.tiempo_reaccion_ms)} ms`}</td>
-                      <td className="p-3">{textOrDash(attempt.xp_ganado)}</td>
+                      <td className="p-3">{textOrDash(attempt.xp_ganado)}{attempt.xp_doble && <span className="ml-1 text-xs font-semibold text-amber-700">×2</span>}</td>
+                      <td className="p-3">{textOrDash(attempt.monedas_ganadas ?? 0)}</td>
                       <td className="p-3">{attempt.dibujos?.length
                         ? <span className="flex flex-wrap gap-1">{attempt.dibujos.map((drawing, i) => (
                           <a key={drawing} href={imageUrl(drawing)} target="_blank" rel="noreferrer" aria-label={`Ver dibujo ${i + 1} de ${attempt.ejercicio_nombre ?? 'ejercicio'}`}>

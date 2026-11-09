@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import 'core/api_client.dart';
@@ -6,6 +7,7 @@ import 'core/app_settings.dart';
 import 'core/push.dart';
 import 'core/session.dart';
 import 'core/theme.dart';
+import 'core/wallet.dart';
 import 'features/auth/welcome_screen.dart';
 import 'features/shell/app_shell.dart';
 import 'widgets/mascot.dart';
@@ -14,11 +16,13 @@ void main() {
   WidgetsFlutterBinding.ensureInitialized();
   final session = Session(ApiClient())..restore();
   final settings = AppSettings()..load();
+  final wallet = WalletStore(session, settings);
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider.value(value: session),
         ChangeNotifierProvider.value(value: settings),
+        ChangeNotifierProvider.value(value: wallet),
       ],
       child: const AikoApp(),
     ),
@@ -62,12 +66,26 @@ class _AikoAppState extends State<AikoApp> {
   @override
   Widget build(BuildContext context) {
     final settings = context.watch<AppSettings>();
+    final dark = switch (settings.themeMode) {
+      ThemeMode.dark => true,
+      ThemeMode.light => false,
+      ThemeMode.system => MediaQuery.platformBrightnessOf(context) == Brightness.dark,
+    };
+    if (dark != AikoColors.dark) {
+      AikoColors.dark = dark;
+      // Los colores de AiKO no dependen del Theme: al cambiar de modo se
+      // reconstruye todo para que cada pantalla tome los nuevos.
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => WidgetsBinding.instance.reassembleApplication(),
+      );
+    }
     return MaterialApp(
       navigatorKey: _navigator,
       scaffoldMessengerKey: _messenger,
       title: 'AiKO',
       debugShowCheckedModeBanner: false,
       theme: buildAikoTheme(),
+      themeAnimationDuration: Duration.zero,
       // Aplica el tamaño de letra y "reducir animaciones" de Ajustes.
       builder: (context, child) {
         final media = MediaQuery.of(context);
@@ -77,7 +95,11 @@ class _AikoAppState extends State<AikoApp> {
                 media.textScaler.scale(1) * settings.textSize.scale),
             disableAnimations: media.disableAnimations || settings.reduceMotion,
           ),
-          child: child!,
+          // Íconos de la barra de estado legibles en los dos modos.
+          child: AnnotatedRegion<SystemUiOverlayStyle>(
+            value: dark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
+            child: child!,
+          ),
         );
       },
       home: Consumer<Session>(
@@ -105,10 +127,10 @@ class _Splash extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: AikoColors.violet,
-      body: Center(
-        child: AikoMascot(size: 120, color: AikoColors.lilac, earColor: AikoColors.lilacSoft),
+    return Scaffold(
+      backgroundColor: AikoColors.brand,
+      body: const Center(
+        child: AikoMascot(size: 120, color: AikoColors.lilac, earColor: Color(0xFFE9E1FF)),
       ),
     );
   }

@@ -54,4 +54,11 @@ export class ExerciseResultEntity {
   /** Ids de imágenes que adjuntó el paciente (dibujos de Recordar imágenes). */
   @Column({ type: 'jsonb', nullable: true })
   dibujos!: string[] | null;
+
+  @Column({ type: 'int', default: 0, name: 'monedas_ganadas' })
+  monedasGanadas!: number;
+
+  /** El XP de este resultado se duplicó con un potenciador. */
+  @Column({ type: 'boolean', default: false, name: 'xp_doble' })
+  xpDoble!: boolean;
 }

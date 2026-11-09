@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Tamaños de letra que puede elegir el paciente.
@@ -12,14 +12,17 @@ enum TextSizeOption {
   final String label;
 }
 
-/// Accesorio del oso en "Personaliza a AiKO" (`avatar_<name>.png`).
+/// Accesorio del osito (se compran en la tienda; el servidor guarda cuál
+/// lleva puesto). Los nombres coinciden con el backend.
 enum AikoAccessory {
   base('Sin accesorio'),
   gorra('Gorra'),
   gafas('Gafas'),
   audifonos('Audífonos'),
   mono('Moño'),
-  gorro('Gorro de lana');
+  gorro('Gorro de lana'),
+  bufanda('Bufanda'),
+  corona('Corona');
 
   const AikoAccessory(this.label);
   final String label;
@@ -44,6 +47,7 @@ class AppSettings extends ChangeNotifier {
   static const _accessoryKey = 'aiko.accessory';
   static const _greetedKey = 'aiko.greetedOn';
   static const _restKey = 'aiko.restShownOn';
+  static const _themeKey = 'aiko.themeMode';
 
   SharedPreferences? _prefs;
   TextSizeOption _textSize = TextSizeOption.normal;
@@ -51,8 +55,12 @@ class AppSettings extends ChangeNotifier {
   AikoAccessory _accessory = AikoAccessory.base;
   String? _greetedOn;
   String? _restShownOn;
+  ThemeMode _themeMode = ThemeMode.system;
 
   TextSizeOption get textSize => _textSize;
+
+  /// Modo noche: automático (el del teléfono), claro u oscuro.
+  ThemeMode get themeMode => _themeMode;
   bool get reduceMotion => _reduceMotion;
   AikoAccessory get accessory => _accessory;
 
@@ -74,6 +82,10 @@ class AppSettings extends ChangeNotifier {
       _accessory = AikoAccessory.parse(_prefs!.getString(_accessoryKey));
       _greetedOn = _prefs!.getString(_greetedKey);
       _restShownOn = _prefs!.getString(_restKey);
+      _themeMode = ThemeMode.values.firstWhere(
+        (mode) => mode.name == _prefs!.getString(_themeKey),
+        orElse: () => ThemeMode.system,
+      );
       notifyListeners();
     } catch (_) {
       // Sin almacenamiento se usan los valores por defecto.
@@ -90,6 +102,12 @@ class AppSettings extends ChangeNotifier {
     _reduceMotion = value;
     notifyListeners();
     await _prefs?.setBool(_reduceMotionKey, value);
+  }
+
+  Future<void> setThemeMode(ThemeMode value) async {
+    _themeMode = value;
+    notifyListeners();
+    await _prefs?.setString(_themeKey, value.name);
   }
 
   Future<void> setAccessory(AikoAccessory value) async {

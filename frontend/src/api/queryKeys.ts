@@ -25,6 +25,8 @@ export const queryKeys = {
     routes: (id: string, page: number, limit: number, estado?: string) =>
       ['pacientes', id, 'rutas', page, limit, estado] as const,
     routesAll: (id: string) => ['pacientes', id, 'rutas'] as const,
+    routeResults: (routeId: string) => ['rutas', routeId, 'resultados'] as const,
+    consistency: (id: string) => ['pacientes', id, 'constancia'] as const,
   },
   alerts: {
     all: ['alertas'] as const,

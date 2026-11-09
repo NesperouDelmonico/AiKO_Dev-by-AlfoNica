@@ -6,6 +6,16 @@ import { RouteStatus } from '../entities/therapeutic-route.entity';
 import { PatientEntity } from '../../../users/domain/entities/patient.entity';
 export const THERAPY_REPOSITORY = Symbol('THERAPY_REPOSITORY');
 
+/** Economía del resultado (ver gamification/domain/services/economy.ts). */
+export type SaveResultEconomy = {
+  /** Monedas por el puntaje (solo si aprueba). */
+  monedas: number;
+  /** Monedas extra si con este ejercicio se completa el día. */
+  bonoDia: number;
+  /** Días sin práctica que se cubren con salvadores de racha. */
+  protegerDias: string[];
+};
+
 export type ExerciseFilters = Partial<
   Pick<ExerciseEntity, 'categoria' | 'nivelDificultad' | 'estado'>
 > & {
@@ -105,10 +115,13 @@ export interface TherapyRepositoryPort {
       xpGanado: number;
       xpPorNivel: number;
       dibujos?: string[] | null;
+      economia?: SaveResultEconomy;
     },
     shouldAdvance?: boolean,
   ): Promise<ExerciseResultEntity>;
   results(patientId: string): Promise<ExerciseResultEntity[]>;
+  /** Todos los intentos de una ruta, del más antiguo al más reciente. */
+  routeResults(routeId: string): Promise<ExerciseResultEntity[]>;
   /** Fechas de todos los resultados del paciente (calendario de constancia). */
   resultDates(patientId: string): Promise<Date[]>;
   resultsPage(

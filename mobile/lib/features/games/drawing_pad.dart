@@ -26,13 +26,14 @@ class DrawingScreen extends StatefulWidget {
 }
 
 class _DrawingScreenState extends State<DrawingScreen> {
+  // El lienzo siempre es blanco: los colores no cambian de noche.
   static const _colors = [
-    AikoColors.ink,
+    Color(0xFF2B2340),
     Color(0xFFD9534F),
     Color(0xFFE9A23B),
     AikoColors.success,
     AikoColors.sky,
-    AikoColors.violet,
+    AikoColors.brand,
   ];
   final _boundary = GlobalKey();
   final List<_Stroke> _strokes = [];

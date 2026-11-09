@@ -10,11 +10,14 @@ import '../../core/island_theme.dart';
 import '../../core/models.dart';
 import '../../core/session.dart';
 import '../../core/theme.dart';
+import '../../core/wallet.dart';
 import '../../widgets/aiko_avatar.dart';
 import '../../widgets/brand_image.dart';
+import '../../widgets/coins.dart';
 import '../../widgets/mascot.dart';
 import '../../widgets/motion.dart';
 import '../companion/companion.dart';
+import '../settings/personalize_screen.dart';
 import '../shell/app_shell.dart';
 import 'day_screen.dart';
 import 'home_repository.dart';
@@ -54,6 +57,7 @@ class _HomeScreenState extends State<HomeScreen> with ReloadOnTab<HomeScreen> {
   }
 
   Future<HomeData?> _refresh({bool rescroll = true}) async {
+    refreshWalletOf(context);
     final next = _load();
     setState(() {
       _future = next;
@@ -442,7 +446,7 @@ class _Pill extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AikoColors.surface,
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 10, offset: const Offset(0, 4)),
@@ -479,7 +483,7 @@ class _BearMarker extends StatelessWidget {
           fallback: Container(
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AikoColors.surface,
               shape: BoxShape.circle,
               border: Border.all(color: AikoColors.violetBright, width: 3),
             ),
@@ -562,11 +566,11 @@ class _ContinueBar extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.fromLTRB(10, 10, 18, 10),
           decoration: BoxDecoration(
-            color: waiting ? Colors.white : theme.deep,
+            color: waiting ? AikoColors.surface : theme.deepFill,
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
-                color: (waiting ? Colors.black : theme.deep).withValues(alpha: 0.22),
+                color: (waiting ? Colors.black : theme.deepFill).withValues(alpha: 0.22),
                 blurRadius: 18,
                 offset: const Offset(0, 8),
               ),
@@ -625,49 +629,71 @@ class _TopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final name = context.select<Session, String>((s) => s.firstName);
+    final coins = watchCoins(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
-      child: Row(
+      child: Column(
         children: [
-          const AikoAvatar(size: 46),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(name.isEmpty ? '¡Hola!' : '¡Hola, $name!',
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
-                const Text('¿A qué isla quieres viajar hoy?',
-                    style: TextStyle(fontSize: 14, color: AikoColors.inkSoft)),
-              ],
-            ),
+          Row(
+            children: [
+              const AikoAvatar(size: 46),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(name.isEmpty ? '¡Hola!' : '¡Hola, $name!',
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
+                    Text('¿A qué isla quieres viajar hoy?',
+                        style: TextStyle(fontSize: 14, color: AikoColors.inkSoft)),
+                  ],
+                ),
+              ),
+            ],
           ),
-          _StatChip(
-            semantics: 'Nivel ${profile.nivel}',
-            leading: const SparkleStar(size: 18),
-            value: profile.nivel,
-            prefix: 'Nv ',
-            color: AikoColors.violet,
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              _StatChip(
+                semantics: 'Nivel ${profile.nivel}',
+                leading: const SparkleStar(size: 18),
+                value: profile.nivel,
+                prefix: 'Nv ',
+                color: AikoColors.violet,
+              ),
+              const SizedBox(width: 6),
+              if (streak != null)
+                _StatChip(
+                  semantics:
+                      '$streak ${streak == 1 ? 'día seguido' : 'días seguidos'} practicando',
+                  leading: const Icon(Icons.local_fire_department_rounded,
+                      size: 20, color: Color(0xFFE07B39)),
+                  value: streak!,
+                  suffix: streak == 1 ? ' día' : ' días',
+                  color: const Color(0xFFE07B39),
+                )
+              else
+                _StatChip(
+                  semantics: '${profile.xp} puntos de experiencia',
+                  leading: const Icon(Icons.bolt_rounded, size: 20, color: Color(0xFFE07B39)),
+                  value: profile.xp,
+                  suffix: ' XP',
+                  color: const Color(0xFFE07B39),
+                ),
+              const Spacer(),
+              if (coins != null)
+                _StatChip(
+                  semantics: 'Tienes $coins monedas. Abrir la tienda de AiKO',
+                  leading: const CoinIcon(size: 20),
+                  value: coins,
+                  color: AikoColors.deep(AikoColors.starDeep, const Color(0xFF7A5400)),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(builder: (_) => const PersonalizeScreen()),
+                  ),
+                ),
+            ],
           ),
-          const SizedBox(width: 6),
-          if (streak != null)
-            _StatChip(
-              semantics: '$streak ${streak == 1 ? 'día seguido' : 'días seguidos'} practicando',
-              leading: const Icon(Icons.local_fire_department_rounded,
-                  size: 20, color: Color(0xFFE07B39)),
-              value: streak!,
-              suffix: streak == 1 ? ' día' : ' días',
-              color: const Color(0xFFE07B39),
-            )
-          else
-            _StatChip(
-              semantics: '${profile.xp} puntos de experiencia',
-              leading: const Icon(Icons.bolt_rounded, size: 20, color: Color(0xFFE07B39)),
-              value: profile.xp,
-              suffix: ' XP',
-              color: const Color(0xFFE07B39),
-            ),
         ],
       ),
     );
@@ -682,8 +708,10 @@ class _StatChip extends StatelessWidget {
     required this.color,
     this.prefix = '',
     this.suffix = '',
+    this.onTap,
   });
 
+  final VoidCallback? onTap;
   final String semantics;
   final Widget leading;
   final int value;
@@ -693,13 +721,14 @@ class _StatChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Semantics(
+    final chip = Semantics(
       label: semantics,
+      button: onTap != null,
       excludeSemantics: true,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AikoColors.surface,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
@@ -718,6 +747,7 @@ class _StatChip extends StatelessWidget {
         ),
       ),
     );
+    return onTap == null ? chip : Pressable(onTap: onTap, depth: 3, child: chip);
   }
 }
 
@@ -732,10 +762,10 @@ class _RouteDoneCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AikoColors.surface,
         borderRadius: BorderRadius.circular(28),
       ),
-      child: const Column(
+      child: Column(
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -765,7 +795,7 @@ class _EmptyRoute extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
+    return Padding(
       padding: EdgeInsets.fromLTRB(16, 48, 16, 0),
       child: Column(
         children: [
@@ -815,7 +845,7 @@ class _MessageState extends StatelessWidget {
             const SizedBox(height: 6),
             Text(message,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: AikoColors.inkSoft)),
+                style: TextStyle(color: AikoColors.inkSoft)),
             const SizedBox(height: 20),
             FilledButton(onPressed: onAction, child: Text(actionLabel)),
           ],

@@ -125,7 +125,7 @@ class ExerciseDetailScreen extends StatelessWidget {
                 else if (lockedMessage != null)
                   _StatusText(text: lockedMessage!, color: AikoColors.violet)
                 else if (!isNext)
-                  const _StatusText(
+                  _StatusText(
                       text: 'Se habilita al completar los anteriores.',
                       color: AikoColors.inkSoft),
               ],
@@ -169,7 +169,7 @@ class _InfoCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AikoColors.surface,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(color: AikoColors.lilacSoft, width: 2),
       ),
@@ -210,7 +210,7 @@ class _TipCard extends StatelessWidget {
         Expanded(
           child: Container(
             padding: const EdgeInsets.all(14),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: AikoColors.lilacSoft,
               borderRadius: BorderRadius.only(
                 topLeft: Radius.circular(18),

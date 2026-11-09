@@ -337,7 +337,7 @@ class _MemoryCardsGameScreenState extends State<MemoryCardsGameScreen> {
             decoration: InputDecoration(
               labelText: 'Tarjeta ${index + 1}',
               filled: true,
-              fillColor: Colors.white,
+              fillColor: AikoColors.surface,
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
             ),
           ),
@@ -345,7 +345,7 @@ class _MemoryCardsGameScreenState extends State<MemoryCardsGameScreen> {
             Padding(
               padding: const EdgeInsets.only(top: 4),
               child: Text('Era: ${card.respuestas.first}',
-                  style: const TextStyle(color: AikoColors.inkSoft)),
+                  style: TextStyle(color: AikoColors.inkSoft)),
             ),
         ],
       ],
@@ -371,7 +371,7 @@ class _CardFace extends StatelessWidget {
               AppConfig.imageUrl(imagenId),
               fit: BoxFit.cover,
               semanticLabel: label,
-              errorBuilder: (_, __, ___) => const Icon(Icons.broken_image_rounded,
+              errorBuilder: (_, __, ___) => Icon(Icons.broken_image_rounded,
                   size: 40, color: AikoColors.inkSoft),
             ),
           ),

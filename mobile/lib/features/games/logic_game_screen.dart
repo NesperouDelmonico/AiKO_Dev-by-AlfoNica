@@ -208,8 +208,10 @@ class OptionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final border = state == null ? const Color(0xFFDCD6E8) : (state! ? green : red);
-    final fill = state == null ? Colors.white : (state! ? greenSoft : redSoft);
+    final border = state == null ? AikoColors.tint(AikoColors.lilac, const Color(0xFFDCD6E8)) : (state! ? green : red);
+    final fill = state == null
+        ? AikoColors.surface
+        : (state! ? AikoColors.tint(green, greenSoft) : AikoColors.tint(red, redSoft));
     return Semantics(
       button: onTap != null,
       label: 'Opción $letter: $text'
@@ -240,7 +242,7 @@ class OptionTile extends StatelessWidget {
                 ),
                 child: state == null
                     ? Text(letter,
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontWeight: FontWeight.w900, color: AikoColors.violet, fontSize: 17))
                     : Icon(state! ? Icons.check_rounded : Icons.close_rounded,
                         color: Colors.white, size: 22),

@@ -41,7 +41,7 @@ class BadgeArt extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         gradient: got ? const RadialGradient(colors: [Color(0xFFFFE680), AikoColors.star]) : null,
-        color: got ? null : const Color(0xFFE6E1EF),
+        color: got ? null : AikoColors.lilacSoft,
         boxShadow: [
           BoxShadow(
             color: got ? AikoColors.starDeep : const Color(0xFFCFC8DC),
@@ -85,7 +85,7 @@ class AchievementsScreen extends StatelessWidget {
               margin: const EdgeInsets.fromLTRB(16, 0, 16, 10),
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AikoColors.surface,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: TabBar(
@@ -149,7 +149,7 @@ class _BadgesTab extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.fromLTRB(10, 16, 10, 12),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AikoColors.surface,
                 borderRadius: BorderRadius.circular(22),
               ),
               child: Column(
@@ -169,7 +169,7 @@ class _BadgesTab extends StatelessWidget {
                       textAlign: TextAlign.center,
                       maxLines: 3,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 12.5, color: AikoColors.inkSoft),
+                      style: TextStyle(fontSize: 12.5, color: AikoColors.inkSoft),
                     ),
                   ),
                 ],
@@ -216,7 +216,7 @@ class _StatsTab extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AikoColors.surface,
                   borderRadius: BorderRadius.circular(22),
                 ),
                 child: Column(
@@ -230,7 +230,7 @@ class _StatsTab extends StatelessWidget {
                     ),
                     Text(label,
                         textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 13, color: AikoColors.inkSoft)),
+                        style: TextStyle(fontSize: 13, color: AikoColors.inkSoft)),
                   ],
                 ),
               ),

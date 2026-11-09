@@ -21,7 +21,7 @@ export function IndicatorsPage() {
     sesiones: item.sesiones ?? 0,
   }))
   return (
-    <div className="space-y-6">
+    <div className="rise-stagger space-y-6">
       <PageHeader title="Indicadores" description="Mira de un vistazo cómo avanza la plataforma." />
       {indicators.isPending && <div aria-busy="true" aria-label="Cargando indicadores" className="grid gap-4 md:grid-cols-3">{[1, 2, 3].map((n) => <div key={n} className="skeleton-shimmer h-28 animate-pulse rounded-2xl bg-white" />)}</div>}
       {indicators.isError && <ErrorState title="No pudimos cargar los indicadores. Inténtalo de nuevo." message={indicators.error.message} action={<Button variant="secondary" onClick={() => void indicators.refetch()}>Intentar de nuevo</Button>} />}

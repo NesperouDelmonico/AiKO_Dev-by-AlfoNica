@@ -23,6 +23,7 @@ const decimalNumberTransformer = {
   `"umbral_bajo_rendimiento" BETWEEN 0 AND 100`,
 )
 @Check('CHK_d9f690cd9683c5e6ac0ac8b89a', `"umbral_dias_inactividad" > 0`)
+@Check('CHK_paciente_monedas', `"monedas" >= 0`)
 export class PatientEntity {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
@@ -61,4 +62,28 @@ export class PatientEntity {
 
   @Column({ type: 'date', name: 'fecha_asignacion' })
   fechaAsignacion!: Date;
+
+  // --- Economía (tienda de AiKO) ---
+
+  @Column({ type: 'int', default: 0 })
+  monedas!: number;
+
+  /** Accesorio que lleva puesto el osito (`base` = ninguno). */
+  @Column({ type: 'varchar', length: 20, default: 'base' })
+  accesorio!: string;
+
+  /** Accesorios comprados (incluye `base`). */
+  @Column({ type: 'jsonb', default: () => `'["base"]'` })
+  accesorios!: string[];
+
+  /** Ejercicios aprobados que aún darán XP doble. */
+  @Column({ type: 'int', default: 0, name: 'potenciador_xp_restante' })
+  potenciadorXpRestante!: number;
+
+  @Column({ type: 'int', default: 0, name: 'salvadores_racha' })
+  salvadoresRacha!: number;
+
+  /** Días (YYYY-MM-DD) cubiertos por un salvador de racha. */
+  @Column({ type: 'jsonb', default: () => `'[]'`, name: 'dias_protegidos' })
+  diasProtegidos!: string[];
 }

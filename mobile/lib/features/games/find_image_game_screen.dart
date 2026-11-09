@@ -154,7 +154,7 @@ class _FindImageGameScreenState extends State<FindImageGameScreen> {
       child: _phase == _Phase.countdown
           ? Center(
               child: Text('$_countdown',
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 80, fontWeight: FontWeight.w900, color: AikoColors.violet)),
             )
           : Column(

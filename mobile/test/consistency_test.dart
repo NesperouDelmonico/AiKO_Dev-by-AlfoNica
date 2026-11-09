@@ -24,9 +24,11 @@ void main() {
       'mes': '2026-10',
       'hoy': '2026-10-28',
       'dias_activos': ['2026-10-26', '2026-10-27', '2026-10-28'],
-      'racha_actual': 3,
+      'racha_actual': 4,
       'mejor_racha': 5,
       'ejercicios_semana': 7,
+      'dias_protegidos': ['2026-10-25'],
+      'salvadores_racha': 2,
     });
     await tester.pumpWidget(MaterialApp(
       theme: buildAikoTheme(),
@@ -55,6 +57,9 @@ void main() {
     expect(find.text('días seguidos'), findsOneWidget);
     expect(find.text('Mejor racha: 5'), findsOneWidget);
     expect(find.text('7'), findsWidgets);
+    // El día cubierto por el salvador lleva escudo.
+    expect(find.bySemanticsLabel('25, racha protegida'), findsOneWidget);
+    expect(find.textContaining('Tienes 2 salvadores de racha'), findsOneWidget);
     // No se puede avanzar más allá del mes actual.
     final next = tester.widget<IconButton>(find.widgetWithIcon(IconButton, Icons.chevron_right_rounded));
     expect(next.onPressed, isNull);
@@ -63,5 +68,32 @@ void main() {
     await tester.pumpAndSettle();
     expect(requested, ['2026-09']);
     expect(find.text('Septiembre 2026'), findsOneWidget);
+  });
+
+  testWidgets('el calendario se dibuja en modo noche', (tester) async {
+    AikoColors.dark = true;
+    addTearDown(() => AikoColors.dark = false);
+    expect(AikoColors.surface, isNot(Colors.white));
+    expect(AikoColors.ink.computeLuminance(), greaterThan(0.7));
+    await tester.pumpWidget(MaterialApp(
+      theme: buildAikoTheme(),
+      home: Scaffold(
+        body: SingleChildScrollView(
+          child: ConsistencyCalendar(
+            initial: Consistency.fromJson({
+              'mes': '2026-10',
+              'hoy': '2026-10-28',
+              'dias_activos': ['2026-10-28'],
+              'dias_protegidos': ['2026-10-27'],
+              'salvadores_racha': 0,
+            }),
+            load: (month) async => throw UnimplementedError(),
+          ),
+        ),
+      ),
+    ));
+    await tester.pump();
+    expect(Theme.of(tester.element(find.byType(Scaffold))).brightness, Brightness.dark);
+    expect(find.textContaining('No tienes salvadores'), findsOneWidget);
   });
 }

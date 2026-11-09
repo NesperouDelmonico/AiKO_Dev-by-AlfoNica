@@ -4,16 +4,19 @@ import 'theme.dart';
 
 /// Color e ícono por categoría cognitiva (Atención, Memoria, Velocidad).
 class CategoryStyle {
-  const CategoryStyle(this.background, this.foreground, this.icon);
+  const CategoryStyle(this._background, this._foreground, this.icon);
 
-  final Color background;
-  final Color foreground;
+  final Color _background;
+  final Color _foreground;
   final IconData icon;
 
+  Color get background => AikoColors.tint(_foreground, _background);
+  Color get foreground => AikoColors.deep(_foreground, _foreground);
+
   static const _attention =
-      CategoryStyle(AikoColors.lilacSoft, AikoColors.violet, Icons.visibility_rounded);
+      CategoryStyle(Color(0xFFE9E1FF), AikoColors.brand, Icons.visibility_rounded);
   static const _memory =
-      CategoryStyle(AikoColors.peachSoft, Color(0xFFB4582B), Icons.grid_view_rounded);
+      CategoryStyle(Color(0xFFFFE8DB), Color(0xFFB4582B), Icons.grid_view_rounded);
   static const _speed =
       CategoryStyle(Color(0xFFDDF3EA), Color(0xFF2F7D5F), Icons.bolt_rounded);
 

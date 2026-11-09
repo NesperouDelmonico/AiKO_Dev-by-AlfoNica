@@ -381,7 +381,9 @@ function PanelLayoutBase({ role }: { role: PanelRole }) {
       </header>
 
       <main className="mx-auto w-full max-w-7xl p-4 sm:p-8">
-        <Outlet />
+        <div key={location.pathname} className="page-enter">
+          <Outlet />
+        </div>
       </main>
 
       <footer className="fixed inset-x-0 bottom-0 z-30 border-t border-purple-200 bg-white/95 px-4 py-3 text-center text-xs leading-5 text-[var(--color-text-muted)] backdrop-blur">

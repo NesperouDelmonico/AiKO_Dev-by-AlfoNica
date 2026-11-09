@@ -1,3 +1,4 @@
+import type { ExerciseResultEntity } from '../../domain/entities/exercise-result.entity';
 import {
   BadRequestException,
   ForbiddenException,
@@ -56,6 +57,7 @@ describe('TherapyUseCase.result', () => {
     replaceRouteExercise: jest.fn(),
     saveResult: jest.fn(),
     results: jest.fn(),
+    routeResults: jest.fn(),
     resultDates: jest.fn(),
     resultsPage: jest.fn(),
     routesHistory: jest.fn(),
@@ -619,6 +621,46 @@ describe('TherapyUseCase.result', () => {
         archivadoEn: null,
       });
       expect(restored.archivado_en).toBeNull();
+    });
+  });
+
+  describe('resultados de la ruta', () => {
+    it('devuelve los intentos con monedas y exige acceso', async () => {
+      repository.routePatientId.mockResolvedValue('patient-id');
+      repository.patientAssignedToSpecialist.mockResolvedValue(true);
+      repository.routeResults.mockResolvedValue([
+        {
+          id: 'r1',
+          puntaje: 92,
+          aciertos: 9,
+          xpGanado: 20,
+          tiempoReaccionMs: 900,
+          fecha: new Date('2026-10-28T17:00:00Z'),
+          dibujos: null,
+          monedasGanadas: 24,
+          xpDoble: true,
+          rutaEjercicio: { id: 're1', ejercicio: { nombre: 'Palabras' } },
+        } as unknown as ExerciseResultEntity,
+      ]);
+      const specialistActor = {
+        sub: 'specialist-user',
+        rol: UserRole.ESPECIALISTA,
+      };
+      const [first] = await useCase.routeResults('route-id', specialistActor);
+      expect(first).toMatchObject({
+        ruta_ejercicio_id: 're1',
+        monedas_ganadas: 24,
+        xp_doble: true,
+        dibujos: [],
+      });
+      repository.patientAssignedToSpecialist.mockResolvedValue(false);
+      await expect(
+        useCase.routeResults('route-id', specialistActor),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      repository.routePatientId.mockResolvedValue(null);
+      await expect(
+        useCase.routeResults('nope', specialistActor),
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 

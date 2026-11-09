@@ -6,13 +6,13 @@ class AikoCard extends StatelessWidget {
   const AikoCard({
     super.key,
     required this.child,
-    this.color = Colors.white,
+    this.color,
     this.gradient,
     this.padding = const EdgeInsets.all(20),
   });
 
   final Widget child;
-  final Color color;
+  final Color? color;
   final Gradient? gradient;
   final EdgeInsetsGeometry padding;
 
@@ -21,7 +21,7 @@ class AikoCard extends StatelessWidget {
     return Container(
       padding: padding,
       decoration: BoxDecoration(
-        color: gradient == null ? color : null,
+        color: gradient == null ? (color ?? AikoColors.surface) : null,
         gradient: gradient,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [

@@ -12,9 +12,10 @@ class IslandTheme {
     required this.tagline,
     required this.icon,
     required this.color,
-    required this.soft,
-    required this.deep,
-  });
+    required Color soft,
+    required Color deep,
+  })  : _soft = soft,
+        _deep = deep;
 
   /// Sufijo de las imágenes: `island_<key>.png`, `header_<key>.png`.
   final String key;
@@ -22,8 +23,17 @@ class IslandTheme {
   final String tagline;
   final IconData icon;
   final Color color;
-  final Color soft;
-  final Color deep;
+  final Color _soft;
+  final Color _deep;
+
+  /// Fondo suave de la isla (de noche, el color mezclado con el fondo).
+  Color get soft => AikoColors.tint(color, _soft);
+
+  /// Texto e íconos de la isla (de noche, más claro).
+  Color get deep => AikoColors.deep(color, _deep);
+
+  /// Fondo fuerte de la isla, con texto blanco encima (igual en los dos modos).
+  Color get deepFill => _deep;
 
   String get islandImage => 'island_$key';
   String get headerImage => 'header_$key';
@@ -43,7 +53,7 @@ class IslandTheme {
     tagline: 'Escucha, recuerda y repite la secuencia.',
     icon: Icons.park_rounded,
     color: AikoColors.mint,
-    soft: AikoColors.mintSoft,
+    soft: Color(0xFFDDF6EC),
     deep: Color(0xFF1F7A58),
   );
   static const reaccion = IslandTheme(
@@ -52,7 +62,7 @@ class IslandTheme {
     tagline: 'Responde rápido y con precisión.',
     icon: Icons.bolt_rounded,
     color: AikoColors.sky,
-    soft: AikoColors.skySoft,
+    soft: Color(0xFFE1ECFF),
     deep: Color(0xFF2559B8),
   );
   static const palabras = IslandTheme(
@@ -61,8 +71,8 @@ class IslandTheme {
     tagline: 'Juega con letras y frases.',
     icon: Icons.menu_book_rounded,
     color: AikoColors.violetBright,
-    soft: AikoColors.lilacSoft,
-    deep: AikoColors.violetDeep,
+    soft: Color(0xFFE9E1FF),
+    deep: Color(0xFF4C1D95),
   );
   static const imagenes = IslandTheme(
     key: 'imagenes',
@@ -79,7 +89,7 @@ class IslandTheme {
     tagline: 'Piensa paso a paso y resuelve.',
     icon: Icons.diamond_rounded,
     color: Color(0xFFE07B39),
-    soft: AikoColors.peachSoft,
+    soft: Color(0xFFFFE8DB),
     deep: Color(0xFF9A4A1F),
   );
   static const mixta = IslandTheme(
@@ -87,9 +97,9 @@ class IslandTheme {
     name: 'Isla de AiKO',
     tagline: 'Un poco de todo para entrenar tu mente.',
     icon: Icons.cottage_rounded,
-    color: AikoColors.violet,
-    soft: AikoColors.lilacSoft,
-    deep: AikoColors.violetDeep,
+    color: AikoColors.brand,
+    soft: Color(0xFFE9E1FF),
+    deep: Color(0xFF4C1D95),
   );
   static const meta = IslandTheme(
     key: 'meta',

@@ -9,7 +9,15 @@ class SubmitResult {
     required this.xpGanado,
     required this.mensaje,
     this.insignias = const [],
+    this.monedasGanadas = 0,
+    this.xpDoble = false,
   });
+
+  /// Monedas que dio este ejercicio (incluye el premio por terminar el día).
+  final int monedasGanadas;
+
+  /// true si el potenciador duplicó la XP.
+  final bool xpDoble;
 
   /// true si alcanzó el puntaje mínimo y el ejercicio quedó completado.
   final bool advanced;
@@ -55,6 +63,8 @@ class ResultsRepository {
         mensaje: (json['retroalimentacion'] as String?) ??
             'Sesión registrada. ¡Buen trabajo!',
         insignias: _badgeNames(json['insignias_obtenidas']),
+        monedasGanadas: (json['monedas_ganadas'] as num?)?.toInt() ?? 0,
+        xpDoble: json['xp_doble'] == true,
       );
     } on ApiException catch (e) {
       // El backend guarda el intento pero responde 403 si no llegó al mínimo.
