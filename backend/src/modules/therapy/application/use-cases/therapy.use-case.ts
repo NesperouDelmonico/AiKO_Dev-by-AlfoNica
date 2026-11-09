@@ -23,6 +23,12 @@ import type { ImageStoragePort } from '../../domain/ports/image-storage.port';
 import { routeSchedule } from '../../domain/services/route-schedule';
 import { normalizeExerciseParameters } from '../../domain/services/exercise-parameters';
 import { consistency, currentMonth } from '../../domain/services/consistency';
+import { localDate } from '../../domain/services/route-schedule';
+import {
+  coinsForScore,
+  DAY_BONUS_COINS,
+  daysToProtect,
+} from '../../../gamification/domain/services/economy';
 import { RouteExerciseStatus } from '../../domain/entities/route-exercise.entity';
 import { RouteExerciseEntity } from '../../domain/entities/route-exercise.entity';
 import { ExerciseResultEntity } from '../../domain/entities/exercise-result.entity';
@@ -531,6 +537,15 @@ export class TherapyUseCase {
     return this.repository.progress(routeId);
   }
 
+  /** Intentos de una ruta (informe por día/isla del especialista). */
+  async routeResults(routeId: string, actor: Actor) {
+    const patientId = await this.repository.routePatientId(routeId);
+    if (!patientId) throw new NotFoundException('Ruta no encontrada');
+    await this.assertPatientAccess(patientId, actor);
+    const results = await this.repository.routeResults(routeId);
+    return results.map((item) => this.resultResponse(item, patientId));
+  }
+
   async add(routeId: string, data: AddRouteExerciseDto, actor: Actor) {
     const patientId = await this.requireActiveRouteAccess(routeId, actor);
     const count = await this.repository.routeExerciseCount(routeId);
@@ -727,6 +742,15 @@ export class TherapyUseCase {
         `Dibujos no encontrados: ${missingDrawings.join(', ')}`,
       );
     }
+    // Racha: si hubo días sin práctica y alcanzan los salvadores, se cubren.
+    const playedDays = (
+      (await this.repository.resultDates(patient.id)) ?? []
+    ).map((date) => localDate(date));
+    const protegerDias = daysToProtect(
+      [...playedDays, ...(patient.diasProtegidos ?? [])],
+      localDate(new Date()),
+      patient.salvadoresRacha ?? 0,
+    );
     const result = await this.repository.saveResult(
       routeExerciseId,
       patient.id,
@@ -737,6 +761,11 @@ export class TherapyUseCase {
         xpGanado: shouldAdvance ? xpGanado : 0,
         xpPorNivel,
         dibujos,
+        economia: {
+          monedas: coinsForScore(data.puntaje),
+          bonoDia: DAY_BONUS_COINS,
+          protegerDias,
+        },
       },
       shouldAdvance,
     );
@@ -827,7 +856,16 @@ export class TherapyUseCase {
   async consistency(patientId: string, mes: string | undefined, actor: Actor) {
     await this.assertPatientAccess(patientId, actor);
     const month = mes ?? currentMonth();
-    return consistency(await this.repository.resultDates(patientId), month);
+    const patient = await this.repository.patientById(patientId);
+    return consistency(
+      await this.repository.resultDates(patientId),
+      month,
+      new Date(),
+      {
+        protectedDays: patient?.diasProtegidos ?? [],
+        savers: patient?.salvadoresRacha ?? 0,
+      },
+    );
   }
 
   private numericConfig(key: string, fallback: number) {
@@ -926,6 +964,8 @@ export class TherapyUseCase {
       categoria: exercise?.categoria ?? null,
       tipo: exercise?.tipo ?? null,
       dibujos: result.dibujos ?? [],
+      monedas_ganadas: result.monedasGanadas ?? 0,
+      xp_doble: result.xpDoble ?? false,
     };
   }
 

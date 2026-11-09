@@ -280,6 +280,8 @@ export class PatientUseCase {
       estado: patient.usuario.estado,
       fecha_nacimiento: patient.fechaNacimiento,
       edad: ageInBogota(patient.fechaNacimiento),
+      monedas: patient.monedas ?? 0,
+      accesorio: patient.accesorio ?? 'base',
       ...(patient.especialista?.usuario
         ? { especialista_nombre: patient.especialista.usuario.nombre }
         : {}),

@@ -1,5 +1,6 @@
 import { BadgeEntity } from '../entities/badge.entity';
 import { PatientBadgeEntity } from '../entities/patient-badge.entity';
+import { PatientEntity } from '../../../users/domain/entities/patient.entity';
 import {
   NotificationEntity,
   NotificationType,
@@ -21,6 +22,16 @@ export interface GamificationRepositoryPort {
     patientId: string,
     badgeId: string,
   ): Promise<PatientBadgeEntity | null>;
+  /** Monedero del paciente (monedas, accesorios, potenciadores). */
+  wallet(patientId: string): Promise<PatientEntity | null>;
+  /**
+   * Modifica el monedero dentro de una transacción con bloqueo. Si [change]
+   * lanza un error, no se guarda nada.
+   */
+  updateWallet(
+    patientId: string,
+    change: (patient: PatientEntity) => void,
+  ): Promise<PatientEntity>;
   createNotification(
     patientId: string,
     type: NotificationType,

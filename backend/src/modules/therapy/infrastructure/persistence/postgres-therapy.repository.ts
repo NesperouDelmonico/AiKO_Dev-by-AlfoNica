@@ -24,6 +24,7 @@ import {
 } from '../../../tracking/domain/entities/alert.entity';
 import type {
   ExerciseFilters,
+  SaveResultEconomy,
   TherapyRepositoryPort,
   WorkshopFilters,
 } from '../../domain/ports/therapy.repository.port';
@@ -480,6 +481,7 @@ export class PostgresTherapyRepository implements TherapyRepositoryPort {
       xpGanado: number;
       xpPorNivel: number;
       dibujos?: string[] | null;
+      economia?: SaveResultEconomy;
     },
     shouldAdvance = true,
   ) {
@@ -498,16 +500,44 @@ export class PostgresTherapyRepository implements TherapyRepositoryPort {
         .setLock('pessimistic_write')
         .where('patient.id = :patientId', { patientId })
         .getOneOrFail();
-      if (shouldAdvance) {
-        patient.xpTotal += data.xpGanado;
-        patient.nivelActual = Math.floor(patient.xpTotal / data.xpPorNivel) + 1;
+      const economy = data.economia;
+      let xpGanado = data.xpGanado;
+      let xpDoble = false;
+      let monedas = 0;
+      // Salvadores de racha: cubren los días sin práctica antes de hoy.
+      const protect = economy?.protegerDias ?? [];
+      if (protect.length && patient.salvadoresRacha >= protect.length) {
+        patient.salvadoresRacha -= protect.length;
+        patient.diasProtegidos = [
+          ...new Set([...(patient.diasProtegidos ?? []), ...protect]),
+        ].sort();
       }
-      await manager.save(patient);
       if (shouldAdvance) {
+        if (economy && patient.potenciadorXpRestante > 0) {
+          xpGanado *= 2;
+          xpDoble = true;
+          patient.potenciadorXpRestante -= 1;
+        }
+        patient.xpTotal += xpGanado;
+        patient.nivelActual = Math.floor(patient.xpTotal / data.xpPorNivel) + 1;
         item.estado = RouteExerciseStatus.COMPLETADO;
         item.fechaCompletado = new Date();
         await manager.save(item);
-
+        if (economy) {
+          monedas = economy.monedas;
+          const pendingToday = await manager.count(RouteExerciseEntity, {
+            where: {
+              ruta: { id: item.ruta.id },
+              dia: item.dia,
+              estado: RouteExerciseStatus.PENDIENTE,
+            },
+          });
+          if (pendingToday === 0) monedas += economy.bonoDia;
+          patient.monedas += monedas;
+        }
+      }
+      await manager.save(patient);
+      if (shouldAdvance) {
         const pendingCount = await manager.count(RouteExerciseEntity, {
           where: {
             ruta: { id: item.ruta.id },
@@ -532,8 +562,10 @@ export class PostgresTherapyRepository implements TherapyRepositoryPort {
           puntaje: data.puntaje,
           tiempoReaccionMs: data.tiempoReaccionMs,
           aciertos: data.aciertos,
-          xpGanado: data.xpGanado,
+          xpGanado: shouldAdvance ? xpGanado : data.xpGanado,
           dibujos: data.dibujos?.length ? data.dibujos : null,
+          monedasGanadas: monedas,
+          xpDoble,
         }),
       );
       await manager
@@ -578,6 +610,13 @@ export class PostgresTherapyRepository implements TherapyRepositoryPort {
       where: { paciente: { id: patientId } },
       relations: { rutaEjercicio: { ejercicio: true } },
       order: { fecha: 'DESC' },
+    });
+  }
+  routeResults(routeId: string) {
+    return this.result.find({
+      where: { rutaEjercicio: { ruta: { id: routeId } } },
+      relations: { rutaEjercicio: { ejercicio: true } },
+      order: { fecha: 'ASC' },
     });
   }
   async resultDates(patientId: string) {

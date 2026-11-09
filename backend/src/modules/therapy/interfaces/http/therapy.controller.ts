@@ -171,6 +171,14 @@ export class TherapyController {
   ) {
     return this.use.progress(id, user);
   }
+  @Get('rutas/:id/resultados')
+  @Roles(UserRole.PACIENTE, UserRole.ESPECIALISTA, UserRole.ADMINISTRADOR)
+  routeResults(
+    @Param('id') id: string,
+    @CurrentAuthUser() user: { sub: string; rol: UserRole },
+  ) {
+    return this.use.routeResults(id, user);
+  }
   @Post('rutas/:id/ejercicios')
   @Roles(UserRole.ESPECIALISTA, UserRole.ADMINISTRADOR)
   add(
