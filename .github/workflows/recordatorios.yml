@@ -11,6 +11,11 @@ on:
   schedule:
     - cron: "*/15 * * * *"
   workflow_dispatch:
+    inputs:
+      correo:
+        description: "Correo de un paciente para enviarle un push de prueba (opcional)"
+        required: false
+        default: ""
 
 jobs:
   recordatorios:
@@ -21,6 +26,7 @@ jobs:
         env:
           API: ${{ secrets.AIKO_API_URL }}
           SECRET: ${{ secrets.CRON_SECRET }}
+          CORREO: ${{ github.event.inputs.correo }}
         run: |
           # Sin espacios ni saltos de línea que se cuelan al pegar.
           SECRET=$(printf '%s' "$SECRET" | tr -d '[:space:]')
@@ -35,6 +41,12 @@ jobs:
             echo "Diagnóstico del push:"
             curl -sS -H "Authorization: Bearer $SECRET" "$API/cron/push-check"
             echo
+            if [ -n "$CORREO" ]; then
+              echo "Push de prueba:"
+              curl -sS -G -H "Authorization: Bearer $SECRET" \
+                --data-urlencode "correo=$CORREO" "$API/cron/push-test"
+              echo
+            fi
           fi
           # Ventana de 30 min: cubre los retrasos de GitHub entre ejecuciones.
           curl --fail-with-body -sS -H "Authorization: Bearer $SECRET" \
