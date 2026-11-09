@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import '../../core/island_theme.dart';
+import '../../core/theme.dart';
 import '../../widgets/brand_image.dart';
 
 /// Ilustración de una isla: el PNG generado (`island_<tema>.png`) o, mientras
@@ -31,14 +32,22 @@ class IslandArt extends StatelessWidget {
       ),
     );
     if (!locked) return art;
-    // Bloqueada: desaturada y más clara, sin perder la forma.
+    // Bloqueada: desaturada y más clara (de noche, en penumbra), sin
+    // perder la forma.
     return ColorFiltered(
-      colorFilter: const ColorFilter.matrix([
-        0.33, 0.33, 0.33, 0, 40, //
-        0.31, 0.31, 0.31, 0, 40, //
-        0.36, 0.36, 0.36, 0, 52, //
-        0, 0, 0, 0.85, 0,
-      ]),
+      colorFilter: AikoColors.dark
+          ? const ColorFilter.matrix([
+              0.26, 0.26, 0.26, 0, 18, //
+              0.25, 0.25, 0.25, 0, 18, //
+              0.32, 0.32, 0.32, 0, 40, //
+              0, 0, 0, 0.9, 0,
+            ])
+          : const ColorFilter.matrix([
+              0.33, 0.33, 0.33, 0, 40, //
+              0.31, 0.31, 0.31, 0, 40, //
+              0.36, 0.36, 0.36, 0, 52, //
+              0, 0, 0, 0.85, 0,
+            ]),
       child: art,
     );
   }
@@ -47,23 +56,30 @@ class IslandArt extends StatelessWidget {
 /// Isla flotante en ¾: halo de agua clara, arena, pasto y el ícono del
 /// tema sobre un "monumento" redondo.
 class IslandPainter extends CustomPainter {
-  IslandPainter({required this.theme});
+  IslandPainter({required this.theme}) : night = AikoColors.dark;
 
   final IslandTheme theme;
+  final bool night;
 
   @override
   void paint(Canvas canvas, Size size) {
     final w = size.width, h = size.height;
     final c = Offset(w / 2, h * 0.6);
-    // Agua clara alrededor.
+    // Agua clara alrededor (de noche, el reflejo de la luna).
     canvas.drawOval(
       Rect.fromCenter(center: c.translate(0, h * 0.05), width: w * 0.98, height: h * 0.46),
-      Paint()..color = Colors.white.withValues(alpha: 0.45),
+      Paint()
+        ..color = night
+            ? const Color(0xFF9FB4FF).withValues(alpha: 0.16)
+            : Colors.white.withValues(alpha: 0.45),
     );
     // Sombra bajo la isla.
     canvas.drawOval(
       Rect.fromCenter(center: c.translate(0, h * 0.07), width: w * 0.8, height: h * 0.3),
-      Paint()..color = const Color(0xFF5BB8C4).withValues(alpha: 0.35),
+      Paint()
+        ..color = night
+            ? const Color(0xFF0B0820).withValues(alpha: 0.55)
+            : const Color(0xFF5BB8C4).withValues(alpha: 0.35),
     );
     // Arena.
     canvas.drawOval(
@@ -114,11 +130,12 @@ class IslandPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(IslandPainter old) => old.theme != theme;
+  bool shouldRepaint(IslandPainter old) => old.theme != theme || old.night != night;
 }
 
-/// Mar suave: degradado turquesa-lavanda con ondas, o el mosaico
-/// sea_tile.png si existe.
+/// Mar del mapa. De día: degradado turquesa-lavanda con ondas (o el
+/// mosaico sea_tile.png si existe). De noche: cielo nocturno con luna,
+/// estrellas y ondas tenues, para que los textos claros se lean bien.
 class SeaBackground extends StatelessWidget {
   const SeaBackground({super.key, required this.child});
 
@@ -126,6 +143,28 @@ class SeaBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (AikoColors.dark) {
+      return Stack(
+        children: [
+          const Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFF0B1030), Color(0xFF151A45), Color(0xFF241A4A)],
+                  stops: [0, 0.55, 1],
+                ),
+              ),
+            ),
+          ),
+          const Positioned.fill(
+            child: ExcludeSemantics(child: CustomPaint(painter: _NightSkyPainter())),
+          ),
+          child,
+        ],
+      );
+    }
     return Stack(
       children: [
         const Positioned.fill(
@@ -156,12 +195,14 @@ class SeaBackground extends StatelessWidget {
 }
 
 class _WavesPainter extends CustomPainter {
-  const _WavesPainter();
+  const _WavesPainter({this.color = const Color(0x8CFFFFFF)});
+
+  final Color color;
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.55)
+      ..color = color
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.5
       ..strokeCap = StrokeCap.round;
@@ -173,6 +214,65 @@ class _WavesPainter extends CustomPainter {
         canvas.drawArc(rect, pi, pi, false, paint);
       }
     }
+  }
+
+  @override
+  bool shouldRepaint(covariant _WavesPainter oldDelegate) => oldDelegate.color != color;
+}
+
+/// Cielo nocturno: estrellas pequeñas, algunas con destello, una luna
+/// creciente y ondas muy tenues.
+class _NightSkyPainter extends CustomPainter {
+  const _NightSkyPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const _WavesPainter(color: Color(0x1FB8C6FF)).paint(canvas, size);
+
+    final random = Random(11);
+    final dot = Paint();
+    final count = (size.width * size.height / 5200).clamp(40, 160).toInt();
+    for (var i = 0; i < count; i++) {
+      final p = Offset(random.nextDouble() * size.width, random.nextDouble() * size.height);
+      final r = 0.7 + random.nextDouble() * 1.3;
+      final warm = random.nextDouble() < 0.25;
+      dot.color = (warm ? const Color(0xFFFFE9A8) : Colors.white)
+          .withValues(alpha: 0.35 + random.nextDouble() * 0.5);
+      canvas.drawCircle(p, r, dot);
+    }
+
+    // Estrellas con destello (cruz de cuatro puntas).
+    final sparkle = Paint()..color = const Color(0xFFFFF3C4).withValues(alpha: 0.85);
+    for (var i = 0; i < 9; i++) {
+      final c = Offset(random.nextDouble() * size.width, random.nextDouble() * size.height);
+      final r = 4 + random.nextDouble() * 3;
+      final path = Path()
+        ..moveTo(c.dx, c.dy - r)
+        ..quadraticBezierTo(c.dx, c.dy, c.dx + r, c.dy)
+        ..quadraticBezierTo(c.dx, c.dy, c.dx, c.dy + r)
+        ..quadraticBezierTo(c.dx, c.dy, c.dx - r, c.dy)
+        ..quadraticBezierTo(c.dx, c.dy, c.dx, c.dy - r)
+        ..close();
+      canvas.drawPath(path, sparkle);
+    }
+
+    // Luna creciente con halo, a la derecha bajo la cabecera.
+    final moon = Offset(size.width - 58, 250);
+    canvas.drawCircle(
+      moon,
+      52,
+      Paint()
+        ..shader = RadialGradient(colors: [
+          const Color(0xFFFFF3C4).withValues(alpha: 0.22),
+          const Color(0xFFFFF3C4).withValues(alpha: 0),
+        ]).createShader(Rect.fromCircle(center: moon, radius: 52)),
+    );
+    final disc = Path()..addOval(Rect.fromCircle(center: moon, radius: 22));
+    final bite = Path()..addOval(Rect.fromCircle(center: moon.translate(10, -7), radius: 19));
+    canvas.drawPath(
+      Path.combine(PathOperation.difference, disc, bite),
+      Paint()..color = const Color(0xFFFFF0B8),
+    );
   }
 
   @override

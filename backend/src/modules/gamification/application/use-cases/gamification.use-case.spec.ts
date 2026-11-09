@@ -100,7 +100,7 @@ describe('GamificationUseCase access and badge conditions', () => {
     const wallet = (over: Partial<PatientEntity> = {}) =>
       ({
         id: 'p1',
-        monedas: 100,
+        monedas: 10,
         accesorio: 'base',
         accesorios: ['base'],
         potenciadorXpRestante: 0,
@@ -125,7 +125,7 @@ describe('GamificationUseCase access and badge conditions', () => {
       runWith(wallet());
       const result = await useCase.purchase('p1', 'gafas', me);
       expect(result).toMatchObject({
-        monedas: 20,
+        monedas: 2,
         accesorio: 'gafas',
         accesorios: ['base', 'gafas'],
       });
@@ -143,9 +143,9 @@ describe('GamificationUseCase access and badge conditions', () => {
     });
 
     it('rechaza monedas insuficientes, repetidos y el máximo de salvadores', async () => {
-      runWith(wallet({ monedas: 10 }));
+      runWith(wallet({ monedas: 1 }));
       await expect(useCase.purchase('p1', 'corona', me)).rejects.toThrow(
-        'Te faltan 190 monedas',
+        'Te faltan 19 monedas',
       );
       await expect(useCase.purchase('p1', 'corona', me)).rejects.toBeInstanceOf(
         BadRequestException,

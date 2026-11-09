@@ -65,7 +65,7 @@ void main() {
     await settings.load();
 
     var wallet = <String, dynamic>{
-      'monedas': 150,
+      'monedas': 15,
       'accesorio': 'base',
       'accesorios': ['base'],
       'potenciador_xp_restante': 0,
@@ -77,15 +77,15 @@ void main() {
       calls.add('${request.method} $path');
       if (path.endsWith('/tienda')) {
         return _json([
-          {'id': 'potenciador_xp', 'nombre': 'Potenciador de XP ×2', 'descripcion': 'XP doble', 'precio': 40, 'tipo': 'potenciador'},
-          {'id': 'salvador_racha', 'nombre': 'Salvador de racha', 'descripcion': 'Protege tu racha', 'precio': 60, 'tipo': 'salvador'},
-          {'id': 'audifonos', 'nombre': 'Audífonos', 'descripcion': 'Para escuchar', 'precio': 100, 'tipo': 'accesorio'},
+          {'id': 'potenciador_xp', 'nombre': 'Potenciador de XP ×2', 'descripcion': 'XP doble', 'precio': 4, 'tipo': 'potenciador'},
+          {'id': 'salvador_racha', 'nombre': 'Salvador de racha', 'descripcion': 'Protege tu racha', 'precio': 6, 'tipo': 'salvador'},
+          {'id': 'audifonos', 'nombre': 'Audífonos', 'descripcion': 'Para escuchar', 'precio': 10, 'tipo': 'accesorio'},
         ]);
       }
       if (path.endsWith('/compras')) {
         wallet = {
           ...wallet,
-          'monedas': 50,
+          'monedas': 5,
           'accesorios': ['base', 'audifonos'],
         };
         return _json(wallet);
@@ -120,7 +120,7 @@ void main() {
     await tester.scrollUntilVisible(find.text('Tienes 1 de 3'), 300, scrollable: list);
     expect(find.text('Tienes 1 de 3'), findsOneWidget);
 
-    final option = find.bySemanticsLabel(RegExp('^Audífonos, 100 monedas'));
+    final option = find.bySemanticsLabel(RegExp('^Audífonos, 10 monedas'));
     await tester.scrollUntilVisible(option, -300, scrollable: list);
     await tester.tap(option);
     await tester.pumpAndSettle();
@@ -130,7 +130,7 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Comprar'));
     await tester.pumpAndSettle();
     expect(calls, contains(matches(r'^POST .*/pacientes/p1/compras$')));
-    expect(store.wallet!.monedas, 50);
+    expect(store.wallet!.monedas, 5);
 
     await tester.tap(find.text('Ponérselo'));
     await tester.pumpAndSettle();

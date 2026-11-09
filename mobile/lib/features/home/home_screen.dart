@@ -177,7 +177,10 @@ class _HomeScreenState extends State<HomeScreen> with ReloadOnTab<HomeScreen> {
                   children: [
                     _TopBar(profile: data.profile, streak: data.streak),
                     Expanded(
-                      child: RefreshIndicator(
+                      child: Stack(
+                        children: [
+                          Positioned.fill(
+                            child: RefreshIndicator(
                         onRefresh: _refresh,
                         child: ListView(
                           physics: const AlwaysScrollableScrollPhysics(),
@@ -199,6 +202,11 @@ class _HomeScreenState extends State<HomeScreen> with ReloadOnTab<HomeScreen> {
                                   ),
                                 ],
                         ),
+                      ),
+                          ),
+                          // Tienda: botón flotante bajo el nivel y la racha.
+                          const Positioned(left: 16, top: 2, child: _ShopButton()),
+                        ],
                       ),
                     ),
                   ],
@@ -448,6 +456,10 @@ class _Pill extends StatelessWidget {
         decoration: BoxDecoration(
           color: AikoColors.surface,
           borderRadius: BorderRadius.circular(20),
+          // De noche, un borde tenue separa la etiqueta del cielo.
+          border: AikoColors.dark
+              ? Border.all(color: const Color(0xFF9FB4FF).withValues(alpha: 0.25))
+              : null,
           boxShadow: [
             BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 10, offset: const Offset(0, 4)),
           ],
@@ -487,7 +499,12 @@ class _BearMarker extends StatelessWidget {
               shape: BoxShape.circle,
               border: Border.all(color: AikoColors.violetBright, width: 3),
             ),
-            child: AikoMascot(size: 44, animate: false, happy: happy),
+            child: AikoMascot(
+              size: 48,
+              animate: false,
+              happy: happy,
+              roomy: true,
+            ),
           ),
         ),
       ),
@@ -748,6 +765,66 @@ class _StatChip extends StatelessWidget {
       ),
     );
     return onTap == null ? chip : Pressable(onTap: onTap, depth: 3, child: chip);
+  }
+}
+
+/// Botón flotante de la tienda de AiKO, bajo los indicadores de la cabecera.
+class _ShopButton extends StatelessWidget {
+  const _ShopButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Tienda de AiKO',
+      excludeSemantics: true,
+      child: Pressable(
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(builder: (_) => const PersonalizeScreen()),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Breathing(
+              period: const Duration(milliseconds: 2400),
+              builder: (context, t, child) =>
+                  Transform.scale(scale: 1 + 0.05 * t, child: child),
+              child: Container(
+                width: 58,
+                height: 58,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFFFFE07A), Color(0xFFF2A93B)],
+                  ),
+                  border: Border.all(color: AikoColors.surface, width: 3),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFE0A800).withValues(alpha: 0.45),
+                      blurRadius: 14,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: const Icon(Icons.storefront_rounded, size: 30, color: Color(0xFF6B3F00)),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+              decoration: BoxDecoration(
+                color: AikoColors.surface,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text('Tienda',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: AikoColors.ink)),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
