@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { CronController } from './cron.controller';
 import { CronSecretGuard } from './cron-secret.guard';
+import { readServiceAccount } from './push-check';
 
 function contextWith(authorization?: string) {
   return {
@@ -97,15 +98,38 @@ describe('CronController.smtpCheck', () => {
       if (key.startsWith('SMTP_')) delete process.env[key];
     }
     try {
-      const controller = new CronController(
-        {} as never,
-        {} as never,
-      );
+      const controller = new CronController({} as never, {} as never);
       const result = await controller.smtpCheck();
       expect(result.ok).toBe(false);
       expect(result.variables.SMTP_HOST).toBe('ausente');
     } finally {
       process.env = saved;
     }
+  });
+});
+
+describe('readServiceAccount', () => {
+  it('describe la variable sin exponer la llave', () => {
+    expect(readServiceAccount(undefined).info.variable).toBe('ausente');
+    expect(readServiceAccount(' ').info.variable).toBe('vacía');
+    expect(readServiceAccount('{x').info.variable).toBe('no es un JSON válido');
+    expect(readServiceAccount('{"project_info":{}}').info.variable).toContain(
+      'google-services.json',
+    );
+    const ok = readServiceAccount(
+      JSON.stringify({
+        type: 'service_account',
+        project_id: 'aiko',
+        client_email: 'push@aiko.iam.gserviceaccount.com',
+        private_key: 'KEY',
+      }),
+    );
+    expect(ok.info).toEqual({
+      variable: 'ok',
+      proyecto: 'aiko',
+      cuenta: 'push@aiko.iam.gserviceaccount.com',
+    });
+    expect(JSON.stringify(ok.info)).not.toContain('KEY');
+    expect(ok.account?.privateKey).toBe('KEY');
   });
 });

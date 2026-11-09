@@ -65,10 +65,20 @@ jobs:
           python3 - <<'PY'
           import base64, binascii, json, os, sys
           raw = os.environ["GOOGLE_SERVICES_JSON"].strip().lstrip("\ufeff").strip("'\"").strip()
+          def clean(value):
+              # Ningún valor del google-services.json lleva espacios: quita
+              # saltos de línea o tabs que se cuelan al copiar y pegar.
+              if isinstance(value, str):
+                  return "".join(value.split())
+              if isinstance(value, list):
+                  return [clean(v) for v in value]
+              if isinstance(value, dict):
+                  return {k: clean(v) for k, v in value.items()}
+              return value
           def parse(text):
               try:
-                  data = json.loads(text)
-                  return data if isinstance(data, dict) and "project_info" in data else None
+                  data = json.loads(text, strict=False)
+                  return clean(data) if isinstance(data, dict) and "project_info" in data else None
               except ValueError:
                   return None
           data = parse(raw)
@@ -82,11 +92,73 @@ jobs:
                   if data:
                       break
           if data is None:
-              print("::warning::GOOGLE_SERVICES_JSON no es un google-services.json válido (ni en texto ni en base64). El APK se compila sin notificaciones push.")
+              # Diagnóstico sin mostrar el contenido del secreto.
+              try:
+                  other = json.loads(raw, strict=False)
+              except ValueError:
+                  other = None
+              if isinstance(other, dict) and other.get("type") == "service_account":
+                  print("::warning::GOOGLE_SERVICES_JSON tiene la CUENTA DE SERVICIO (esa va en Vercel como FIREBASE_SERVICE_ACCOUNT_JSON). Aquí va el google-services.json de la app Android. El APK se compila sin push.")
+              else:
+                  print("::warning::GOOGLE_SERVICES_JSON no es un google-services.json válido (ni en texto ni en base64). El APK se compila sin notificaciones push.")
+                  # Pistas que no revelan el contenido del secreto.
+                  hints = [f"{len(raw)} caracteres", f"{raw.count(chr(10)) + 1} líneas",
+                           f"empieza con {raw[:1]!r}", f"termina con {raw[-1:]!r}"]
+                  import re
+                  def masked(line):
+                      line = re.sub(r"[A-Za-z0-9]", "x", line)
+                      return "".join(c if c.isprintable() else f"<U+{ord(c):04X}>" for c in line)
+                  for strict in (True, False):
+                      try:
+                          json.loads(raw, strict=strict)
+                      except ValueError as error:
+                          lineno = getattr(error, "lineno", 0)
+                          hints.append(f"error JSON{'' if strict else ' (flexible)'}: {getattr(error, 'msg', error)} (línea {lineno}, columna {getattr(error, 'colno', '?')})")
+                          if not strict and lineno:
+                              lines = raw.split("\n")
+                              for n in range(max(1, lineno - 2), min(len(lines), lineno + 2) + 1):
+                                  print(f"  línea {n}: {masked(lines[n - 1])}")
+                  if isinstance(other, dict):
+                      hints.append(f"claves: {sorted(other)[:8]}")
+                  if any(q in raw for q in "\u201c\u201d"):
+                      hints.append("tiene comillas tipográficas “ ” (se pegó desde un editor de texto enriquecido)")
+                  print("::warning::Diagnóstico de GOOGLE_SERVICES_JSON: " + "; ".join(hints))
+              sys.exit(0)
+          # La app Android registrada en Firebase debe tener el mismo paquete.
+          package = "co.edu.amigo.aiko_mobile"
+          clients = data.get("client", [])
+          client = next((c for c in clients
+                         if c.get("client_info", {}).get("android_client_info", {}).get("package_name") == package), None)
+          if client is None:
+              found = [c.get("client_info", {}).get("android_client_info", {}).get("package_name") for c in clients]
+              print(f"::warning::El google-services.json no tiene la app Android '{package}' (tiene: {found}). Regístrala en Firebase con ese paquete. El APK se compila sin push.")
               sys.exit(0)
           with open("android/app/google-services.json", "w") as f:
               json.dump(data, f)
-          print("Firebase activado")
+          # Lo mismo que hace el plugin de Google Services: deja los valores
+          # como recursos para que Firebase.initializeApp() los encuentre.
+          from xml.sax.saxutils import escape
+          info = data["project_info"]
+          key = (client.get("api_key") or [{}])[0].get("current_key", "")
+          values = {
+              "google_app_id": client["client_info"]["mobilesdk_app_id"],
+              "gcm_defaultSenderId": info.get("project_number", ""),
+              "google_api_key": key,
+              "google_crash_reporting_api_key": key,
+              "project_id": info.get("project_id", ""),
+              "google_storage_bucket": info.get("storage_bucket", ""),
+          }
+          web = next((o for o in client.get("oauth_client", []) if o.get("client_type") == 3), None)
+          if web:
+              values["default_web_client_id"] = web.get("client_id", "")
+          os.makedirs("android/app/src/main/res/values", exist_ok=True)
+          with open("android/app/src/main/res/values/firebase_values.xml", "w") as f:
+              f.write('<?xml version="1.0" encoding="utf-8"?>\n<resources>\n')
+              for name, value in values.items():
+                  if value:
+                      f.write(f'    <string name="{name}" translatable="false">{escape(str(value))}</string>\n')
+              f.write("</resources>\n")
+          print(f"Firebase activado para {package} (proyecto {info.get('project_id')})")
           PY
           else
             echo "::notice::Sin el secreto GOOGLE_SERVICES_JSON el APK se compila sin notificaciones push."
