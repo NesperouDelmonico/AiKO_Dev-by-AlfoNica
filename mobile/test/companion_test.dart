@@ -116,13 +116,15 @@ void main() {
     ));
     await tester.pumpAndSettle();
     expect(find.text('Tienda de AiKO'), findsOneWidget);
+    final list = find.byType(Scrollable).first;
+    await tester.scrollUntilVisible(find.text('Tienes 1 de 3'), 300, scrollable: list);
     expect(find.text('Tienes 1 de 3'), findsOneWidget);
 
     final option = find.bySemanticsLabel(RegExp('^Audífonos, 100 monedas'));
-    await tester.ensureVisible(option);
+    await tester.scrollUntilVisible(option, -300, scrollable: list);
     await tester.tap(option);
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.textContaining('Comprar por'), -200);
+    await tester.scrollUntilVisible(find.textContaining('Comprar por'), -200, scrollable: list);
     await tester.tap(find.textContaining('Comprar por'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, 'Comprar'));
