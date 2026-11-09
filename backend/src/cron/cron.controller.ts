@@ -11,6 +11,8 @@ import { AuthScheduler } from '../modules/auth/infrastructure/scheduler/auth.sch
 import { TrackingScheduler } from '../modules/tracking/infrastructure/scheduler/tracking.scheduler';
 import { createSmtpTransporter } from '../modules/shared/infrastructure/email/smtp-email.adapter';
 import { CronSecretGuard } from './cron-secret.guard';
+import { cert } from 'firebase-admin/app';
+import { readServiceAccount } from './push-check';
 
 const MAX_REMINDER_WINDOW_MINUTES = 60;
 
@@ -77,7 +79,8 @@ export class CronController {
       const value = env[key];
       if (value === undefined) return 'ausente';
       if (value === '') return 'vacía';
-      if (value !== value.trim()) return 'con espacios o saltos de línea al borde';
+      if (value !== value.trim())
+        return 'con espacios o saltos de línea al borde';
       return 'ok';
     };
     const variables = Object.fromEntries(
@@ -111,6 +114,29 @@ export class CronController {
           comando: e.command,
           respuesta: e.responseCode,
         },
+      };
+    }
+  }
+
+  /**
+   * Diagnóstico del push: revisa FIREBASE_SERVICE_ACCOUNT_JSON (sin mostrar
+   * la llave) y pide un token de acceso a Google para confirmar que la llave
+   * sirve. No envía ninguna notificación.
+   */
+  @Get('push-check')
+  async pushCheck() {
+    const reading = readServiceAccount(
+      process.env.FIREBASE_SERVICE_ACCOUNT_JSON,
+    );
+    if (!reading.account) return { ok: false, ...reading.info };
+    try {
+      await cert(reading.account).getAccessToken();
+      return { ok: true, ...reading.info, google: 'la llave es válida' };
+    } catch (error) {
+      return {
+        ok: false,
+        ...reading.info,
+        google: `Google rechazó la llave: ${(error as Error).message}`,
       };
     }
   }

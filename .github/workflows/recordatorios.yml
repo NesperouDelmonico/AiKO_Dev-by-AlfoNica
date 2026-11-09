@@ -26,6 +26,12 @@ jobs:
             echo "::notice::Faltan los secretos AIKO_API_URL o CRON_SECRET; no se envía nada."
             exit 0
           fi
+          # Al lanzarlo a mano, primero revisa la llave de Firebase en Vercel.
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "Diagnóstico del push:"
+            curl -sS -H "Authorization: Bearer $SECRET" "$API/cron/push-check"
+            echo
+          fi
           # Ventana de 30 min: cubre los retrasos de GitHub entre ejecuciones.
           curl --fail-with-body -sS -H "Authorization: Bearer $SECRET" \
             "$API/cron/send-reminders?window=30"
