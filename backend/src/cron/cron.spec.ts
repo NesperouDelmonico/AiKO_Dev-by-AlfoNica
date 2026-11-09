@@ -38,6 +38,13 @@ describe('CronSecretGuard', () => {
     );
   });
 
+  it('ignora espacios y saltos de línea al borde del secreto', () => {
+    process.env.CRON_SECRET = '  0123456789abcdef0123\n';
+    expect(guard.canActivate(contextWith('Bearer 0123456789abcdef0123'))).toBe(
+      true,
+    );
+  });
+
   it('acepta el Bearer correcto', () => {
     process.env.CRON_SECRET = 'secreto-de-prueba-largo';
     expect(

@@ -19,14 +19,15 @@ const MIN_SECRET_LENGTH = 16;
 @Injectable()
 export class CronSecretGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
-    const secret = process.env.CRON_SECRET;
+    // Sin espacios ni saltos de línea al borde: se cuelan al copiar el valor.
+    const secret = process.env.CRON_SECRET?.trim();
     if (!secret || secret.length < MIN_SECRET_LENGTH) {
       throw new ServiceUnavailableException(
         'CRON_SECRET no está configurado (mínimo 16 caracteres)',
       );
     }
     const request = context.switchToHttp().getRequest<Request>();
-    const received = Buffer.from(request.headers.authorization ?? '');
+    const received = Buffer.from((request.headers.authorization ?? '').trim());
     const expected = Buffer.from(`Bearer ${secret}`);
     if (
       received.length !== expected.length ||
