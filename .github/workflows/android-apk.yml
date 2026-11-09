@@ -65,10 +65,20 @@ jobs:
           python3 - <<'PY'
           import base64, binascii, json, os, sys
           raw = os.environ["GOOGLE_SERVICES_JSON"].strip().lstrip("\ufeff").strip("'\"").strip()
+          def clean(value):
+              # Ningún valor del google-services.json lleva espacios: quita
+              # saltos de línea o tabs que se cuelan al copiar y pegar.
+              if isinstance(value, str):
+                  return "".join(value.split())
+              if isinstance(value, list):
+                  return [clean(v) for v in value]
+              if isinstance(value, dict):
+                  return {k: clean(v) for k, v in value.items()}
+              return value
           def parse(text):
               try:
-                  data = json.loads(text)
-                  return data if isinstance(data, dict) and "project_info" in data else None
+                  data = json.loads(text, strict=False)
+                  return clean(data) if isinstance(data, dict) and "project_info" in data else None
               except ValueError:
                   return None
           data = parse(raw)
@@ -84,7 +94,7 @@ jobs:
           if data is None:
               # Diagnóstico sin mostrar el contenido del secreto.
               try:
-                  other = json.loads(raw)
+                  other = json.loads(raw, strict=False)
               except ValueError:
                   other = None
               if isinstance(other, dict) and other.get("type") == "service_account":
