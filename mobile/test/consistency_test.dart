@@ -69,4 +69,31 @@ void main() {
     expect(requested, ['2026-09']);
     expect(find.text('Septiembre 2026'), findsOneWidget);
   });
+
+  testWidgets('el calendario se dibuja en modo noche', (tester) async {
+    AikoColors.dark = true;
+    addTearDown(() => AikoColors.dark = false);
+    expect(AikoColors.surface, isNot(Colors.white));
+    expect(AikoColors.ink.computeLuminance(), greaterThan(0.7));
+    await tester.pumpWidget(MaterialApp(
+      theme: buildAikoTheme(),
+      home: Scaffold(
+        body: SingleChildScrollView(
+          child: ConsistencyCalendar(
+            initial: Consistency.fromJson({
+              'mes': '2026-10',
+              'hoy': '2026-10-28',
+              'dias_activos': ['2026-10-28'],
+              'dias_protegidos': ['2026-10-27'],
+              'salvadores_racha': 0,
+            }),
+            load: (month) async => throw UnimplementedError(),
+          ),
+        ),
+      ),
+    ));
+    await tester.pump();
+    expect(Theme.of(tester.element(find.byType(Scaffold))).brightness, Brightness.dark);
+    expect(find.textContaining('No tienes salvadores'), findsOneWidget);
+  });
 }

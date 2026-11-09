@@ -62,7 +62,7 @@ class _LoginScreenState extends State<LoginScreen> {
             )
           : null,
       body: Container(
-        decoration: const BoxDecoration(gradient: AikoColors.softGradient),
+        decoration: BoxDecoration(gradient: AikoColors.softGradient),
         child: SafeArea(
           child: Center(
             child: SingleChildScrollView(
@@ -77,7 +77,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: Center(child: AikoLogo(mascotSize: 104)),
                     ),
                     const SizedBox(height: 14),
-                    const FadeSlideIn(
+                    FadeSlideIn(
                       delay: Duration(milliseconds: 150),
                       child: Text('Entrena tu mente, un paso a la vez.',
                           textAlign: TextAlign.center,
@@ -119,7 +119,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     if (notice != null) ...[
                       Text(notice,
                           textAlign: TextAlign.center,
-                          style: const TextStyle(
+                          style: TextStyle(
                               color: AikoColors.violet,
                               fontWeight: FontWeight.w600)),
                       const SizedBox(height: 10),

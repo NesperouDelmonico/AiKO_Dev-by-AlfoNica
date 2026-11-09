@@ -82,7 +82,7 @@ class _ConsistencyCalendarState extends State<ConsistencyCalendar> {
         Container(
           padding: const EdgeInsets.fromLTRB(10, 8, 10, 14),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AikoColors.surface,
             borderRadius: BorderRadius.circular(24),
           ),
           child: Column(
@@ -119,7 +119,7 @@ class _ConsistencyCalendarState extends State<ConsistencyCalendar> {
                       child: ExcludeSemantics(
                         child: Text(d,
                             textAlign: TextAlign.center,
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontSize: 13, fontWeight: FontWeight.w800, color: AikoColors.inkSoft)),
                       ),
                     ),
@@ -285,7 +285,7 @@ class _Tile extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AikoColors.surface,
             borderRadius: BorderRadius.circular(22),
           ),
           child: Column(
@@ -295,7 +295,7 @@ class _Tile extends StatelessWidget {
               CountUp(value: value, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900)),
               Text(label,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 13, color: AikoColors.inkSoft)),
+                  style: TextStyle(fontSize: 13, color: AikoColors.inkSoft)),
               if (hint != null)
                 Text(hint!,
                     textAlign: TextAlign.center,

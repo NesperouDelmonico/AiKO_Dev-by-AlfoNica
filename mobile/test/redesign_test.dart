@@ -55,11 +55,14 @@ void main() {
     expect(settings.textSize, TextSizeOption.normal);
     await settings.setTextSize(TextSizeOption.large);
     await settings.setReduceMotion(true);
+    expect(settings.themeMode, ThemeMode.system);
+    await settings.setThemeMode(ThemeMode.dark);
 
     final again = AppSettings();
     await again.load();
     expect(again.textSize, TextSizeOption.large);
     expect(again.reduceMotion, isTrue);
+    expect(again.themeMode, ThemeMode.dark);
   });
 
   testWidgets('logo y animaciones se muestran sin movimiento si se pide', (tester) async {

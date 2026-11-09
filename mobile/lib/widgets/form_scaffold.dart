@@ -21,7 +21,7 @@ class FormScaffold extends StatelessWidget {
       extendBodyBehindAppBar: true,
       appBar: AppBar(),
       body: Container(
-        decoration: const BoxDecoration(gradient: AikoColors.softGradient),
+        decoration: BoxDecoration(gradient: AikoColors.softGradient),
         child: SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
@@ -35,7 +35,7 @@ class FormScaffold extends StatelessWidget {
                         ?.copyWith(fontWeight: FontWeight.w800)),
                 const SizedBox(height: 8),
                 Text(subtitle,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 16, height: 1.4, color: AikoColors.inkSoft)),
                 const SizedBox(height: 28),
                 ...children,

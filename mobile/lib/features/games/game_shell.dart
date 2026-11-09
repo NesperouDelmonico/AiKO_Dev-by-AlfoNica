@@ -3,19 +3,24 @@ import 'package:flutter/material.dart';
 import '../../core/config.dart';
 import '../../core/theme.dart';
 
-/// Fondo suave de los mini-juegos (lavanda → crema).
-const gameBackground = BoxDecoration(
-  gradient: LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [Color(0xFFF3EEFF), Color(0xFFFBF8FF), Color(0xFFFFF8EE)],
-  ),
-);
+/// Fondo suave de los mini-juegos (lavanda → crema; de noche, morado oscuro).
+BoxDecoration get gameBackground => BoxDecoration(
+      gradient: LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: AikoColors.dark
+            ? const [Color(0xFF1A1428), Color(0xFF181221), Color(0xFF1E1722)]
+            : const [Color(0xFFF3EEFF), Color(0xFFFBF8FF), Color(0xFFFFF8EE)],
+      ),
+    );
+
+/// Color de la franja inferior de los mini-juegos.
+Color get _gameBottom => AikoColors.dark ? const Color(0xFF1E1722) : const Color(0xFFFFF8EE);
 
 /// Tarjeta blanca redondeada con sombra lila muy suave.
-BoxDecoration softCard({Color color = Colors.white, double radius = 22, Color? border}) =>
+BoxDecoration softCard({Color? color, double radius = 22, Color? border}) =>
     BoxDecoration(
-      color: color,
+      color: color ?? AikoColors.surface,
       borderRadius: BorderRadius.circular(radius),
       border: border == null ? null : Border.all(color: border, width: 2),
       boxShadow: [
@@ -109,7 +114,7 @@ class GameShell extends StatelessWidget {
         bottomNavigationBar: bottom == null
             ? null
             : DecoratedBox(
-                decoration: const BoxDecoration(color: Color(0xFFFFF8EE)),
+                decoration: BoxDecoration(color: _gameBottom),
                 child: SafeArea(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
@@ -145,8 +150,8 @@ class GameTopBar extends StatelessWidget {
           IconButton(
             tooltip: 'Salir',
             onPressed: onClose,
-            style: IconButton.styleFrom(backgroundColor: Colors.white),
-            icon: const Icon(Icons.close_rounded, color: AikoColors.inkSoft),
+            style: IconButton.styleFrom(backgroundColor: AikoColors.surface),
+            icon: Icon(Icons.close_rounded, color: AikoColors.inkSoft),
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -175,7 +180,7 @@ class GameTopBar extends StatelessWidget {
             const SizedBox(width: 12),
             ExcludeSemantics(
               child: Text(counter!,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 15, fontWeight: FontWeight.w900, color: AikoColors.violet)),
             ),
           ],
@@ -208,7 +213,7 @@ class GameHeading extends StatelessWidget {
             const SizedBox(height: 4),
             Text(subtitle!,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 15.5, color: AikoColors.inkSoft, height: 1.35)),
+                style: TextStyle(fontSize: 15.5, color: AikoColors.inkSoft, height: 1.35)),
           ],
           if (trailing != null) ...[const SizedBox(height: 10), trailing!],
         ],
@@ -227,14 +232,16 @@ class TimerPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = urgent ? const Color(0xFFB4582B) : AikoColors.violet;
+    final color = urgent
+        ? AikoColors.deep(const Color(0xFFE07B39), const Color(0xFFB4582B))
+        : AikoColors.violet;
     return Semantics(
       liveRegion: true,
       label: semantics ?? text,
       excludeSemantics: true,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: softCard(radius: 30, color: urgent ? AikoColors.peachSoft : Colors.white),
+        decoration: softCard(radius: 30, color: urgent ? AikoColors.peachSoft : null),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -274,7 +281,7 @@ class ExerciseImage extends StatelessWidget {
           loadingBuilder: (context, child, progress) => progress == null
               ? child
               : const Center(child: CircularProgressIndicator()),
-          errorBuilder: (context, error, stack) => const Icon(
+          errorBuilder: (context, error, stack) => Icon(
               Icons.broken_image_rounded,
               size: 48,
               color: AikoColors.inkSoft),
@@ -304,7 +311,7 @@ class CheckBar extends StatelessWidget {
     final color = correct == null
         ? Colors.transparent
         : correct!
-            ? const Color(0xFFDDF3EA)
+            ? AikoColors.tint(AikoColors.success, const Color(0xFFDDF3EA))
             : AikoColors.peachSoft;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
@@ -330,7 +337,7 @@ class CheckBar extends StatelessWidget {
                           : Icons.info_rounded,
                       color: correct == true
                           ? AikoColors.success
-                          : const Color(0xFFB4582B),
+                          : AikoColors.deep(const Color(0xFFE07B39), const Color(0xFFB4582B)),
                     ),
                     const SizedBox(width: 8),
                     Expanded(

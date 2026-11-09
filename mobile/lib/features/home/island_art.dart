@@ -87,7 +87,7 @@ class IslandPainter extends CustomPainter {
     // Monumento del tema.
     final base = c.translate(0, -h * 0.17);
     final r = w * 0.17;
-    canvas.drawCircle(base.translate(0, r * 0.18), r, Paint()..color = theme.deep.withValues(alpha: 0.9));
+    canvas.drawCircle(base.translate(0, r * 0.18), r, Paint()..color = theme.deepFill.withValues(alpha: 0.9));
     canvas.drawCircle(
       base,
       r,

@@ -96,7 +96,7 @@ class _ExercisesScreenState extends State<ExercisesScreen>
                       Text(exercise.nombre,
                           style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
                       Text('${style.label} · Nivel ${exercise.nivel}',
-                          style: const TextStyle(color: AikoColors.inkSoft)),
+                          style: TextStyle(color: AikoColors.inkSoft)),
                     ],
                   ),
                 ),
@@ -132,7 +132,7 @@ class _ExercisesScreenState extends State<ExercisesScreen>
             const SizedBox(height: 14),
             Text('En tu ruta: ${summary.done} de ${summary.times} '
                 '${summary.times == 1 ? 'vez' : 'veces'}',
-                style: const TextStyle(color: AikoColors.inkSoft, fontWeight: FontWeight.w700)),
+                style: TextStyle(color: AikoColors.inkSoft, fontWeight: FontWeight.w700)),
             const SizedBox(height: 20),
             if (playable) ...[
               FilledButton.icon(
@@ -144,11 +144,11 @@ class _ExercisesScreenState extends State<ExercisesScreen>
                 label: const Text('PRACTICAR'),
               ),
               const SizedBox(height: 6),
-              const Text('La práctica no cuenta para tu ruta ni da XP.',
+              Text('La práctica no cuenta para tu ruta ni da XP.',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 13, color: AikoColors.inkSoft)),
             ] else
-              const Text('Este juego estará disponible pronto.',
+              Text('Este juego estará disponible pronto.',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: AikoColors.inkSoft, fontWeight: FontWeight.w700)),
           ],
@@ -175,7 +175,7 @@ class _ExercisesScreenState extends State<ExercisesScreen>
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(gradient: AikoColors.softGradient),
+      decoration: BoxDecoration(gradient: AikoColors.softGradient),
       child: SafeArea(
         child: FutureBuilder<HomeData>(
           future: _future,
@@ -198,7 +198,7 @@ class _ExercisesScreenState extends State<ExercisesScreen>
                     child: Text('Ejercicios',
                         style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900)),
                   ),
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.only(left: 4, bottom: 16),
                     child: Text('Practica cuando quieras; tu ruta sigue en Inicio.',
                         style: TextStyle(color: AikoColors.inkSoft)),
@@ -259,7 +259,7 @@ class _CategoryLabel extends StatelessWidget {
               Icon(_icons[category] ?? Icons.extension_rounded, size: 20, color: AikoColors.violet),
               const SizedBox(width: 6),
               Text(category,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 15, fontWeight: FontWeight.w900, color: AikoColors.violet)),
             ],
           ),
@@ -315,10 +315,10 @@ class _ExerciseCard extends StatelessWidget {
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AikoColors.surface,
             borderRadius: BorderRadius.circular(22),
             border: Border.all(color: AikoColors.lilacSoft, width: 2),
-            boxShadow: const [BoxShadow(color: AikoColors.lilacSoft, offset: Offset(0, 4))],
+            boxShadow: [BoxShadow(color: AikoColors.lilacSoft, offset: Offset(0, 4))],
           ),
           child: Row(
             children: [
@@ -331,7 +331,7 @@ class _ExerciseCard extends StatelessWidget {
                     Text(exercise.nombre,
                         style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
                     Text('${style.label} · ${exercise.categoria}',
-                        style: const TextStyle(fontSize: 13, color: AikoColors.inkSoft)),
+                        style: TextStyle(fontSize: 13, color: AikoColors.inkSoft)),
                     const SizedBox(height: 8),
                     ClipRRect(
                       borderRadius: BorderRadius.circular(6),
@@ -348,7 +348,7 @@ class _ExerciseCard extends StatelessWidget {
               const SizedBox(width: 10),
               Text('${summary.done}/${summary.times}',
                   style: TextStyle(fontWeight: FontWeight.w900, color: style.color)),
-              const Icon(Icons.chevron_right_rounded, color: AikoColors.inkSoft),
+              Icon(Icons.chevron_right_rounded, color: AikoColors.inkSoft),
             ],
           ),
         ),
@@ -399,7 +399,7 @@ class _Notice extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AikoColors.surface,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
@@ -408,7 +408,7 @@ class _Notice extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: Text(text,
-                  style: const TextStyle(fontWeight: FontWeight.w700, color: AikoColors.inkSoft)),
+                  style: TextStyle(fontWeight: FontWeight.w700, color: AikoColors.inkSoft)),
             ),
           ],
         ),

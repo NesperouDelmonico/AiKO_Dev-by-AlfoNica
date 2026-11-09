@@ -4,30 +4,45 @@ import 'package:flutter/material.dart';
 /// Paleta tomada del logo de AiKO: morado de marca, lilas de la mascota y
 /// la estrella amarilla. Los textos usan un violeta muy oscuro para buen
 /// contraste; los colores claros se reservan para fondos y acentos.
+///
+/// Los fondos y textos cambian en modo noche ([dark]); los colores de marca
+/// y de acento son los mismos en los dos modos.
 class AikoColors {
+  /// Modo noche activo. Lo fija `AikoApp` antes de construir el tema.
+  static bool dark = false;
+
+  static Color _pick(Color light, Color night) => dark ? night : light;
+
   // Marca (logo e ícono).
-  static const violet = Color(0xFF6D28D9);
+  /// Morado de marca para fondos fijos (botones, burbujas).
+  static const brand = Color(0xFF6D28D9);
   static const violetBright = Color(0xFF8B5CFF);
-  static const violetDeep = Color(0xFF4C1D95);
+
+  /// Morado de textos e íconos: de noche se aclara para leerse.
+  static Color get violet => _pick(brand, const Color(0xFF9B72F2));
+  static Color get violetDeep => _pick(const Color(0xFF4C1D95), const Color(0xFFD4C6FF));
   static const star = Color(0xFFFFD23F);
   static const starDeep = Color(0xFFE0A800);
 
   // Mascota y fondos.
   static const lilac = Color(0xFFB9A6F0);
-  static const lilacSoft = Color(0xFFE9E1FF);
-  static const lavenderBg = Color(0xFFF6F2FF);
+  static Color get lilacSoft => _pick(const Color(0xFFE9E1FF), const Color(0xFF342A4F));
+  static Color get lavenderBg => _pick(const Color(0xFFF6F2FF), const Color(0xFF15111F));
+
+  /// Tarjetas, barras y cuadros de texto (blanco de día).
+  static Color get surface => _pick(Colors.white, const Color(0xFF231C33));
 
   // Texto.
-  static const ink = Color(0xFF2B2340);
-  static const inkSoft = Color(0xFF6B6385);
+  static Color get ink => _pick(const Color(0xFF2B2340), const Color(0xFFF2EEFC));
+  static Color get inkSoft => _pick(const Color(0xFF6B6385), const Color(0xFFB9B1D0));
 
   // Acentos secundarios (secciones del camino, avisos suaves).
   static const peach = Color(0xFFFFC4A3);
-  static const peachSoft = Color(0xFFFFE8DB);
+  static Color get peachSoft => _pick(const Color(0xFFFFE8DB), const Color(0xFF41302A));
   static const mint = Color(0xFF3FBF8F);
-  static const mintSoft = Color(0xFFDDF6EC);
+  static Color get mintSoft => _pick(const Color(0xFFDDF6EC), const Color(0xFF1C3B31));
   static const sky = Color(0xFF4F8EF7);
-  static const skySoft = Color(0xFFE1ECFF);
+  static Color get skySoft => _pick(const Color(0xFFE1ECFF), const Color(0xFF1E2B47));
 
   static const success = Color(0xFF2F9E73);
   static const error = Color(0xFFC0392B);
@@ -35,13 +50,25 @@ class AikoColors {
   static const heroGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [violetBright, violet],
+    colors: [violetBright, brand],
   );
-  static const softGradient = LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [Color(0xFFF1EBFF), Color(0xFFFFF7E6)],
-  );
+  static LinearGradient get softGradient => LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: dark
+            ? const [Color(0xFF1D1730), Color(0xFF241C2C)]
+            : const [Color(0xFFF1EBFF), Color(0xFFFFF7E6)],
+      );
+
+  /// Fondo suave de un acento: el tono claro de día y, de noche, el acento
+  /// mezclado con la superficie oscura.
+  static Color tint(Color accent, Color light) =>
+      dark ? Color.alphaBlend(accent.withValues(alpha: 0.24), surface) : light;
+
+  /// Texto o ícono oscuro de un acento: de noche se aclara para leerse
+  /// sobre fondos oscuros.
+  static Color deep(Color accent, Color light) =>
+      dark ? Color.lerp(accent, Colors.white, 0.45)! : light;
 }
 
 const _fontFamily = 'Nunito';
@@ -50,19 +77,23 @@ const _fontFamily = 'Nunito';
 /// la fila de acciones de un AlertDialog.
 final dialogButtonStyle = FilledButton.styleFrom(minimumSize: const Size(96, 48));
 
+/// Tema de la app. Usa el modo de [AikoColors.dark].
 ThemeData buildAikoTheme() {
+  final dark = AikoColors.dark;
   final scheme = ColorScheme.fromSeed(
-    seedColor: AikoColors.violet,
-    primary: AikoColors.violet,
+    brightness: dark ? Brightness.dark : Brightness.light,
+    seedColor: AikoColors.brand,
+    primary: dark ? AikoColors.violetBright : AikoColors.brand,
     onPrimary: Colors.white,
     secondary: AikoColors.star,
     onSecondary: AikoColors.ink,
-    surface: Colors.white,
+    surface: AikoColors.surface,
     onSurface: AikoColors.ink,
     error: AikoColors.error,
   );
   const radius = BorderRadius.all(Radius.circular(18));
-  final text = Typography.material2021().black.apply(
+  final base = Typography.material2021();
+  final text = (dark ? base.white : base.black).apply(
         fontFamily: _fontFamily,
         bodyColor: AikoColors.ink,
         displayColor: AikoColors.ink,
@@ -88,7 +119,7 @@ ThemeData buildAikoTheme() {
         ),
       },
     ),
-    appBarTheme: const AppBarTheme(
+    appBarTheme: AppBarTheme(
       backgroundColor: Colors.transparent,
       elevation: 0,
       scrolledUnderElevation: 0,
@@ -102,7 +133,7 @@ ThemeData buildAikoTheme() {
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: Colors.white,
+      fillColor: AikoColors.surface,
       contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
       border: OutlineInputBorder(
         borderRadius: radius,
@@ -110,11 +141,11 @@ ThemeData buildAikoTheme() {
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: radius,
-        borderSide: const BorderSide(color: AikoColors.lilacSoft, width: 2),
+        borderSide: BorderSide(color: AikoColors.lilacSoft, width: 2),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: radius,
-        borderSide: const BorderSide(color: AikoColors.violet, width: 2),
+        borderSide: BorderSide(color: AikoColors.violet, width: 2),
       ),
     ),
     filledButtonTheme: FilledButtonThemeData(
@@ -136,10 +167,10 @@ ThemeData buildAikoTheme() {
     ),
     snackBarTheme: const SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
-      backgroundColor: AikoColors.violetDeep,
+      backgroundColor: Color(0xFF4C1D95),
     ),
     navigationBarTheme: NavigationBarThemeData(
-      backgroundColor: Colors.white,
+      backgroundColor: AikoColors.surface,
       indicatorColor: AikoColors.lilacSoft,
       height: 74,
       elevation: 8,

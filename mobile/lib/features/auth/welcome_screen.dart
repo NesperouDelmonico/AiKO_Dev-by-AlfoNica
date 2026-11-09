@@ -61,11 +61,13 @@ class WelcomeScreen extends StatelessWidget {
     final bearSize = min(size.width * 0.62, size.height * 0.34);
     return Scaffold(
       body: DecoratedBox(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFFF3EEFF), Color(0xFFEDE4FF), Color(0xFFFFF7EC)],
+            colors: AikoColors.dark
+                ? const [Color(0xFF1A1428), Color(0xFF221A36), Color(0xFF241C2C)]
+                : const [Color(0xFFF3EEFF), Color(0xFFEDE4FF), Color(0xFFFFF7EC)],
           ),
         ),
         child: Stack(
@@ -103,7 +105,7 @@ class WelcomeScreen extends StatelessWidget {
                       child: Text(
                         phraseOfTheDay(),
                         textAlign: TextAlign.center,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 20,
                           height: 1.3,
                           fontWeight: FontWeight.w800,
@@ -147,7 +149,7 @@ class WelcomeScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 10),
-                    const Text(
+                    Text(
                       'Tu especialista te entrega tu cuenta.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
@@ -200,7 +202,7 @@ class _Wordmark extends StatelessWidget {
       label: 'AiKO',
       child: ExcludeSemantics(
         child: ShaderMask(
-          shaderCallback: (rect) => const LinearGradient(
+          shaderCallback: (rect) => LinearGradient(
             colors: [AikoColors.violetBright, AikoColors.violetDeep],
           ).createShader(rect),
           child: const Text(
@@ -232,7 +234,7 @@ class _Notice extends StatelessWidget {
         ),
         child: Text(text,
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: TextStyle(
                 color: AikoColors.violet, fontWeight: FontWeight.w700)),
       );
 }

@@ -120,7 +120,7 @@ class _ResultScreenState extends State<ResultScreen> {
                 ? error.message
                 : 'Revisa tu conexión e inténtalo de nuevo.',
             textAlign: TextAlign.center,
-            style: const TextStyle(color: AikoColors.inkSoft),
+            style: TextStyle(color: AikoColors.inkSoft),
           ),
           const SizedBox(height: 24),
           if (!already)
@@ -155,7 +155,7 @@ class _ResultScreenState extends State<ResultScreen> {
           child: IconButton(
             tooltip: 'Cerrar',
             onPressed: () => _close(ResultAction.done),
-            icon: const Icon(Icons.close_rounded, color: AikoColors.inkSoft),
+            icon: Icon(Icons.close_rounded, color: AikoColors.inkSoft),
           ),
         ),
         Expanded(
@@ -187,7 +187,7 @@ class _ResultScreenState extends State<ResultScreen> {
                     ? 'Has completado ${widget.exercise.nombre}'
                     : 'Necesitas al menos 60 % para avanzar',
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 16, color: AikoColors.inkSoft),
+                style: TextStyle(fontSize: 16, color: AikoColors.inkSoft),
               ),
               const SizedBox(height: 22),
               FadeSlideIn(
@@ -211,7 +211,7 @@ class _ResultScreenState extends State<ResultScreen> {
                             label: 'Precisión',
                           ),
                         ),
-                        const VerticalDivider(width: 1, color: AikoColors.lilacSoft),
+                        VerticalDivider(width: 1, color: AikoColors.lilacSoft),
                         Expanded(
                           child: _Stat(
                             icon: Icons.timer_rounded,
@@ -228,7 +228,7 @@ class _ResultScreenState extends State<ResultScreen> {
                             label: 'Tiempo',
                           ),
                         ),
-                        const VerticalDivider(width: 1, color: AikoColors.lilacSoft),
+                        VerticalDivider(width: 1, color: AikoColors.lilacSoft),
                         Expanded(
                           child: _Stat(
                             icon: Icons.star_rounded,
@@ -265,7 +265,7 @@ class _ResultScreenState extends State<ResultScreen> {
                 child: Text(
                   '${outcome.aciertos} de ${outcome.intentos} aciertos'
                   '${outcome.tiempoReaccionMs == null ? '' : ' · reacción ${outcome.tiempoReaccionMs} ms'}',
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AikoColors.inkSoft),
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AikoColors.inkSoft),
                 ),
               ),
               const SizedBox(height: 16),
@@ -294,7 +294,8 @@ class _ResultScreenState extends State<ResultScreen> {
                   decoration: softCard(color: AikoColors.peachSoft),
                   child: Row(
                     children: [
-                      const Icon(Icons.military_tech_rounded, size: 36, color: Color(0xFF9A4A1F)),
+                      Icon(Icons.military_tech_rounded,
+                          size: 36, color: AikoColors.deep(const Color(0xFFE07B39), const Color(0xFF9A4A1F))),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text('Nueva insignia: ${result.insignias.join(', ')}',
@@ -435,7 +436,7 @@ class _Stat extends StatelessWidget {
           Icon(icon, color: color, size: 30),
           const SizedBox(height: 6),
           FittedBox(child: value),
-          Text(label, style: const TextStyle(fontSize: 12.5, color: AikoColors.inkSoft)),
+          Text(label, style: TextStyle(fontSize: 12.5, color: AikoColors.inkSoft)),
         ],
       ),
     );

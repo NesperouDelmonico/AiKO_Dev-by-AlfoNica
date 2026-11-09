@@ -81,7 +81,7 @@ class _ProgressScreenState extends State<ProgressScreen>
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(gradient: AikoColors.softGradient),
+      decoration: BoxDecoration(gradient: AikoColors.softGradient),
       child: SafeArea(
         child: FutureBuilder<ProgressData>(
           future: _future,
@@ -245,7 +245,7 @@ class _LevelCard extends StatelessWidget {
                   painter: _RingPainter(value),
                   child: child,
                 ),
-                child: const Center(
+                child: Center(
                   child: AikoMascot(
                       size: 62, color: AikoColors.lilac, earColor: AikoColors.lilacSoft),
                 ),
@@ -374,7 +374,7 @@ class _DomainBar extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AikoColors.surface,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
@@ -455,7 +455,7 @@ class _EvolutionCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AikoColors.surface,
           borderRadius: BorderRadius.circular(22),
         ),
         child: Column(
@@ -498,9 +498,9 @@ class _EvolutionCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(shortDate(series.first.fecha),
-                    style: const TextStyle(fontSize: 12, color: AikoColors.inkSoft)),
+                    style: TextStyle(fontSize: 12, color: AikoColors.inkSoft)),
                 Text(shortDate(series.last.fecha),
-                    style: const TextStyle(fontSize: 12, color: AikoColors.inkSoft)),
+                    style: TextStyle(fontSize: 12, color: AikoColors.inkSoft)),
               ],
             ),
           ],
@@ -609,7 +609,7 @@ class _Badges extends StatelessWidget {
             Text(
               badge.descripcion.isEmpty ? 'Insignia de AiKO' : badge.descripcion,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 16, color: AikoColors.inkSoft),
+              style: TextStyle(fontSize: 16, color: AikoColors.inkSoft),
             ),
             const SizedBox(height: 10),
             Text(got ? '¡Ya es tuya!' : 'Aún no la tienes',
@@ -688,7 +688,7 @@ class _AttemptTile extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AikoColors.surface,
           borderRadius: BorderRadius.circular(18),
         ),
         child: Row(
@@ -707,7 +707,7 @@ class _AttemptTile extends StatelessWidget {
                       if (attempt.tiempoMs != null) '${attempt.tiempoMs} ms',
                       if (attempt.xp > 0) '+${attempt.xp} XP',
                     ].where((s) => s.isNotEmpty).join(' · '),
-                    style: const TextStyle(fontSize: 12, color: AikoColors.inkSoft),
+                    style: TextStyle(fontSize: 12, color: AikoColors.inkSoft),
                   ),
                 ],
               ),
@@ -745,7 +745,7 @@ class _EmptyHint extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: Text(text,
-                  style: const TextStyle(color: AikoColors.inkSoft, fontWeight: FontWeight.w700)),
+                  style: TextStyle(color: AikoColors.inkSoft, fontWeight: FontWeight.w700)),
             ),
           ],
         ),
@@ -773,7 +773,7 @@ class _ErrorView extends StatelessWidget {
               const SizedBox(height: 6),
               Text(message,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(color: AikoColors.inkSoft)),
+                  style: TextStyle(color: AikoColors.inkSoft)),
               const SizedBox(height: 18),
               FilledButton(onPressed: onRetry, child: const Text('Reintentar')),
             ],

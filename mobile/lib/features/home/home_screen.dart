@@ -446,7 +446,7 @@ class _Pill extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AikoColors.surface,
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 10, offset: const Offset(0, 4)),
@@ -483,7 +483,7 @@ class _BearMarker extends StatelessWidget {
           fallback: Container(
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AikoColors.surface,
               shape: BoxShape.circle,
               border: Border.all(color: AikoColors.violetBright, width: 3),
             ),
@@ -566,11 +566,11 @@ class _ContinueBar extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.fromLTRB(10, 10, 18, 10),
           decoration: BoxDecoration(
-            color: waiting ? Colors.white : theme.deep,
+            color: waiting ? AikoColors.surface : theme.deepFill,
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
-                color: (waiting ? Colors.black : theme.deep).withValues(alpha: 0.22),
+                color: (waiting ? Colors.black : theme.deepFill).withValues(alpha: 0.22),
                 blurRadius: 18,
                 offset: const Offset(0, 8),
               ),
@@ -645,7 +645,7 @@ class _TopBar extends StatelessWidget {
                     Text(name.isEmpty ? '¡Hola!' : '¡Hola, $name!',
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
-                    const Text('¿A qué isla quieres viajar hoy?',
+                    Text('¿A qué isla quieres viajar hoy?',
                         style: TextStyle(fontSize: 14, color: AikoColors.inkSoft)),
                   ],
                 ),
@@ -687,7 +687,7 @@ class _TopBar extends StatelessWidget {
                   semantics: 'Tienes $coins monedas. Abrir la tienda de AiKO',
                   leading: const CoinIcon(size: 20),
                   value: coins,
-                  color: const Color(0xFF7A5400),
+                  color: AikoColors.deep(AikoColors.starDeep, const Color(0xFF7A5400)),
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute<void>(builder: (_) => const PersonalizeScreen()),
                   ),
@@ -728,7 +728,7 @@ class _StatChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AikoColors.surface,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
@@ -762,10 +762,10 @@ class _RouteDoneCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AikoColors.surface,
         borderRadius: BorderRadius.circular(28),
       ),
-      child: const Column(
+      child: Column(
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -795,7 +795,7 @@ class _EmptyRoute extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
+    return Padding(
       padding: EdgeInsets.fromLTRB(16, 48, 16, 0),
       child: Column(
         children: [
@@ -845,7 +845,7 @@ class _MessageState extends StatelessWidget {
             const SizedBox(height: 6),
             Text(message,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: AikoColors.inkSoft)),
+                style: TextStyle(color: AikoColors.inkSoft)),
             const SizedBox(height: 20),
             FilledButton(onPressed: onAction, child: Text(actionLabel)),
           ],

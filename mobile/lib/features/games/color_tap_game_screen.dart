@@ -188,7 +188,7 @@ class _ColorTapGameScreenState extends State<ColorTapGameScreen> {
         return Semantics(
           liveRegion: true,
           child: Text('$_countdown',
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 80, fontWeight: FontWeight.w900, color: AikoColors.violet)),
         );
       case _Phase.gap:

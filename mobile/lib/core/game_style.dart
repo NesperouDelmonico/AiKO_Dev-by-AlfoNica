@@ -81,17 +81,20 @@ class GameStyle {
 
 /// Colores de cada día del camino (se repiten en ciclo).
 class DayTheme {
-  const DayTheme(this.color, this.soft, this.deep);
+  const DayTheme(this.color, this._soft, this._deep);
 
   final Color color;
-  final Color soft;
-  final Color deep;
+  final Color _soft;
+  final Color _deep;
+
+  Color get soft => AikoColors.tint(color, _soft);
+  Color get deep => AikoColors.deep(color, _deep);
 
   static const _themes = [
-    DayTheme(AikoColors.violet, AikoColors.lilacSoft, AikoColors.violetDeep),
-    DayTheme(AikoColors.mint, AikoColors.mintSoft, Color(0xFF1F7A58)),
-    DayTheme(AikoColors.sky, AikoColors.skySoft, Color(0xFF2559B8)),
-    DayTheme(Color(0xFFE07B39), AikoColors.peachSoft, Color(0xFF9A4A1F)),
+    DayTheme(AikoColors.brand, Color(0xFFE9E1FF), Color(0xFF4C1D95)),
+    DayTheme(AikoColors.mint, Color(0xFFDDF6EC), Color(0xFF1F7A58)),
+    DayTheme(AikoColors.sky, Color(0xFFE1ECFF), Color(0xFF2559B8)),
+    DayTheme(Color(0xFFE07B39), Color(0xFFFFE8DB), Color(0xFF9A4A1F)),
   ];
 
   static DayTheme of(int dayNumber) => _themes[(dayNumber - 1) % _themes.length];

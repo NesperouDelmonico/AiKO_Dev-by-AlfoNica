@@ -123,7 +123,7 @@ Future<void> showRestReminder(BuildContext context) {
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
           const SizedBox(height: 6),
-          const Text(
+          Text(
             'Has completado tus ejercicios de hoy. Tu mente también necesita descansar.',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 16, height: 1.4, color: AikoColors.inkSoft),
@@ -180,7 +180,7 @@ class _Sheet extends StatelessWidget {
         margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AikoColors.surface,
           borderRadius: BorderRadius.circular(28),
         ),
         child: child,

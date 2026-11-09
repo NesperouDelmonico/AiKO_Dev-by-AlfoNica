@@ -238,10 +238,10 @@ class _CompleteWordsGameScreenState extends State<CompleteWordsGameScreen> {
                     padding: const EdgeInsets.only(top: 16),
                     child: Text(_hint!,
                         textAlign: TextAlign.center,
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w700,
-                            color: Color(0xFFB4582B))),
+                            color: AikoColors.deep(const Color(0xFFE07B39), const Color(0xFFB4582B)))),
                   ),
                 ),
             ],
@@ -426,7 +426,7 @@ class _EmptySlot extends StatelessWidget {
           width: size,
           height: size,
           decoration: BoxDecoration(
-            color: highlighted ? AikoColors.lilacSoft : const Color(0xFFF6F2FC),
+            color: highlighted ? AikoColors.lilacSoft : AikoColors.lavenderBg,
             borderRadius: BorderRadius.circular(size * 0.18),
             border: Border.all(
                 color: highlighted ? AikoColors.violet : AikoColors.lilac, width: 2),
@@ -509,7 +509,10 @@ class _CheerBanner extends StatelessWidget {
                 child: Container(
                   margin: const EdgeInsets.symmetric(horizontal: 32),
                   padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
-                  decoration: softCard(color: const Color(0xFFDDF3EA), radius: 28, border: AikoColors.success),
+                  decoration: softCard(
+                      color: AikoColors.tint(AikoColors.success, const Color(0xFFDDF3EA)),
+                      radius: 28,
+                      border: AikoColors.success),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -520,7 +523,7 @@ class _CheerBanner extends StatelessWidget {
                       const SizedBox(height: 4),
                       Text(word,
                           textAlign: TextAlign.center,
-                          style: const TextStyle(fontSize: 17, color: AikoColors.inkSoft, fontWeight: FontWeight.w700)),
+                          style: TextStyle(fontSize: 17, color: AikoColors.inkSoft, fontWeight: FontWeight.w700)),
                     ],
                   ),
                 ),

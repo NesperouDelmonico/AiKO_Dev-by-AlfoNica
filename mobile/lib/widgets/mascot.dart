@@ -296,7 +296,7 @@ class SpeechBubble extends StatelessWidget {
       constraints: const BoxConstraints(maxWidth: 160),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AikoColors.surface,
         borderRadius: BorderRadius.only(
           topLeft: const Radius.circular(16),
           topRight: const Radius.circular(16),
@@ -313,7 +313,7 @@ class SpeechBubble extends StatelessWidget {
         ],
       ),
       child: Text(text,
-          style: const TextStyle(
+          style: TextStyle(
               fontSize: 14, fontWeight: FontWeight.w800, color: AikoColors.violetDeep)),
     );
   }
