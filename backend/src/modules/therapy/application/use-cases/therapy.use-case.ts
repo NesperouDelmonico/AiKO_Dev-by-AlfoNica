@@ -579,7 +579,7 @@ export class TherapyUseCase {
       }
       if (error instanceof Error && error.message === 'ROUTE_DAY_INVALID') {
         throw new BadRequestException(
-          'El día debe ser el último de la ruta o el siguiente',
+          'Solo puedes agregar ejercicios desde el día en curso hasta el último día de la ruta',
         );
       }
       if (error instanceof Error && error.message === 'ROUTE_NOT_ACTIVE') {

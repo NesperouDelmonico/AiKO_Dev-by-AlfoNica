@@ -350,11 +350,18 @@ export class PostgresTherapyRepository implements TherapyRepositoryPort {
       });
       const lastDay = last?.dia ?? 1;
       const day = dia ?? lastDay;
-      if (
-        day < lastDay ||
-        day > lastDay + 1 ||
-        (ruta.duracionDias !== null && day > ruta.duracionDias)
-      ) {
+      // Desde el día en curso (el primero con pendientes) hasta el final de
+      // la ruta: los días ya terminados no se tocan.
+      const firstPending = await manager.findOne(RouteExerciseEntity, {
+        where: {
+          ruta: { id: routeId },
+          estado: RouteExerciseStatus.PENDIENTE,
+        },
+        order: { dia: 'ASC' },
+      });
+      const currentDay = firstPending?.dia ?? lastDay;
+      const maxDay = ruta.duracionDias ?? lastDay + 1;
+      if (day < currentDay || day > maxDay) {
         throw new Error('ROUTE_DAY_INVALID');
       }
       const ejercicio = await manager.findOneByOrFail(ExerciseEntity, {

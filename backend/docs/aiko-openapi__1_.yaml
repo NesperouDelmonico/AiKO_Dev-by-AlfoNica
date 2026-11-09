@@ -1171,7 +1171,7 @@ paths:
               properties:
                 ejercicio_id: { type: string, format: uuid }
                 orden: { type: integer, minimum: 1 }
-                dia: { type: integer, minimum: 1, description: "Último día de la ruta o el siguiente (por defecto el último)" }
+                dia: { type: integer, minimum: 1, description: "Desde el día en curso hasta el último día de la ruta (o el siguiente si no tiene duración); por defecto el último" }
       responses:
         "201":
           description: Ejercicio agregado
