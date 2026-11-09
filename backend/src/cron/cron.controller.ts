@@ -2,9 +2,13 @@ import {
   BadRequestException,
   Controller,
   Get,
+  Inject,
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { DataSource } from 'typeorm';
+import { PUSH_PORT } from '../modules/tracking/domain/ports/push.port';
+import type { PushPort } from '../modules/tracking/domain/ports/push.port';
 import { ApiExcludeController } from '@nestjs/swagger';
 import { Public } from '../modules/auth/interfaces/http/auth.decorators';
 import { AuthScheduler } from '../modules/auth/infrastructure/scheduler/auth.scheduler';
@@ -30,6 +34,8 @@ export class CronController {
   constructor(
     private readonly tracking: TrackingScheduler,
     private readonly auth: AuthScheduler,
+    @Inject(PUSH_PORT) private readonly push?: PushPort,
+    private readonly dataSource?: DataSource,
   ) {}
 
   /** Equivale al @Cron diario de 1:00 a. m. (hora Bogotá). */
@@ -139,5 +145,27 @@ export class CronController {
         google: `Google rechazó la llave: ${(error as Error).message}`,
       };
     }
+  }
+
+  /**
+   * Prueba del push: envía un aviso al paciente con ese correo y devuelve
+   * cuántos teléfonos tiene registrados y qué respondió Firebase.
+   */
+  @Get('push-test')
+  async pushTest(@Query('correo') correo?: string) {
+    const email = correo?.trim().toLowerCase();
+    if (!email) throw new BadRequestException('Falta ?correo=');
+    const rows: Array<{ id: string }> = await this.dataSource!.query(
+      `SELECT p.id FROM paciente p JOIN usuario u ON u.id = p.usuario_id
+       WHERE lower(u.correo) = $1 LIMIT 1`,
+      [email],
+    );
+    if (rows.length === 0) return { ok: false, paciente: 'no encontrado' };
+    const report = await this.push!.sendToPatient(
+      rows[0].id,
+      'Prueba de AiKO',
+      '¡Las notificaciones de AiKO funcionan!',
+    );
+    return { ok: !!report && report.enviados > 0, ...report };
   }
 }
