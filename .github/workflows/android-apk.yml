@@ -104,10 +104,20 @@ jobs:
                   # Pistas que no revelan el contenido del secreto.
                   hints = [f"{len(raw)} caracteres", f"{raw.count(chr(10)) + 1} líneas",
                            f"empieza con {raw[:1]!r}", f"termina con {raw[-1:]!r}"]
-                  try:
-                      json.loads(raw)
-                  except ValueError as error:
-                      hints.append(f"error JSON: {getattr(error, 'msg', error)} (línea {getattr(error, 'lineno', '?')}, columna {getattr(error, 'colno', '?')})")
+                  import re
+                  def masked(line):
+                      line = re.sub(r"[A-Za-z0-9]", "x", line)
+                      return "".join(c if c.isprintable() else f"<U+{ord(c):04X}>" for c in line)
+                  for strict in (True, False):
+                      try:
+                          json.loads(raw, strict=strict)
+                      except ValueError as error:
+                          lineno = getattr(error, "lineno", 0)
+                          hints.append(f"error JSON{'' if strict else ' (flexible)'}: {getattr(error, 'msg', error)} (línea {lineno}, columna {getattr(error, 'colno', '?')})")
+                          if not strict and lineno:
+                              lines = raw.split("\n")
+                              for n in range(max(1, lineno - 2), min(len(lines), lineno + 2) + 1):
+                                  print(f"  línea {n}: {masked(lines[n - 1])}")
                   if isinstance(other, dict):
                       hints.append(f"claves: {sorted(other)[:8]}")
                   if any(q in raw for q in "\u201c\u201d"):
